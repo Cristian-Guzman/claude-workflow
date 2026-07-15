@@ -1,0 +1,62 @@
+name: example-repo
+type: frontend-ui                      # frontend-ui | backend-bff | backend-go | backend-service | mobile-ios | google-workspace-addin
+base_branch: main
+
+ci_command: "yarn ci"
+lint_command: "yarn lint"
+typecheck_command: "yarn tsc --noEmit"
+test_command: "yarn test"
+
+patterns_file: .claude/codebase-patterns.md
+testing_patterns_file: .claude/testing-patterns.md
+pr_template_file: .claude/pr-template.md
+ticket_checklist_file: .claude/ticket-checklist.md
+
+dev_server_url: ""
+
+bff_depends_on: []                     # list of repo names this repo calls
+
+prototype_branches: []                 # list of branches that are REFERENCE-ONLY (spec-driven prototypes); /clarify reads this so it never suggests merging them
+
+# UI organization — only meaningful for frontend-ui or mobile-ios repos.
+# /clarify and the codebase-investigator agent use this to classify components by atomic level.
+component_organization: flat           # atomic | hybrid | feature-based | flat
+atomic_levels:                         # directory paths per level (leave empty for levels the repo doesn't separate)
+  atoms: ""                            # e.g. "app/_common/atoms" — primitives (Button, Icon, Badge)
+  molecules: ""                        # e.g. "app/_common/molecules" — atom compositions with local state
+  organisms: ""                        # e.g. "app/_common/organisms" — feature-level components
+  templates: ""                        # e.g. "app/(web)/**/layout.tsx" — layout scaffolds
+  pages: ""                            # e.g. "app/(web)/**/page.tsx" — route-level
+shared_dir: ""                         # catch-all for reusable UI code when org isn't strictly atomic (e.g. "app/_common")
+feature_dir: ""                        # where feature-specific components live (e.g. "app/_lib")
+
+# E2E test awareness — the SINGLE switch every e2e workflow step gates on.
+# Only repos with real e2e suites set `enabled: true` (e.g. addin-fe, gdocs-addin).
+# All other repos either omit this block or set `enabled: false`; commands then SKIP every
+# e2e step SILENTLY (no friction for backend/no-e2e repos).
+# Detection idiom (every command must use it): read `e2e.enabled` from this profile; if the
+# profile is silent, auto-detect (playwright.config(.ts|.js) + a `test:e2e` script + a spec dir).
+# Always read `spec_dir` from the profile — NEVER hardcode `e2e/` (GDocs differs).
+e2e:
+  enabled: false                       # commands run e2e steps ONLY when true; silent no-op otherwise
+  framework: playwright                # test runner (only playwright in use today)
+  spec_dir: ""                         # repo-specific testDir from playwright.config (e.g. "e2e/", "test/e2e/") — never assume "e2e/"
+  run_command: ""                      # script that runs the e2e suite (e.g. "yarn test:e2e")
+  config: ""                           # playwright config file (e.g. "playwright.config.ts")
+  sideload_only: false                 # true when the suite needs a sideloaded add-in or live creds → /verify FLAGS instead of auto-running
+
+# Backend deploy awareness — consumed by /qa §3-B (backend runtime QA guide).
+# Only backend repos need this. If absent, /qa infers: aws-argo/apps/{name} exists → k8s-argo;
+# a lambdas/ dir → lambda. Fill it in to make the deploy-confirmation commands exact.
+deploy:
+  model: ""                            # "k8s-argo" | "lambda" | "" (unknown → /qa infers)
+  argo_app: ""                         # k8s-argo only: app dir under aws-argo/apps/ (e.g. "documents-api")
+  namespace: "dev"                     # k8s namespace for dev-environment checks
+  lambda_naming: ""                    # lambda only: e.g. "{env}-{service}-{lambda}" (see repo CLAUDE.md)
+  log_hint: ""                         # free-form: where runtime logs live (kubectl selector / CloudWatch group pattern)
+
+confluence_space: ""                   # e.g. "MVP"
+jira_project: "PROJ"                   # your ticket project key
+
+notes: |
+  Free-form. Gotchas, conventions, anything /clarify should know.

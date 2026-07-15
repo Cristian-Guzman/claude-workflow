@@ -1,0 +1,19 @@
+.DS_Store
+node_modules/
+*.log
+
+# Local state — never share
+.claude/state/
+.claude/tickets/
+.claude/builds/
+.claude/refactors/
+.claude/debug/
+.claude/e2e/
+.claude/screenshots/
+.claude/metrics/
+.claude/audits/
+.claude/retros/
+.claude/settings.local.json
+
+# Local memory dumps
+memory/
