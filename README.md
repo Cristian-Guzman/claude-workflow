@@ -1,9 +1,9 @@
 # claude-workflow
 
 A portable, self-improving slash-command workflow for [Claude Code](https://claude.com/claude-code).
-Extracted from ~4 months of daily use across a 10-repo workspace (v0.5.1), with all
-company-specific content removed. Install it into any project, and it specializes
-itself to that codebase through use.
+Install it into any project, and it specializes itself to that codebase through use:
+every completed ticket feeds patterns back into the project's own knowledge files,
+so the commands get sharper the more you work.
 
 ## The pipeline
 
