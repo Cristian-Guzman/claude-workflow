@@ -92,3 +92,7 @@ Support: `/build` (ticketless) `/resume-ticket` `/status` `/project-debug` `/ref
 `/demo-summary` `/memory-lint` `/bootstrap`
 
 See [core/commands/README.md](core/commands/README.md) for the full matrix.
+
+Beyond the mechanics, [docs/lessons.md](docs/lessons.md) collects the field-tested
+judgment calls that shaped these commands — how to scope, verify, and communicate
+so the human + Claude pairing actually works.
