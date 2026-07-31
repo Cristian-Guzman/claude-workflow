@@ -19,7 +19,7 @@ allowed-tools:
 Verify that acceptance criteria are actually achieved in the codebase, not just that tasks were completed.
 Uses goal-backward methodology: start from what SHOULD be true, verify it IS true.
 Includes contract smoke testing to catch frontend/backend boundary mismatches that unit tests miss.
-Assigns a confidence level (HIGH/MEDIUM/LOW) to every verification result.
+Computes an evidence-backed confidence score (0–100%) for every verification result — arithmetic over receipt-backed gates, never self-reported (see §7).
 </objective>
 
 <process>
@@ -352,7 +352,7 @@ grep -rnE "(background-color|color|border-color):\s*(#|rgb|rgba|[a-z]+\s*;)" \
 
 Result codes:
 - `OK` — every color/spacing value uses a token reference
-- `HARDCODED_VALUES_FOUND` — clamp confidence to MEDIUM unless the user explicitly approved hardcoding (e.g., via PR comment or ticket decision)
+- `HARDCODED_VALUES_FOUND` — cap the score at 85% unless the user explicitly approved hardcoding (e.g., via PR comment or ticket decision)
 
 ### State file event log
 
@@ -385,7 +385,7 @@ Evidence: single-pass on [[PROJ-6214]] (16 files, 2 repos, 4 sessions) reported 
 
 ### Mocks-first deferrals are NOT violations
 
-Before flagging any AC as FAILED, read the state file's `## Decisions Made`. If a decision defers that AC's wiring — keywords: "mocks-first", "backend dependency", "blocked by [[PROJ-X]]", "deferred to [[PROJ-X]]", "spec wording predates" — report the AC as **`PARTIAL — by-design pending [[PROJ-X]]`**, citing the deciding entry. Do NOT clamp confidence for a consciously deferred sub-requirement ([[feedback_no_speculative_plumbing_warnings]]; the [[PROJ-6240]] false "AC6 violation" cost a re-framing round-trip).
+Before flagging any AC as FAILED, read the state file's `## Decisions Made`. If a decision defers that AC's wiring — keywords: "mocks-first", "backend dependency", "blocked by [[PROJ-X]]", "deferred to [[PROJ-X]]", "spec wording predates" — report the AC as **`PARTIAL — by-design pending [[PROJ-X]]`**, citing the deciding entry. Do NOT cap the score for a consciously deferred sub-requirement ([[feedback_no_speculative_plumbing_warnings]]; the [[PROJ-6240]] false "AC6 violation" cost a re-framing round-trip).
 
 **If `{REPO_ROOT}/.claude/agents/verifier.md` exists**, spawn the verifier agent:
 
@@ -482,7 +482,7 @@ If `codebase-patterns.md` was loaded, also check modified files for convention v
    git diff --name-only $(git merge-base origin/develop HEAD)..HEAD -- 'e2e/**' \
      | xargs grep -nE 'waitForLoadState\("networkidle"\)' 2>/dev/null
    ```
-   Any hit → clamp confidence HIGH → MEDIUM, reason "reintroduces discouraged `networkidle`; replace with a web-first wait."
+   Any hit → cap the score at 85%, reason "reintroduces discouraged `networkidle`; replace with a web-first wait."
 2. **Run the touched specs against the BRANCH, not the old deploy** (frontend repos; creds in `.env`). The config's default baseURL is DEPLOYED dev — pre-merge it still serves the code *without* this branch, so a touched spec asserting new behavior can only fail there ([[PROJ-6522]] was flagged-not-run for exactly this). Target the local dev server instead (canonical: testing-patterns "## E2E repo-awareness, blast-radius & skip contract" §2b):
    ```bash
    LOCAL=$(grep -A60 '^e2e:' "$PROFILE" | grep 'local_base_url:' | awk '{print $2}' | tr -d '"')   # fallback below is an example — record e2e.local_base_url in the repo profile
@@ -589,7 +589,7 @@ git diff {BASE}...HEAD -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.css' '*.scss' '*.go' 
 
 **Action:**
 - Any flagged comment → verdict is **ISSUES FOUND** (not READY-FOR-PR) until removed or the user explicitly justifies a specific one. Removing a noise comment is a trivial code change — do it and re-run the gates, don't merely report it.
-- If flagged comments remain at summary time, clamp confidence HIGH → MEDIUM.
+- If flagged comments remain at summary time, cap the score at 85%.
 - A diff that adds zero comments is the healthy, common case — record "clean" and move on. Never invent a need for a comment.
 
 ## 4. Display Code Verification Results
@@ -803,101 +803,137 @@ When a finding is judged out-of-FE-scope / backend-side, do NOT name the owning 
 
 A loosely-named owner ("the engine / the upstream AI service, probably") costs a round-trip and risks filing tickets against the wrong repo — pinning [[PROJ-6214]]'s positionId bug to `your-org/ai-engine` took two user pushbacks that this protocol would have avoided.
 
-## 7. Verification Summary with Confidence Level
+## 7. Verification Summary with Confidence Score
 
-### Title Achievement Check (runs BEFORE confidence is assigned)
+The verdict carries a **computed confidence score (0–100%)**, not a self-reported level. The score is arithmetic over the gate table — `passed_gates / total_gates`, then caps — computed by `.claude/scripts/verify-score.py`, never by the model. 100% is reachable ONLY when every machine gate passed with a valid receipt AND every human gate carries a recorded confirmation (design: `docs/verify-confidence-score.md`).
+
+### Gate states (exactly three)
+
+| State | Meaning | Requirement |
+|---|---|---|
+| `PASS` | Machine-verified true | Receipt attached |
+| `FAIL` | Machine-verified false | Receipt attached (showing the failure) |
+| `UNVERIFIED` | No machine evidence possible in this environment | Names the human step + QA method that confirms it |
+
+- A machine-verifiable gate **without a receipt counts as FAIL**, not PASS — an unevidenced claim never scores.
+- Human-only gates (visual correctness on a sideload-only surface, deployed-env behavior) are **born UNVERIFIED** and flip only when a `[qa-confirmed via {method}]` event lands in the state file. The model may never flip them itself. Always record the *method* (in-app QA, screenshot compare, deployed walkthrough — /qa names it): the recorded method is the audit trail when a sign-off later proves wrong.
+
+### Receipts
+
+Every PASS/FAIL gate carries: the exact command run, its exit code, ≤3 verbatim output lines, and `file:line` when the claim is about code. Receipts are spot-checkable (`grep -F`); a receipt whose quoted evidence can't be found caps the score at 30% and flags the gate.
+
+### Title Achievement Check (a BLOCKING gate)
 
 Per-AC code-existence can all pass while the title's promise stays unmet. If the ticket title carries an action verb — `(remove|integrate|wire|ship|replace|migrate) X` — verify the promise against user-visible reality:
 
 - **"remove X"** → `grep -rn "X" {REPO_ROOT}/app/ --include='*.ts*'` excluding tests/fixtures. Production matches = title NOT achieved.
 - **"integrate / wire / ship / replace X"** → identify the single user-visible artifact (a network request, a screen, a click outcome) and inspect its actual call path. Still mocked/stubbed = title NOT achieved.
 
-Title verb unmet → **clamp confidence to LOW** with reason `title promise unmet: {detail}`, and add a **Title Verb** row to the report table. ([[PROJ-6214]] "Integrate Backend APIs (remove mock data)" scored 2/9 ACs yet reported MEDIUM — the picker still ran a 2s setTimeout mock any fresh reviewer would have clicked into immediately.)
+Title verb unmet → **Title Verb gate = FAIL `[BLOCKING]` → score capped at 30%** with reason `title promise unmet: {detail}`, and add a **Title Verb** row to the gate table. ([[PROJ-6214]] "Integrate Backend APIs (remove mock data)" scored 2/9 ACs yet reported MEDIUM — the picker still ran a 2s setTimeout mock any fresh reviewer would have clicked into immediately.)
 
-### Determine Confidence Level
+### Compute the Confidence Score
 
-Evaluate what was actually verified to assign a confidence level:
+Build the gate table from: per-AC gates (exists / substantive / wired, §3.1) + standard battery (lint, types, tests, build, contract — tests/types/build are `[BLOCKING]`) + Title Achievement `[BLOCKING]` + surface gates (visual/manual checks on surfaces the harness can't drive → born UNVERIFIED). Then:
 
-| Level | Criteria |
-|-------|----------|
-| **HIGH** | All unit tests pass + contract verified (live API or swagger match) + E2E tests exist and pass (if specified in ticket) + visual_compare = OK (if HAS_VISUAL_SPEC) |
-| **MEDIUM** | Unit tests pass + contract unverified (dev unreachable or no swagger) OR E2E specified but not run OR visual_compare = DEFERRED_TO_MANUAL / NOT_RUN |
-| **LOW** | Tests pass but only against mocks, no contract verification, no E2E, OR visual_compare = GAPS_FOUND |
+```
+raw   = passed_gates / total_gates
+caps  (worst wins):
+  any [BLOCKING] gate FAIL          -> cap 30%   "this will break"
+  any receipt spot-check mismatch   -> cap 30%   "claimed evidence not found"
+  any gate UNVERIFIED               -> cap 70%   "human confirmation pending"
+  any quality cap from tables below -> cap 85%   (legacy clamp HIGH→MEDIUM)
+```
 
-**Adjustments based on ticket classification** (from state file `## Classification` section):
-- **Trivial/config/deps**: Tests pass + CI passes → HIGH (no contract test needed)
-- **Bugfix with API integration**: Requires at least swagger comparison for HIGH
-- **Standard/Complex with API**: Requires contract smoke test for HIGH; never HIGH without E2E if ticket spec lists E2E
+Quality-cap findings from the Visual-Aware / E2E-Drift / Comment-Hygiene tables enter the gate table as `FAIL` (or `UNVERIFIED`) rows tagged `[CAP85]` — that tag is how the scoring script sees them; a cap described only in prose does not exist.
 
-**Visual-Aware Clamp (HAS_VISUAL_SPEC or HAS_UI tickets):**
+| Band | Reading |
+|---|---|
+| 90–100 | Ship — everything evidenced, humans confirmed |
+| 70–89 | Medium — machine-green but human gates pending / quality caps applied; model output alone can NEVER raise the score past this band |
+| 31–69 | Gaps — failed or unevidenced gates, named individually |
+| ≤30 | Will break — a blocking gate failed or claimed evidence didn't check out |
 
-| Check | Result | Clamp action | Reason on verdict |
+**Gate-list adjustments based on ticket classification** (from state file `## Classification` section):
+- **Trivial/config/deps**: contract gate not required — *excluded from the gate list* (not scored as UNVERIFIED)
+- **Bugfix with API integration**: contract gate PASSes with at least a swagger comparison
+- **Standard/Complex with API**: contract gate requires the smoke test; if the ticket spec lists E2E, the E2E gate is `[BLOCKING]`
+
+**Visual-Aware Caps (HAS_VISUAL_SPEC or HAS_UI tickets):**
+
+| Check | Result | Cap | Reason on verdict |
 |---|---|---|---|
-| `visual_compare` (static) | `STATIC_OK_RUNTIME_GAPS` | clamp to **LOW** | "Static CSS matches spec but runtime computed styles differ — CSS cascade/specificity override bug. Inspect with browser DevTools before merging." |
-| `visual_compare` (runtime) | `NOT_RUN_RUNTIME` AND HAS_UI=true | clamp HIGH → MEDIUM | "Runtime computed-style readback skipped (dev server unreachable or Playwright unavailable). Confirm in browser before merging." |
-| `viewport_sweep` | `NARROW_VIEWPORT_BUG` | clamp to **LOW** | "Element renders incorrectly at 320/450px — Word Add-in always runs at this width. PR-blocking." |
-| `viewport_sweep` | `BREAKPOINT_DRIFT` | clamp HIGH → MEDIUM | "Element bounds shift unexpectedly between viewports — visual-spec doesn't declare this breakpoint behavior. Confirm intent." |
-| `viewport_sweep` | `NOT_RUN` AND HAS_UI=true (browser-reachable surface) | clamp HIGH → MEDIUM | "Viewport sweep skipped. Narrow-viewport behavior not verified." |
-| `viewport_sweep` | `NOT_RUN_EXPECTED` (sideload-only surface) | **no clamp** | report row: "Viewport sweep N/A — Office task-pane WebView can't be driven by browser Playwright; in-Word manual QA is the substitute. Confirm in-Word before merge." |
-| `css_token_compliance` | `HARDCODED_VALUES_FOUND` | clamp HIGH → MEDIUM | "Hardcoded color/spacing values found in modified CSS Modules. Use design tokens from globals.css unless explicitly approved." |
-| `visual_compare` (coarse) | `GAPS_FOUND` | clamp to **LOW** | "{N} visual spec gaps — see Visual Spec Gaps table; fix before PR" |
-| `visual_compare` (coarse) | `DEFERRED_TO_MANUAL` | clamp HIGH → MEDIUM | "visual spec exists but Figma-only / `manual_review_required: true` — confirm with screenshot in-{environment}" |
-| `visual_compare` (coarse) | `NOT_RUN` AND HAS_VISUAL_SPEC=true | clamp HIGH → MEDIUM | "visual spec asserted but no spec file present — run `/clarify` Step 2.5b or attach a screenshot" |
+| `visual_compare` (static) | `STATIC_OK_RUNTIME_GAPS` | cap to **30%** | "Static CSS matches spec but runtime computed styles differ — CSS cascade/specificity override bug. Inspect with browser DevTools before merging." |
+| `visual_compare` (runtime) | `NOT_RUN_RUNTIME` AND HAS_UI=true | cap 85% | "Runtime computed-style readback skipped (dev server unreachable or Playwright unavailable). Confirm in browser before merging." |
+| `viewport_sweep` | `NARROW_VIEWPORT_BUG` | cap to **30%** | "Element renders incorrectly at 320/450px — Word Add-in always runs at this width. PR-blocking." |
+| `viewport_sweep` | `BREAKPOINT_DRIFT` | cap 85% | "Element bounds shift unexpectedly between viewports — visual-spec doesn't declare this breakpoint behavior. Confirm intent." |
+| `viewport_sweep` | `NOT_RUN` AND HAS_UI=true (browser-reachable surface) | cap 85% | "Viewport sweep skipped. Narrow-viewport behavior not verified." |
+| `viewport_sweep` | `NOT_RUN_EXPECTED` (sideload-only surface) | **no cap** | report row: "Viewport sweep N/A — Office task-pane WebView can't be driven by browser Playwright; in-Word manual QA is the substitute. Confirm in-Word before merge." |
+| `css_token_compliance` | `HARDCODED_VALUES_FOUND` | cap 85% | "Hardcoded color/spacing values found in modified CSS Modules. Use design tokens from globals.css unless explicitly approved." |
+| `visual_compare` (coarse) | `GAPS_FOUND` | cap to **30%** | "{N} visual spec gaps — see Visual Spec Gaps table; fix before PR" |
+| `visual_compare` (coarse) | `DEFERRED_TO_MANUAL` | cap 85% | "visual spec exists but Figma-only / `manual_review_required: true` — confirm with screenshot in-{environment}" |
+| `visual_compare` (coarse) | `NOT_RUN` AND HAS_VISUAL_SPEC=true | cap 85% | "visual spec asserted but no spec file present — run `/clarify` Step 2.5b or attach a screenshot" |
 | `visual_compare` | `OK` | no change | (none) |
 
-**E2E-Drift Clamp (§3.2c — e2e-enabled repos only):**
+**E2E-Drift Caps (§3.2c — e2e-enabled repos only):**
 
-| §3.2c result | Clamp action | Reason on verdict |
+| §3.2c result | Cap | Reason on verdict |
 |---|---|---|
-| `DRIFT_FLAGGED` (affected specs flagged-not-run: sideload-only, no creds, or local dev server down) | clamp HIGH → MEDIUM | "{N} e2e specs in `{spec_dir}` assert surfaces this diff changed but were not run — drift coverage unverified. Start `yarn dev` and re-run /verify, or run the state file's post-deploy re-check (§3.2c Step 5) after merge+deploy." |
-| `DRIFT_SKIPPED` (an affected spec runtime-skipped via test.skip / isVisible-catch→skip guard on a changed surface) | clamp HIGH → MEDIUM | "{N} affected e2e specs runtime-skipped on a surface this diff changed — a skip guard is hiding the drift as false-green. Re-enable/repair before relying on E2E." |
-| `DRIFT_RUN_FAIL` (an affected spec ran and failed) | clamp HIGH → MEDIUM, name the failing test | "Affected e2e spec {file} failed against the changed surface — real finding, NOT an auto-block ([[feedback_e2e_rot_not_blocking]]); update the spec or the change before merge." |
+| `DRIFT_FLAGGED` (affected specs flagged-not-run: sideload-only, no creds, or local dev server down) | cap 85% | "{N} e2e specs in `{spec_dir}` assert surfaces this diff changed but were not run — drift coverage unverified. Start `yarn dev` and re-run /verify, or run the state file's post-deploy re-check (§3.2c Step 5) after merge+deploy." |
+| `DRIFT_SKIPPED` (an affected spec runtime-skipped via test.skip / isVisible-catch→skip guard on a changed surface) | cap 85% | "{N} affected e2e specs runtime-skipped on a surface this diff changed — a skip guard is hiding the drift as false-green. Re-enable/repair before relying on E2E." |
+| `DRIFT_RUN_FAIL` (an affected spec ran and failed) | cap 85%, name the failing test | "Affected e2e spec {file} failed against the changed surface — real finding, NOT an auto-block ([[feedback_e2e_rot_not_blocking]]); update the spec or the change before merge." |
 | `OK` / `NO_AFFECTED` / not e2e-enabled | no change | (none) |
 
-Per [[feedback_e2e_rot_not_blocking]], NONE of these flip the verdict to a hard block on their own — they clamp confidence and name the finding. The clamp targets the false-green this session is built to prevent (162 skipped specs = 21% hiding drift; live un-caught drift at `playbooks-v2-move-positions.spec.ts:58`).
+Per [[feedback_e2e_rot_not_blocking]], NONE of these flip the verdict to a hard block on their own — they cap the score and name the finding. The cap targets the false-green this session is built to prevent (162 skipped specs = 21% hiding drift; live un-caught drift at `playbooks-v2-move-positions.spec.ts:58`).
 
-**Comment Hygiene Gate (3.4):** if any noise comments remain unaddressed at summary time → verdict is **ISSUES FOUND** (not READY-FOR-PR), and clamp confidence HIGH → MEDIUM. These are trivial to remove — fix and re-run; never ship garbage comments to keep a HIGH.
+**Comment Hygiene Gate (3.4):** if any noise comments remain unaddressed at summary time → verdict is **ISSUES FOUND** (not READY-FOR-PR), and cap the score at 85%. These are trivial to remove — fix and re-run; never ship garbage comments to keep a high score.
 
-The visual-aware clamp is the load-bearing safeguard against false-HIGH on UI tickets where the implementation drifts from the design without breaking any test. Applied retroactively to [[PROJ-6086]] and [[PROJ-6087]] (which shipped HIGH and failed QA on visual fidelity), the clamp would have downgraded both to MEDIUM with the reason "visual spec asserted but not directly verified" — prompting in-Word QA before merge.
+The visual-aware cap is the load-bearing safeguard against a false ship-band score on UI tickets where the implementation drifts from the design without breaking any test. Applied retroactively to [[PROJ-6086]] and [[PROJ-6087]] (which shipped at ship-band and failed QA on visual fidelity), the cap would have held both at 85% with the reason "visual spec asserted but not directly verified" — prompting in-app QA before merge.
 
 ### Present Summary
 
 ```markdown
 ## Verification Report: PROJ-XXXX
 
-### Confidence: {HIGH | MEDIUM | LOW}
-{One-line reason: e.g., "contract verified via swagger, E2E not specified in ticket"}
+### Score: {NN}% ({passed}/{total} gates) — {band reading}
+Caps applied: {`[BLOCKING] {gate} FAIL → 30%` | `UNVERIFIED {gate} → 70%` | `{quality cap} → 85%` | none}
 
-### Checks Performed
-| Check | Status | Notes |
-|-------|--------|-------|
-| Reflexion (self-critique) | ✓ Done | {N concerns found} |
-| AC Verification | ✓ {N}/{total} passed | |
-| Substance Checks | ✓ / ❌ | {FILE MAP, TEST SPEC, handler completeness} |
-| Quality Gates (lint/types/tests) | ✓ Passed | {CI command} |
-| Pattern Compliance | ✓ Checked | {N violations or clean} |
-| Comment Hygiene (3.4) | ✓ Clean / ❌ {N} noise comments | {file:line list — blocks PR until removed} |
-| Contract Smoke Test | ✓ {method} / ⊘ Skipped / ❌ {N} mismatches | |
-| Visual Spec Compare | ✓ OK / ⚠ DEFERRED / ⊘ NOT_RUN / ❌ {N} gaps | (only when HAS_VISUAL_SPEC) |
-| Security Quick-Scan | ✓ Clean / ⚠ {N} findings | |
-| Visual Verification | ✓ / ⊘ No screenshot tool | |
-| E2E Tests | ✓ Passed / ⊘ Not specified / ❌ Specified but missing | |
-| E2E Drift (3.2c) | ✓ OK / ⚑ {N} flagged / ⏭ {N} skipped / ❌ {N} failed / ⊘ No e2e | (only on e2e-enabled repos; app-side surface changes mapped to `{spec_dir}`) |
+### Gate Table
+| Gate | State | Receipt / Owner |
+|------|-------|-----------------|
+| Reflexion (self-critique) | PASS | {N concerns found} |
+| AC-{n} exists / substantive / wired | PASS / FAIL | {cmd, exit code, file:line — one row per AC gate} |
+| Substance Checks | PASS / FAIL | {FILE MAP, TEST SPEC — cmd + exit} |
+| Title Verb `[BLOCKING]` | PASS / FAIL | {grep cmd + hits} |
+| Lint `[BLOCKING]` | PASS / FAIL | {cmd, exit code} |
+| Types `[BLOCKING]` | PASS / FAIL | {cmd, exit code} |
+| Unit tests `[BLOCKING]` | PASS / FAIL | {cmd, exit code, "{N} passed" line verbatim} |
+| Pattern Compliance | PASS / FAIL | {N violations or clean} |
+| Comment Hygiene (3.4) | PASS / FAIL | {file:line list — blocks PR until removed} |
+| Contract Smoke Test | PASS / FAIL / (excluded for trivial) | {method + result} |
+| Visual Spec Compare | PASS / FAIL / UNVERIFIED | (only when HAS_VISUAL_SPEC) |
+| Security Quick-Scan | PASS / FAIL | {clean / N findings} |
+| Visual: {surface check} | UNVERIFIED | human: {QA method from /qa — e.g. in-app QA at target viewport} |
+| E2E Tests | PASS / FAIL / (excluded if not specified) | {cmd, exit} |
+| E2E Drift (3.2c) | PASS / FAIL | (only on e2e-enabled repos) |
+
+Run `.claude/scripts/verify-score.py {report-file}` to compute the score — never hand-write the percentage.
 
 ### Verdict: READY FOR PR / ISSUES FOUND
 {If ISSUES FOUND, list each blocking issue}
+{If any UNVERIFIED gates: "Max score until human confirmation: 70%. Confirm via {method}, then record `[qa-confirmed via {method}]` to lift."}
 ```
 
 ## 8. Update Ticket State
 
 If `{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md` exists, update:
 - Verification phase → DONE (if all pass) or IN_PROGRESS (if gaps)
-- Record verification results and confidence level
-- Add event log entry: `- [HH:MM] Verified: {N}/{total} ACs, confidence {HIGH/MEDIUM/LOW}, contract {verified/unverified/N mismatches}, security {clean/N findings}, sha={git rev-parse --short HEAD}` — the `sha=` token is load-bearing: `/pr` §5.5b compares it to HEAD to detect ad-hoc commits made after verification (stale-verify warning)
+- Record the gate table and computed score
+- Add event log entry: `- [HH:MM] Verified: {N}/{total} ACs, score {NN}% (caps: {list|none}), contract {verified/unverified/N mismatches}, security {clean/N findings}, sha={git rev-parse --short HEAD}` — the `sha=` token is load-bearing: `/pr` §5.5b compares it to HEAD to detect ad-hoc commits made after verification (stale-verify warning)
+- When the user later confirms a human gate, append: `- [HH:MM] [qa-confirmed via {method}] {gate name}` — re-running /verify then lifts the 70% cap without re-running machine gates
 
 The ticket status line should read:
 ```
-Status: DONE (Confidence: {LEVEL} — {reason})
+Status: DONE (Score: {NN}% — {band reading; name any caps})
 ```
 Not just `Status: DONE`.
 
@@ -937,6 +973,7 @@ Derive `surface` and `source` (`figma|screenshot|sibling|verbal|mixed`) from the
 - [ ] Tests run for modified files
 - [ ] Visual verification performed (if screenshot tooling available)
 - [ ] Verification report produced with per-AC status
+- [ ] **Score computed by `verify-score.py`, not hand-written** — every PASS/FAIL gate has a receipt; every UNVERIFIED gate names its human QA method; caps applied worst-wins
 - [ ] Ticket state file updated (if exists)
 - [ ] **UI-iteration capture (§8.5):** on UI tickets only, the one-tap rounds-to-right + correction-class prompt was offered at the end of verify; result written to the Event Log + `ui-fidelity-ledger.md` `AUTO:ITERATION-LOG`; a skipped prompt recorded as `rounds=unrecorded` (never fabricated), pipeline never blocked
 
