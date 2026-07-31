@@ -24,6 +24,14 @@ Run `/bootstrap --bump <minor|patch>` (after Phase A of the April 2026 refactor)
 
 ## Changelog
 
+### Unreleased — next: 0.6.0 (run `/bootstrap --bump minor` to formalize)
+**Theme:** new SDET lane — a parallel test-authoring pipeline alongside the ticket pipeline.
+
+- **`/test-plan` command added** (`core/commands/test-plan.md`, v0.1.0) — turns a ticket's ACs into an adversarial, level-classified coverage matrix: cheapest honest test level per AC, the unstated edges, an existing-coverage check, and a **surface-testability step** that emits a minimal manual-QA remainder for surfaces that can't run locally (add-ins, mobile). Read-only on source; writes `.claude/tickets/PROJ-XXXX-test-plan.md`. First proven on a GDocs add-in ticket (20 ACs).
+- **Framed as a new lane, not a sixth-pipeline addition** — consistent with the 0.5.0 fold-don't-add principle. `/test-plan → /automate → /verify-coverage` is a distinct SDET pipeline (goal = coverage), reusing the state-file + repo-detection + `/learn` machinery. `/automate` and `/verify-coverage` are planned.
+- Wired into `README.md` (command inventory: SDET lane) and `core/commands/README.md` (SDET / Test Authoring section).
+- **Version bump pending:** adding a command is a MINOR per the versioning rules; `/bootstrap --bump minor` propagates 0.6.0 into all command frontmatter and refreshes the hash ledger.
+
 ### 0.5.2 — 2026-07-04
 **Theme:** close the loop on the /learn investigation — drift detection, dead-weight cut, planning-time read-path.
 

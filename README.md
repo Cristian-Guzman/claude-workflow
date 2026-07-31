@@ -90,6 +90,7 @@ Core pipeline: `/clarify` `/ticket` `/verify` `/qa` `/pr` `/ci-check` `/learn`
 Support: `/build` (ticketless) `/resume-ticket` `/status` `/project-debug` `/refactor`
 `/review-pr` `/review-comments` `/project-context` `/screenshot` `/ui-fidelity`
 `/demo-summary` `/memory-lint` `/bootstrap`
+SDET lane: `/test-plan` · `/automate` _(planned)_ · `/verify-coverage` _(planned)_
 
 See [core/commands/README.md](core/commands/README.md) for the full matrix.
 

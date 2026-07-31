@@ -53,6 +53,18 @@ These commands form a pipeline: `/clarify` -> `/ticket` -> `/verify` -> `/pr` ->
 | `/screenshot` | `[/url-path]` | Captures a screenshot of any page in the running app for visual review. |
 | `/review-pr` | `[PR# or branch]` | Review someone else's PR against repo conventions, codebase patterns, and quality standards. Never auto-posts comments — always awaits approval. |
 
+### SDET / Test Authoring
+
+A **parallel lane** to the ticket pipeline, for turning acceptance criteria into automated tests
+rather than features. Same machine (state files, repo detection, phased execution, `/learn` loop),
+pointed at coverage instead of implementation. `/test-plan` → `/automate` → `/verify-coverage`.
+
+| Command | Args | Description |
+|---------|------|-------------|
+| `/test-plan` | `PROJ-XXXX [focus]` | Turns a ticket's ACs into an adversarial, level-classified coverage matrix: cheapest honest test level per AC, the edges the ACs don't state, existing-coverage check, and — for surfaces you can't run locally (add-ins, mobile) — the minimal manual-QA remainder. Read-only; writes `.claude/tickets/PROJ-XXXX-test-plan.md`. |
+| `/automate` _(planned)_ | `PROJ-XXXX` | Reads the test-plan and implements the tests level-by-level in phases (unit → integration → e2e), following `testing-patterns.md`. The `/ticket` of the SDET lane. |
+| `/verify-coverage` _(planned)_ | — | Audits that every AC has a real, passing, non-skipped test at the planned level. Reuses the `verifier` agent. The `/verify` of the SDET lane. |
+
 ### Automation & Setup
 
 | Command | Args | Description |
@@ -133,7 +145,7 @@ Commands load these files (when available) to enforce conventions:
 |------|---------|---------|
 | `CLAUDE.md` | Repo conventions, architecture, CI commands | All commands |
 | `.claude/codebase-patterns.md` | Coding standards and pitfalls | `/ticket`, `/build`, `/refactor`, `/verify` |
-| `.claude/testing-patterns.md` | Test writing conventions | `/ticket`, `/build`, `/e2e`, `/qa` |
+| `.claude/testing-patterns.md` | Test writing conventions | `/ticket`, `/build`, `/qa`, `/test-plan` (primary read) |
 | `.claude/ticket-checklist.md` | Full ticket workflow (5 phases) | `/ticket`, `/pr`, `/resume-ticket`, `/verify` |
 | `.claude/pr-template.md` | PR description format | `/pr` |
 
