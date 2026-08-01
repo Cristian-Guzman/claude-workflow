@@ -59,7 +59,7 @@ Run `/bootstrap --bump <minor|patch>` (after Phase A of the April 2026 refactor)
 - Follow-ups (not landed): `/clarify` prior-art read-path for `process-ledger.md`; per-command frontmatter propagation still owed.
 
 ### 0.5.0 — 2026-07-02
-**Theme:** external-workflow audit → prune + mechanical enforcement. Triggered by a 26-agent audit comparing this system against 10 external workflows (GSD, Lockton export, BMAD, Agent OS, CCPM, SuperClaude/claude-flow, spec-kit, Anthropic official guidance, superpowers/compounding-engineering, HumanLayer ACE-FCA). Verdict: more mature than all 10 for this user's niche; specialization 6.5/10 — "well-specialized at the core, over-generalized at the edges." Raw audit data: session scratchpad `audit-full.json`.
+**Theme:** external-workflow audit → prune + mechanical enforcement. Triggered by a 26-agent audit comparing this system against 10 external workflows (GSD, a corporate workflow export, BMAD, Agent OS, CCPM, SuperClaude/claude-flow, spec-kit, Anthropic official guidance, superpowers/compounding-engineering, HumanLayer ACE-FCA). Verdict: more mature than all 10 for this user's niche; specialization 6.5/10 — "well-specialized at the core, over-generalized at the edges." Raw audit data: session scratchpad `audit-full.json`.
 
 **PRUNE (first real execution of the 0.4.0 machinery):**
 - `/do`, `/retro`, `/queue`, `/docs`, `/e2e` archived to `.claude/_archived-commands/` — zero usage evidence (state-index kind counts, no artifacts, owner memory disowns /do and /retro). New `capability-manifest.md` records each decision + reversal path. README.md + routing.md references cleaned; `audit_metrics.py` do_routing metric goes null harmlessly (guarded at line 376/460).
@@ -88,7 +88,7 @@ Run `/bootstrap --bump <minor|patch>` (after Phase A of the April 2026 refactor)
 **Adaptive `/bootstrap` (capability-gated install/prune):**
 - The `### Commands` canonical inventory is now a **capability→command matrix**: the Gate column is a capability expression (`ticket_system != none`, `ui_surfaces != none`, `vcs_host != none AND ci == yes`, `memory_system == yes`, `repo_count >= 2`, `team`) evaluated against a new **§3i capability probe** `{vcs_host, ci, ticket_system, wiki, e2e, ui_surfaces[], repo_count, memory_system, team}`. Same inventory → different installed set per project.
 - **New PRUNE action (§4 + §8.5):** a command whose gate goes false is **archived to `.claude/_archived-commands/` (never deleted)** with a logged reason — the "se deshaga de comandos" behavior. Core/`always` commands are never pruned; re-runs only act on gates that flipped.
-- **New `capability-manifest.md` (§7.5/§8.6):** persisted per-project record of the capability vector + per-command install/prune decision + reason — auditable, diffable on re-run (the portable "skill-manifest" lesson harvested from the Lockton workflow).
+- **New `capability-manifest.md` (§8.6):** persisted per-project record of the capability vector + per-command install/prune decision + reason — auditable, diffable on re-run (the portable "skill-manifest" lesson harvested from the corporate workflow export).
 - Table reconciled to the real command set: removed stale `security` (folded into /verify long ago), renamed `debug`→`project-debug` / `resume`→`resume-ticket`, added the previously-untracked `memory-lint`, `demo-summary`, `ui-fidelity` with proper gates (memory-lint only when an auto-memory dir exists; demo-summary only with a team + ticket system).
 
 **UI meta-learning loop (`/verify` + `/learn` + `ui-fidelity` agent):**

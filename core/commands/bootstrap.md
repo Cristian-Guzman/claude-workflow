@@ -17,7 +17,7 @@ allowed-tools:
 <objective>
 Two modes:
 
-**Setup mode** (default): Bootstrap a complete .claude command system for a project or workspace. Investigates the codebase, then creates everything needed for the slash-command workflow. Drop this single file into any project's `.claude/commands/` directory and run `/bootstrap`.
+**Setup mode** (default): Adapt the .claude command system to a project or workspace. Normally runs AFTER `install.sh` has copied the files (see "The two installers" below): investigates the codebase, probes capabilities, prunes what doesn't fit, and writes the capability manifest. As a fallback — dropped into a project's `.claude/commands/` as a single file with no repo clone — it can still generate a minimal system from its inlined specs.
 
 **Release-manager mode** (`--bump` or `--check`): Maintain `<WORKSPACE_ROOT>/.claude/workflow-version.md`. Bump versions across commands, write changelog entries, detect drift.
 
@@ -30,13 +30,15 @@ This file is portable. Every path is derived from `WORKSPACE_ROOT` (resolved in 
 - **`/bootstrap`** (this command) — the adapter and release manager, run AFTER `install.sh`: probes capabilities (§3i), prunes gate-false commands to `_archived-commands/`, writes `capability-manifest.md`, and owns versioning (`--bump` / `--check`).
 - **Self-sufficient fallback** — dropped into a project as a single file with no repo clone, `/bootstrap` can still generate a minimal system from its inlined specs. That is the fallback path, not the primary one.
 
+**Fallback coverage gaps (single-file mode).** The inlined specs below do NOT cover everything the canonical inventory requires. Single-file `/bootstrap` cannot generate: the `test-plan` command (no inlined spec); the full 7-agent set — §9 templates only three (`verifier`, `codebase-investigator`, `jira-context-loader`), and there is no `ui-fidelity` agent template at all; or `scripts/guard-base-branch.sh` and its PreToolUse hook wiring (§10). Those require the `install.sh` path. In single-file mode, list each gap in the §14 summary as "not installed — requires install.sh".
+
 ## Canonical inventory (single source of truth)
 
 The tables below define what a complete install at the current workflow version looks like (`workflow-version.md` is the version authority). Both fresh-install and upgrade flows read from here. To change what bootstrap installs, edit these tables — nothing else. The `### Commands` table is **capability-gated** (the Gate column is a capability expression evaluated against the §3i probe), so the same canonical inventory yields a different installed set per project — and prunes commands whose gate goes false (§4).
 
 ### Commands (capability-gated — this table IS the capability→command matrix)
 
-Tiers are install priority; the **Gate** column is the capability expression that must hold for the command to be installed AND, on re-run, KEPT. When a gate that was true becomes false, the command is **pruned to `_archived-commands/`** (§4), never deleted. Capabilities come from the §3i probe and are recorded in `capability-manifest.md` (§7.5). `always` = stack/host-agnostic — installed everywhere. Reconcile this table with the real command set on every `--bump`; a row with no matching `commands/*.md` (or vice-versa) is drift the `--check` flow must flag.
+Tiers are install priority; the **Gate** column is the capability expression that must hold for the command to be installed AND, on re-run, KEPT. When a gate that was true becomes false, the command is **pruned to `_archived-commands/`** (§4), never deleted. Capabilities come from the §3i probe and are recorded in `capability-manifest.md` (§8.6). `always` = stack/host-agnostic — installed everywhere. Reconcile this table with the real command set on every `--bump`; a row with no matching `commands/*.md` (or vice-versa) is drift the `--check` flow must flag.
 
 | Command | Tier | Since | Gate (install/keep if…) |
 |---|---|---|---|
@@ -62,7 +64,7 @@ Tiers are install priority; the **Gate** column is the capability expression tha
 | `demo-summary` | optional | 0.4.0 | `ticket_system != none AND team == true` (install only when there's a demo audience) |
 | `memory-lint` | optional | 0.4.0 | `memory_system == yes` (the host assistant exposes a persistent-memory directory — e.g. Claude Code auto-memory; probe for it, never assume) |
 
-**Archived designs (NOT shipped):** `/do`, `/queue`, `/retro`, `/docs`, `/e2e` were pruned from the shipped set in 0.5.0; their designs live in `command-proposals.md` and the original deployment's `_archived-commands/`. Reintroducing one requires BOTH a row here AND a shipped `commands/*.md` — a row without a file (or a file without a row) is drift the `--check` flow must flag.
+**Archived designs (NOT shipped):** `/do`, `/queue`, `/retro`, `/docs`, `/e2e` were pruned from the shipped set in 0.5.0; their designs live in the original deployment's `_archived-commands/` and, once `/learn` runs, in `command-proposals.md`. Reintroducing one requires BOTH a row here AND a shipped `commands/*.md` — a row without a file (or a file without a row) is drift the `--check` flow must flag.
 
 ### Structural files (relative to WORKSPACE_ROOT)
 
@@ -74,8 +76,8 @@ Tiers are install priority; the **Gate** column is the capability expression tha
 | `.claude/ticket-checklist.md` | 0.1.0 | yes |
 | `.claude/pr-template.md` | 0.1.0 | yes |
 | `.claude/state-file-schema.md` | 0.1.1 | yes |
-| `.claude/command-proposals.md` | 0.2.0 | auto-created by `/learn` on first proposal — never seeded |
-| `.claude/capability-manifest.md` | 0.4.0 | yes — written by `/bootstrap` §7.5 (capability vector + per-command install/prune decision + reason) |
+| `.claude/command-proposals.md` | 0.2.0 | auto-created by `/learn` or `/clarify` on first write — never seeded |
+| `.claude/capability-manifest.md` | 0.4.0 | yes — written by `/bootstrap` §8.6 (capability vector + per-command install/prune decision + reason) |
 | `.claude/state/index.json` | 0.1.1 | yes — initialized by `install.sh`; `state-index-upsert.sh` also self-inits |
 | `CLAUDE.md` (project root) | 0.6.0 | yes — seeded as a skeleton by `install.sh`; `/init` can replace it |
 | `.claude/scripts/state-index-upsert.sh` | 0.1.1 | yes |
@@ -157,6 +159,20 @@ done
 ```
 
 Also compute each command's content hash and diff against the hash ledger in `workflow-version.md` (see **Hash ledger** below). Any command whose hash changed since the last bump is a candidate for the next changelog entry.
+
+Then reconcile the canonical `### Commands` table against the shipped files, **both directions** (the inventory mandates this — a row without a file, or a file without a row, is drift):
+
+```bash
+echo ""
+echo "Row↔file drift check:"
+rows=$(awk -F'|' '/^\| `/{gsub(/[` ]/,"",$2); if ($2 !~ /[\/.]/) print $2}' \
+  "$WORKSPACE_ROOT/.claude/commands/bootstrap.md")
+files=$(ls "$WORKSPACE_ROOT"/.claude/commands/*.md 2>/dev/null | xargs -n1 basename | sed 's/\.md$//' | grep -vx 'README')
+for r in $rows;  do echo "$files" | grep -qx "$r" || echo "  DRIFT  row '$r' has no commands/$r.md (gate-pruned? check _archived-commands/ + capability-manifest.md)"; done
+for f in $files; do echo "$rows"  | grep -qx "$f" || echo "  DRIFT  commands/$f.md has no row in the canonical table"; done
+```
+
+A missing file can be a legitimate gate-prune — report it with the manifest reason, don't auto-fix.
 
 ### `--bump minor` — adds/deletes/reshapes commands
 
@@ -452,7 +468,7 @@ repo_count=$(find "$WORKSPACE_ROOT" -maxdepth 2 -type d -name .git 2>/dev/null |
 echo "Repos under WORKSPACE_ROOT: $repo_count"
 ```
 
-If `repo_count >= 2` and PLACEMENT_DIR = WORKSPACE_ROOT, multi-repo addons (project-context, status, retro) get installed and `repo-profiles/` gets seeded.
+If `repo_count >= 2` and PLACEMENT_DIR = WORKSPACE_ROOT, multi-repo addons (project-context, status) get installed and `repo-profiles/` gets seeded.
 
 ### 3h. Tooling presence (gates the recommended tier)
 
@@ -463,7 +479,7 @@ grep -lE 'playwright|cypress' "$PLACEMENT_DIR"/package.json 2>/dev/null && HAS_E
 
 ### 3i. Capability probe (assemble the project's capability vector)
 
-Consolidate 3a–3h into ONE capability vector — this is exactly what the `### Commands` matrix gates on and what gets persisted to `capability-manifest.md` (§7.5). Probe autonomously; only ASK where a signal is genuinely ambiguous (that questioning IS the "gather the required info" step — don't guess silently).
+Consolidate 3a–3h into ONE capability vector — this is exactly what the `### Commands` matrix gates on and what gets persisted to `capability-manifest.md` (§8.6). Probe autonomously; only ASK where a signal is genuinely ambiguous (that questioning IS the "gather the required info" step — don't guess silently).
 
 ```bash
 # vcs_host — from the git remote + host CLI
@@ -484,7 +500,8 @@ done
 # ticket_system — reuse 3f result: jira | ado | github-issues | linear | none
 #   none/manual → /ticket and /clarify are PRUNED (project is /build-centric)
 
-# wiki — Confluence (or other) referenced anywhere → gates /docs
+# wiki — Confluence (or other) referenced anywhere. Recorded in the vector for future use;
+#   no shipped command gates on it (/docs is archived 0.5.0 — not shipped)
 WIKI=none
 grep -rqiE 'atlassian\.net/wiki|confluence' "$PLACEMENT_DIR" 2>/dev/null && WIKI=confluence
 
@@ -493,10 +510,22 @@ E2E=none
 grep -lqE 'playwright' "$PLACEMENT_DIR"/package.json 2>/dev/null && E2E=playwright
 grep -lqE 'cypress'   "$PLACEMENT_DIR"/package.json 2>/dev/null && E2E=cypress
 
-# ui_surfaces — does this project render UI, and which? Resolve from STACK_FLAVOR + file probes:
-#   manifest.xml / Office.js → word-addin ; appsscript.json → gdocs-addin ; *.xcodeproj → ios ;
-#   a frontend framework + dev server → web. none → backend/CLI/library (drop /qa /screenshot /ui-fidelity).
-UI_SURFACES=none   # comma-list when present, e.g. "web" or "word-addin,web"
+# dev_server — a runnable dev server (feeds the /screenshot gate)
+DEV_SERVER=none
+grep -qE '"(dev|start|serve)"[[:space:]]*:' "$PLACEMENT_DIR"/package.json 2>/dev/null && DEV_SERVER=yes
+grep -hqE '^dev_server(_url)?:[[:space:]]*[^[:space:]]' "$PLACEMENT_DIR"/.claude/repo-profiles/*.yaml 2>/dev/null && DEV_SERVER=yes
+
+# ui_surfaces — does this project render UI, and which? Comma-list when present
+#   (e.g. "web" or "word-addin,web"). none → backend/CLI/library (drop /qa /screenshot /ui-fidelity).
+UI_SURFACES=""
+{ grep -qE '"(react|vue|svelte|next|nuxt|angular)"' "$PLACEMENT_DIR"/package.json 2>/dev/null \
+  || [ -d "$PLACEMENT_DIR/app" ] || [ -d "$PLACEMENT_DIR/src/components" ] || [ -d "$PLACEMENT_DIR/src/pages" ]; } \
+  && UI_SURFACES="web"
+[ -f "$PLACEMENT_DIR/manifest.xml" ] && grep -qi 'office' "$PLACEMENT_DIR/manifest.xml" \
+  && UI_SURFACES="${UI_SURFACES:+$UI_SURFACES,}word-addin"
+[ -f "$PLACEMENT_DIR/appsscript.json" ] && UI_SURFACES="${UI_SURFACES:+$UI_SURFACES,}gdocs-addin"
+ls -d "$PLACEMENT_DIR"/*.xcodeproj >/dev/null 2>&1 && UI_SURFACES="${UI_SURFACES:+$UI_SURFACES,}ios"
+[ -z "$UI_SURFACES" ] && UI_SURFACES=none
 
 # repo_count — git repos under WORKSPACE_ROOT (gates the multi-repo tier)
 REPO_COUNT=$(find "$WORKSPACE_ROOT" -maxdepth 2 -name .git 2>/dev/null | wc -l | tr -d ' ')
@@ -505,14 +534,14 @@ REPO_COUNT=$(find "$WORKSPACE_ROOT" -maxdepth 2 -name .git 2>/dev/null | wc -l |
 MEMORY_SYSTEM=no
 ls "$HOME"/.claude/projects/*/memory/MEMORY.md >/dev/null 2>&1 && MEMORY_SYSTEM=yes
 
-# team vs solo — >1 distinct committer in recent history → gates /retro, /demo-summary
+# team vs solo — >1 distinct committer in recent history → gates /demo-summary
 authors=$(git -C "$PLACEMENT_DIR" log --format='%ae' -200 2>/dev/null | sort -u | wc -l | tr -d ' ')
 [ "${authors:-1}" -gt 1 ] && TEAM=true || TEAM=false
 ```
 
-Resolved vector (carried into §4 and §7.5):
+Resolved vector (carried into §4 and §8.6):
 ```
-{ vcs_host, ci, ticket_system, wiki, e2e, ui_surfaces[], repo_count, memory_system, team }
+{ vcs_host, ci, ticket_system, wiki, e2e, dev_server, ui_surfaces[], repo_count, memory_system, team }
 ```
 When a capability can't be resolved confidently (UI present but surface unclear, ticket system ambiguous, host unknown), ASK the user one targeted question per unknown rather than defaulting — a wrong default silently installs/prunes the wrong commands.
 
@@ -524,7 +553,7 @@ Evaluate each `### Commands` entry's **Gate** against the §3i capability vector
 - **Upgrade** — gate TRUE AND file exists AND content drifted from the inline template. Ask before overwriting a user-modified file.
 - **Prune** — gate FALSE AND the command file EXISTS. It applied once (or an older generic bootstrap installed it) but no longer fits this project — e.g. `/qa` in a backend-only repo, `/memory-lint` with no auto-memory dir, `/demo-summary` on a solo project. **Move it to `<PLACEMENT_DIR>/.claude/_archived-commands/<cmd>.md` — NEVER `rm`** — and log the reason. This is the "se deshaga de comandos" behavior that makes the installed set match the project.
 
-Build four lists: `WILL_INSTALL`, `WILL_UPGRADE`, `WILL_SKIP`, `WILL_PRUNE`. To keep re-runs quiet, diff the computed gates against the prior `capability-manifest.md` (§7.5) when present — only prune/install what actually FLIPPED since last run. **Never prune a `core` command whose gate is `always`.** Pruning always requires explicit approval in §5 (it's a removal, even though reversible from `_archived-commands/`).
+Build four lists: `WILL_INSTALL`, `WILL_UPGRADE`, `WILL_SKIP`, `WILL_PRUNE`. To keep re-runs quiet, diff the computed gates against the prior `capability-manifest.md` (§8.6) when present — only prune/install what actually FLIPPED since last run. **Never prune a `core` command whose gate is `always`.** Pruning always requires explicit approval in §5 (it's a removal, even though reversible from `_archived-commands/`).
 
 ## 5. Present the plan and wait for approval
 
@@ -556,8 +585,8 @@ ID regex: {pattern}
 
 ## Capabilities (probed — drives install/prune)
 vcs_host: {github|other|none} · ci: {yes|no} · ticket_system: {…} · wiki: {confluence|none}
-e2e: {playwright|cypress|none} · ui_surfaces: {web|word-addin|…|none} · repo_count: {N}
-memory_system: {yes|no} · team: {true|false}
+e2e: {playwright|cypress|none} · dev_server: {yes|none} · ui_surfaces: {web|word-addin|…|none}
+repo_count: {N} · memory_system: {yes|no} · team: {true|false}
 
 ## Will install ({n})
 - /ticket, /verify, /pr, /learn, ...
@@ -594,14 +623,16 @@ Wait for `yes`. On `show details`, dump the planned diffs.
 mkdir -p "$PLACEMENT_DIR/.claude/commands" \
          "$PLACEMENT_DIR/.claude/agents" \
          "$PLACEMENT_DIR/.claude/scripts" \
-         "$PLACEMENT_DIR/.claude/state" \
          "$PLACEMENT_DIR/.claude/tickets" \
-         "$PLACEMENT_DIR/.claude/builds" \
+         "$PLACEMENT_DIR/.claude/state" \
          "$PLACEMENT_DIR/.claude/debug" \
+         "$PLACEMENT_DIR/.claude/qa" \
+         "$PLACEMENT_DIR/.claude/builds" \
          "$PLACEMENT_DIR/.claude/refactors" \
+         "$PLACEMENT_DIR/.claude/metrics" \
+         "$PLACEMENT_DIR/.claude/screenshots" \
          "$PLACEMENT_DIR/.claude/e2e" \
-         "$PLACEMENT_DIR/.claude/docs" \
-         "$PLACEMENT_DIR/.claude/metrics"
+         "$PLACEMENT_DIR/.claude/demos"
 
 # Multi-repo only
 [ "$repo_count" -ge 2 ] && mkdir -p "$PLACEMENT_DIR/.claude/repo-profiles"
@@ -639,7 +670,7 @@ mv "$PLACEMENT_DIR/.claude/commands/$cmd.md" "$ARCH/$cmd.md"   # never rm — re
 
 Record one line per prune in the manifest (§8.6) with the reason (`gate=<expr> → false because <capability>=<value>`). A later re-run whose probe flips the gate back to TRUE restores the command from `_archived-commands/` instead of regenerating it (preserves any local edits). Never prune a `core`/`always` command. If `_archived-commands/` ends up empty, remove it.
 
-## 8.6 Write the capability manifest (the auditable map — Lockton's skill-manifest lesson)
+## 8.6 Write the capability manifest (the auditable map — acme-corp's skill-manifest lesson)
 
 Write `$PLACEMENT_DIR/.claude/capability-manifest.md` recording WHAT was detected and WHY each command is present or absent. This is what makes the adaptive decision auditable and re-runs diffable; downstream commands and the next bootstrap read it instead of re-deriving from scratch.
 
@@ -656,9 +687,10 @@ Generated: {date} · bootstrap {TARGET_VERSION} · STACK_FLAVOR: {flavor}
 | ticket_system | jira |
 | wiki | none |
 | e2e | playwright |
+| dev_server | yes |
 | ui_surfaces | web, word-addin |
 | repo_count | 10 |
-| memory_system | yes |
+| memory_system | no |
 | team | true |
 
 ## Command decisions
@@ -666,8 +698,7 @@ Generated: {date} · bootstrap {TARGET_VERSION} · STACK_FLAVOR: {flavor}
 |---|---|---|---|
 | ticket | `ticket_system != none` | true | installed |
 | qa | `ui_surfaces != none` | true | installed |
-| docs | `wiki != none` | false | pruned → _archived-commands/ (wiki=none) |
-| memory-lint | `memory_system == yes` | true | installed |
+| memory-lint | `memory_system == yes` | false | pruned → _archived-commands/ (memory_system=no) |
 | demo-summary | `ticket_system != none AND team` | true | installed |
 ```
 
@@ -675,9 +706,11 @@ On re-run, diff the new vector against this file's tables; only surface/apply th
 
 ## 9. Write subagents
 
-Always write `verifier.md` (goal-backward AC verifier) and `codebase-investigator.md`. Write `jira-context-loader.md` only if `TICKET_SYSTEM=jira`. Templates are in `<agent-specs>` below.
+Always write `verifier.md` (goal-backward AC verifier) and `codebase-investigator.md`. Write `jira-context-loader.md` only if `TICKET_SYSTEM=jira`. Templates are in `<agent-specs>` below. Note: these three are all single-file mode can produce — the remaining agents the structural table requires (incl. `ui-fidelity`) come from the `install.sh` path; see "Fallback coverage gaps" near the top of this file.
 
-## 10. Configure the PostToolUse hook (portable form)
+## 10. Configure hooks (portable form)
+
+### 10a. PostToolUse state-index hook
 
 Append to `$PLACEMENT_DIR/.claude/settings.local.json` (create if missing):
 
@@ -704,6 +737,40 @@ Key changes for portability:
 - Calls the upsert script via absolute path computed at runtime.
 
 If a `PostToolUse` block already exists, merge — don't overwrite.
+
+### 10b. PreToolUse branch guard (repo-install path only)
+
+When `$PLACEMENT_DIR/.claude/scripts/guard-base-branch.sh` exists (copied by `install.sh` — single-file mode can't generate it, see "Fallback coverage gaps"), also register the branch guard and the layout env var, matching `templates/workspace/settings.template.json`:
+
+```jsonc
+{
+  "env": {
+    "WORKFLOW_LAYOUT": "single-repo"   // when PLACEMENT = inside-repo; "workspace" otherwise
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [{
+          "type": "command",
+          "command": "$CLAUDE_PROJECT_DIR/.claude/scripts/guard-base-branch.sh",
+          "timeout": 10
+        }]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{
+          "type": "command",
+          "command": "$CLAUDE_PROJECT_DIR/.claude/scripts/guard-base-branch.sh",
+          "timeout": 10
+        }]
+      }
+    ]
+  }
+}
+```
+
+Merge into the same settings file as 10a — never overwrite existing `env` or `hooks` entries. Skip this block entirely when the guard script is absent.
 
 ## 10.5 Install self-learning measurement (`audit_metrics.py` + pre-push hooks)
 
@@ -776,14 +843,17 @@ If `$PLACEMENT_DIR/.claude/` is tracked in git (run `git check-ignore` to test),
 
 ```
 # Per-developer state (not shared across the team)
-.claude/tickets/
-.claude/builds/
-.claude/debug/
-.claude/refactors/
-.claude/e2e/
 .claude/state/
-.claude/docs/
+.claude/tickets/
+.claude/debug/
+.claude/qa/
+.claude/builds/
+.claude/refactors/
 .claude/metrics/
+.claude/screenshots/
+.claude/e2e/
+.claude/demos/
+.claude/settings.local.json
 ```
 
 If `.claude/` itself is gitignored at workspace level, do nothing.
@@ -836,7 +906,9 @@ Next steps:
   1. Review CLAUDE.md for accuracy.
   2. Try /ticket {TICKET_ID_PATTERN replaced with literal example}.
   3. After 3–5 delivered tickets, run /learn to grow the patterns.
-  4. Re-run /bootstrap any time to upgrade in place.
+  4. To update: `git pull` in the claude-workflow clone and re-run install.sh
+     (the primary update path — see "The two installers"), then re-run
+     /bootstrap to re-probe capabilities and prune/restore commands.
 
 Want to share this setup? See .claude/README.md (added if missing) for distribution notes.
 ```
@@ -1037,7 +1109,7 @@ repos: [list of repo names touched]
 ## state/index.json (seed)
 
 ```json
-{"version":1,"generated":"","entries":[]}
+{"version":2,"generated":"","entries":[]}
 ```
 
 ## repo-profiles/_schema.yaml
@@ -1068,7 +1140,7 @@ set -euo pipefail
 file="${1:?usage: state-index-upsert.sh <path-to-state-file>}"
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 index="$root/.claude/state/index.json"
-[ -f "$index" ] || echo '{"version":1,"generated":"","entries":[]}' > "$index"
+[ -f "$index" ] || echo '{"version":2,"generated":"","entries":[]}' > "$index"
 
 # Read frontmatter into vars
 id=$(awk '/^id:/{print $2; exit}' "$file" 2>/dev/null || echo "")
@@ -1095,7 +1167,7 @@ jq --arg id "$id" --arg t "$type" --arg s "$status" --arg p "$file" --arg now "$
 set -euo pipefail
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 index="$root/.claude/state/index.json"
-echo '{"version":1,"generated":"","entries":[]}' > "$index"
+echo '{"version":2,"generated":"","entries":[]}' > "$index"
 for dir in tickets debug builds refactors e2e; do
   for f in "$root/.claude/$dir"/*.md; do
     [ -f "$f" ] && "$root/.claude/scripts/state-index-upsert.sh" "$f"
@@ -1105,7 +1177,7 @@ done
 
 ## scripts/audit_metrics.py
 
-Deterministic Sigrid-style snapshot of `.claude` self-learning health. Drives the `/learn` add/retire ratio target, `/do` routing coverage, and pattern-file specificity tracking. Output: `$WORKSPACE_ROOT/.claude/metrics/YYYY-MM-DD[-suffix].json`. Append-only on disk; the directory listing IS the trend history.
+Deterministic Sigrid-style snapshot of `.claude` self-learning health. Drives the `/learn` add/retire ratio target and pattern-file specificity tracking; the `do_routing` metric only fires when a legacy `do.md` exists (`/do` is archived 0.5.0 — not shipped). Output: `$WORKSPACE_ROOT/.claude/metrics/YYYY-MM-DD[-suffix].json`. Append-only on disk; the directory listing IS the trend history.
 
 Portable: every path derives from `$CLAUDE_PROJECT_DIR` (set by the harness) or `__file__` (when run from launchd / cron / pre-push). No hardcoded user paths.
 
@@ -1450,7 +1522,7 @@ Tracks the slash-command workflow in `{relative-path-to-commands}`. Every comman
 
 <command-specs>
 
-Each spec below is the kernel of a command — a brief detailed enough for Claude to render a full command file. The generated file MUST include frontmatter (`name`, `version: {TARGET_VERSION}`, `description`, `argument-hint`, `allowed-tools`) plus the structural sections the spec lists. **Spec depth = command quality.** Load-bearing commands (verify, ticket, pr, clarify, learn, review-pr) are spec'd deeply; lighter commands get briefer specs because they're simpler.
+Each spec below is the kernel of a command — a brief detailed enough for Claude to render a full command file. The generated file MUST include frontmatter (`name`, `version: {TARGET_VERSION}`, `description`, `argument-hint`, `allowed-tools`) plus the structural sections the spec lists. **Spec depth = command quality.** Load-bearing commands (verify, ticket, pr, clarify, learn, review-pr) are spec'd deeply; lighter commands get briefer specs because they're simpler. Not every shipped command has a spec here — `test-plan` in particular requires the `install.sh` path; see "Fallback coverage gaps" near the top of this file.
 
 ### ticket
 End-to-end ticket implementation. Five phases. Stops at PR generation — does NOT push, commit, or open PRs (that's `/pr`'s job, so the project's PR template is honored).
@@ -1617,7 +1689,7 @@ Two modes — argument-driven.
 - Missed automation (e.g., didn't run `/qa` before delivery)
 - If the same gap recurs in 3+ sessions/tickets, triage it like any other improvement signal (below) — mechanical fixes land at capture; only design-shaped gaps get filed as proposals.
 
-**Proposal lifecycle (v0.3.1 — `learn.md` §0.3 + §5.6 is the source of truth; this is the install-time summary):**
+**Proposal lifecycle ({TARGET_VERSION} — `learn.md` §0.3 + §5.6 is the source of truth; this is the install-time summary):**
 - Proposals are **modifications to existing commands, never new commands**. Every entry carries `**Target:** <command>.md §<section>`, `**Occurrences:**`, and `**Status:**` ∈ `OPEN` | `ADDRESSED YYYY-MM-DD — <command>§<section>` | `STALE YYYY-MM-DD — <reason>` (STALE is reversible — a recurrence flips it back to OPEN).
 - **Capture-time triage** decides each signal's form immediately: **APPLY-NOW** (mechanical ≤15-line single-file diff → applied in-session behind a shown-diff approval, filed pre-ADDRESSED) / **COMPILE-TO-CHECK** (mechanically-checkable lessons become /verify battery lines, hooks, or lint rules — never prose-only) / **BATCH-ASSIGN** (design-shaped → filed OPEN) / **DROP** (one-off speculation — not filed; recurrence is the filing trigger).
 - **Dedupe before append:** key = `(Target command, failure-class)` — not signal text. Bump `**Last seen:**` + `**Occurrences:**` instead of appending. Cap 5 NEW proposals per run (bumps don't count). **WIP cap: 20 OPEN**, one-in-one-out above it.
@@ -1783,9 +1855,6 @@ Allowed-tools: `Read, Bash, Glob, Grep, Task, AskUserQuestion`.
 ### review-comments (gate: gh present)
 - Fetch unresolved review comments via `gh api`. Save valid feedback to the active state file. Triage: actionable / nit / discussion.
 
-### e2e (gate: Playwright/Cypress)
-- Use the repo's e2e patterns. Generate a spec covering the ticket's user flows.
-
 ### screenshot (gate: Playwright)
 - Capture a screenshot of a given URL or component using a temporary Playwright script.
 
@@ -1796,20 +1865,11 @@ Allowed-tools: `Read, Bash, Glob, Grep, Task, AskUserQuestion`.
 - Build a connection map across repos. FE → BFF → backend edges. Loose ends. Type drift.
 - Cache per-repo HEAD hashes for incremental rescans.
 
-### status (gate: ≥2 repos)
+### status (gate: `repo_count >= 2 OR ticket_system != none`)
 - Read `state/index.json` and present a dashboard: active tickets, open debug sessions, blocked items.
 
-### retro (gate: ≥2 repos)
-- Sprint-level retrospective across all repos. Surface team patterns and command underperformance.
-
-### do (optional)
-- Single-entry router. Reads the user's plain-English request and dispatches to the right command.
-
-### queue (optional)
-- Queue tickets for off-peak automated implementation.
-
-### docs (optional)
-- Search/create/update wiki documentation. Implementation depends on the wiki provider.
+### Archived (0.5.0 — not shipped): /do, /queue, /retro, /docs, /e2e
+Do NOT generate these. Their designs live in the original deployment's `_archived-commands/` and, once `/learn` runs, in `command-proposals.md`. Reintroducing one requires a row in the canonical inventory AND a shipped `commands/*.md`.
 
 </command-specs>
 
@@ -1841,7 +1901,7 @@ Allowed-tools: `Read, Bash, Glob, Grep, Task, AskUserQuestion`.
 ### commit-drafter (always)
 - Draft conventional commit message + PR title from a git diff plus optional ticket context.
 - Normalize across Story / Bug / Task / chore types. Subject ≤72 chars. Respect repo's no-AI-attribution rule.
-- Used by `/pr`, `/queue`.
+- Used by `/pr`.
 - Tools: Read, Bash, Grep.
 - Frontmatter: `model: opus`.
 
