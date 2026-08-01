@@ -401,7 +401,7 @@ jira issue move PROJ-XXXX "Code Review (1)"
 ```
 
 Notes:
-- The `Code Review` transition id (`<CODE_REVIEW_TRANSITION_ID>`) is per-project — look it up via jira CLI or MCP `getTransitionsForJiraIssue` and record it in the repo/workspace profile. The CLI fallback may need a state-name suffix (e.g. `(1)`); the MCP numeric id does not.
+- The `Code Review` transition id (`<CODE_REVIEW_TRANSITION_ID>`) is per-project — look it up via jira CLI or MCP `getTransitionsForJiraIssue` and record it as `jira_transition_codereview` in `repo-profiles/<repo>.yaml` (the single home for tracker config — see `_schema.yaml`). The CLI fallback may need a state-name suffix (e.g. `(1)`); the MCP numeric id does not.
 - If multiple tickets are closed by a single PR (e.g., a shared CVE fix), transition each ticket.
 - If the ticket is already in `Code Review`, `QA`, or `Done`, skip the transition (no-op).
 - If the MCP transitionJiraIssue call returns an error about transition id not being available, re-fetch available transitions first via `mcp__atlassian__getTransitionsForJiraIssue` — workflow ids can differ per project or issue type.

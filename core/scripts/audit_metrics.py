@@ -50,8 +50,9 @@ def discover_repos():
                 repos.append(f.parent.parent.name)
         except OSError:
             continue
-    # Fallback so a fresh/empty workspace still produces a valid snapshot.
-    return repos or ["addin-fe"]
+    # A fresh workspace with no specialized repos yet produces a valid snapshot
+    # with empty per-repo metrics — no hardcoded repo-name fallback.
+    return repos
 
 
 REPOS = discover_repos()

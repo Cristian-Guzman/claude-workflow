@@ -1,4 +1,7 @@
 {
+  "env": {
+    "WORKFLOW_LAYOUT": "workspace"
+  },
   "permissions": {
     "allow": [
       "Bash(ssh:*)",

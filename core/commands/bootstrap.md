@@ -1464,7 +1464,7 @@ Each tier reads a different subset of `codebase-patterns.md`, prior tickets, and
 
 **4. Update state file** with plan, AC list verbatim, classification tier, event log entry.
 
-**4.5 Transition ticket** in the source system if applicable. For Jira: status → "In Progress" via the transition id in the repo profile (`jira_transition_inprogress`). Skip if assignee isn't the user.
+**4.5 Transition ticket** in the source system if applicable. For Jira: status → "In Progress" via the transition id in the repo profile (`jira_transition_inprogress` in `repo-profiles/<repo>.yaml` — the single home for tracker config). Skip if assignee isn't the user, or if `tracker_system: none`.
 
 **5. Implement.** Follow the plan. After each step: update event log, run unit tests for the touched area only (NOT full suite), capture before/after screenshots for UI changes if Playwright is wired. DO NOT commit between steps.
 

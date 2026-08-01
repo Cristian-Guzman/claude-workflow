@@ -30,15 +30,18 @@ Low-confidence or partially-tagged entries. Review and flip \`tags_verified: tru
 EOF
 fi
 
-# Map repo → layer (adjust these repo names to your workspace)
+# Map repo → layer, driven by the repo profile's `type:` field — the profiles are
+# the single source of truth, no repo names are hardcoded here. Missing profile or
+# unknown type → empty (the confidence scorer treats it as a missing axis).
 repo_to_layer() {
-  case "$1" in
-    addin-fe|web-app|legacy-editor)    echo "ui" ;;
-    api-bff)                           echo "bff" ;;
-    backend-services|shared-go-lib|mail-service|billing-service|chat-service) echo "backend" ;;
-    ios-app)                           echo "mobile" ;;
-    gdocs-addin)                       echo "ui" ;;   # it's an Apps Script UI
-    *)                                 echo "" ;;
+  local profile="$WORKSPACE/.claude/repo-profiles/$1.yaml" t=""
+  [ -f "$profile" ] && t=$(awk -F': *' '/^type:/{print $2; exit}' "$profile" | awk '{print $1}')
+  case "$t" in
+    frontend-ui|google-workspace-addin) echo "ui" ;;
+    backend-bff)                        echo "bff" ;;
+    backend-go|backend-service)         echo "backend" ;;
+    mobile-ios)                         echo "mobile" ;;
+    *)                                  echo "" ;;
   esac
 }
 
@@ -83,13 +86,15 @@ infer_feature_area() {
   echo "$branch $paths" | grep -qiE 'billing|subscription|stripe|invoice' && areas+="billing\n"
   echo "$branch $paths" | grep -qiE 'auth|login|session|token' && areas+="auth\n"
   echo "$branch $paths" | grep -qiE 'dependabot' && areas+="dependabot\n"
-  # Repo-based fallback ONLY if nothing else matched
+  # Repo-based fallback ONLY if nothing else matched — read default_feature_area
+  # from the repo profile (no hardcoded repo names).
   if [ -z "$areas" ]; then
-    case "$repo" in
-      gdocs-addin)     areas="gdocs-addin\n" ;;
-      ios-app)         areas="word-addin\n" ;;
-      billing-service) areas="billing\n" ;;
-    esac
+    local profile="$WORKSPACE/.claude/repo-profiles/$repo.yaml"
+    if [ -f "$profile" ]; then
+      local def
+      def=$(awk -F': *' '/^default_feature_area:/{print $2; exit}' "$profile" | awk '{print $1}' | tr -d '"')
+      [ -n "$def" ] && areas="$def\n"
+    fi
   fi
   echo -e "$areas" | sort -u | grep -v '^$'
 }

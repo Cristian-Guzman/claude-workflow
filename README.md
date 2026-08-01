@@ -77,11 +77,19 @@ is created automatically by the commands when first needed — don't seed it.
 ## Configuration points
 
 - **Ticket system** — commands try MCP (Atlassian) first, then a `jira` CLI, then
-  degrade gracefully to no-ticket mode (`/build` instead of `/ticket`). Set
-  transition IDs for your Jira workflow in `settings.json` if you use transitions.
-- **Base branch** — recorded per repo in its repo-profile. The included
-  `guard-base-branch.sh` PreToolUse hook blocks accidental edits/commits on base
-  branches; add non-obvious ones (e.g. `develop-v2`) to its list.
+  degrade gracefully to no-ticket mode (`/build` instead of `/ticket`). The repo
+  profile is the single home for tracker config: set `tracker_system` and the
+  numeric `jira_transition_*` ids in `repo-profiles/<repo>.yaml` (`_schema.yaml`
+  documents how to look them up). `tracker_system: none` is a first-class mode.
+- **Base branch** — recorded per repo in its repo-profile (`base_branch`). The
+  included `guard-base-branch.sh` PreToolUse hook blocks accidental edits/commits
+  on base branches and derives the protected-branch list from the profiles
+  automatically — nothing to hardcode.
+- **Single repo vs workspace** — the default layout is a multi-repo workspace
+  (`.claude/` at the root that contains your repos). Installing into a single
+  product repo also works: set `"env": {"WORKFLOW_LAYOUT": "single-repo"}` in
+  `.claude/settings.json` so the branch guard treats the root as a product repo
+  instead of a never-committed workflow root.
 - **CI** — `/ci-check` uses `gh` (GitHub) by default; `/pr` detects the git host.
 
 ## Command inventory

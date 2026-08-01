@@ -7,8 +7,9 @@
 
 set -euo pipefail
 
-# Set WORKSPACE_ROOT to your multi-repo workspace root (the directory containing your repos).
-WORKSPACE="${WORKSPACE_ROOT:-$HOME/workspace}"
+# Workspace root resolution: $WORKSPACE_ROOT env > $CLAUDE_PROJECT_DIR (set by
+# Claude Code for hook invocations) > cwd. No silent hardcoded fallback.
+WORKSPACE="${WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 INDEX="$WORKSPACE/.claude/state/index.json"
 
 path="${1:-}"

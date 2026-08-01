@@ -31,17 +31,22 @@ Caller passes:
 
 ## Surface adapters
 
-Resolve the surface from `repo_root` (or `surface`). Each adapter defines the impl idiom and the ONLY honest way to verify visually.
+Resolve the surface in this order — an adapter = a surface label + the ONLY honest way to verify it visually:
+
+1. **Repo profile first** — read `ui_surface` and `visual_qa_notes` from `repo-profiles/{repo}.yaml`; when present they ARE the adapter.
+2. **Auto-detect** when the profile is silent: package.json deps (React/Tailwind/MUI → web; office-js → word-addin), an Apps Script manifest (`appsscript.json` → gas-addin), an Xcode project (→ swiftui). Report what you detected so the profile can be filled in.
+3. **Ask** if still ambiguous — never guess a sideload-only surface as browser-drivable.
+
+Example adapter registry (from the original deployment — replace rows with YOUR repos as profiles fill in):
 
 | repo | surface | impl idiom | how visual QA actually happens |
 |------|---------|-----------|-------------------------------|
-| addin-fe | `word-addin` | React + Tailwind v4 + MUI; tokens in `app/globals.css` | sideload in Word — **cannot** be driven headless; in-Word manual QA is the source of truth ([[feedback_addin_fe_test_in_word]], [[feedback_no_playwright_live_qa]]) |
-| addin-fe | `web` | React + Tailwind + MUI | browser at the local dev server (e.g. `https://localhost:3002` — record your dev server in the repo profile; Playwright OK for web routes) |
-| web-app | `web-legacy` | React (legacy) | browser |
-| gdocs-addin | `gas-addin` | Apps Script + plain CSS; tokens in `src/client/styles/tokens.css` | sideload in Google Docs; `test/e2e` tier; narrow sidebar viewport ([[feedback_gdocs_sidebar_viewport]]) |
-| ios-app | `swiftui` | SwiftUI modifiers + asset catalog | **ImageRenderer throwaway test → PNGs** (auth cold-launch blocks headless screenshots) ([[feedback_ios_visual_qa_imagerenderer]]) |
+| addin-fe | `word-addin` | React + Tailwind v4 + MUI; tokens in `app/globals.css` | sideload in Word — **cannot** be driven headless; in-host manual QA is the source of truth |
+| addin-fe | `web` | React + Tailwind + MUI | browser at the local dev server (record it in the repo profile; Playwright OK for web routes) |
+| gdocs-addin | `gas-addin` | Apps Script + plain CSS; tokens in `src/client/styles/tokens.css` | sideload in Google Docs; narrow sidebar viewport (~300px) — screenshot at the REAL viewport or overflow/truncation bugs stay invisible |
+| ios-app | `swiftui` | SwiftUI modifiers + asset catalog | **ImageRenderer throwaway test → PNGs** (auth cold-launch blocks headless screenshots) |
 
-If the reference and the surface differ in framework (the common case — GDocs CSS → Word Tailwind), you **translate intent**, never copy values verbatim.
+If the reference and the surface differ in framework (the common case — plain CSS → Tailwind), you **translate intent**, never copy values verbatim.
 
 ## Process
 

@@ -111,9 +111,10 @@ Verify the implementation followed the checklist:
 # 1. Confirm branch and extract ticket
 git branch --show-current
 
-# Resolve the base branch — NEVER assume `main` (some repos use a non-default
-# base branch, e.g. api-bff/web-app use develop-v2; billing-service/addin-fe/gdocs-addin use develop; ios-app uses main). Read base_branch from
-# repo-profiles/{REPO}.yaml, fall back to origin/HEAD.
+# Resolve the base branch — NEVER assume `main`; repos can use a non-default,
+# even non-obvious base branch (that's exactly what `base_branch` in the repo
+# profile records). Read base_branch from repo-profiles/{REPO}.yaml, fall back
+# to origin/HEAD.
 BASE_BRANCH=$(awk -F': ' '/^base_branch:/{print $2}' .claude/repo-profiles/{REPO}.yaml 2>/dev/null)
 BASE_BRANCH=${BASE_BRANCH:-$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null | sed 's@^origin/@@')}
 

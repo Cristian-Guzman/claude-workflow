@@ -6,14 +6,23 @@
 # Exit 2 blocks the tool call and feeds stderr back to Claude. Exit 0 allows.
 # Exemptions: any path under a .claude/ dir (state files), workspace-root *.md, non-git paths.
 
-# Workspace root: the directory that holds the .claude workflow system (never committed).
-# Set WORKSPACE_ROOT in your environment, or edit the fallback path below.
-WORKSPACE="${WORKSPACE_ROOT:-$HOME/workspace}"
-# Protected base branches. Defaults: main/master/develop.
-# ADD PROJECT-SPECIFIC BASE BRANCHES HERE — some repos use a non-default base
-# branch (e.g. develop-v2); record it in the repo profile and append it to this
-# alternation, e.g. '^(main|master|develop|develop-v2)$'.
-BASE_RE='^(main|master|develop|develop-v2)$'
+# Workspace root: the directory that holds the .claude workflow system.
+# Resolution order: $WORKSPACE_ROOT env > $CLAUDE_PROJECT_DIR (set by Claude Code
+# for every hook invocation) > cwd. No silent hardcoded fallback — a wrong root
+# would disable the guard without telling anyone.
+WORKSPACE="${WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}"
+# Layout: "workspace" (default) = the root repo holds workflow files only and is
+#         never committed. "single-repo" = the root IS the product repo; commits
+#         are allowed there, but base-branch protection still applies to it.
+# Set via `"env": {"WORKFLOW_LAYOUT": "single-repo"}` in .claude/settings.json.
+LAYOUT="${WORKFLOW_LAYOUT:-workspace}"
+# Protected base branches: main/master/develop always, plus every base_branch
+# declared in the repo profiles — the profiles are the single source of truth,
+# nothing project-specific is hardcoded here.
+BASE_RE='^(main|master|develop)$'
+extra=$(grep -h '^base_branch:' "$WORKSPACE/.claude/repo-profiles/"*.yaml 2>/dev/null \
+        | awk '{print $2}' | grep -vE '^(main|master|develop)$' | grep -v '^$' | sort -u | paste -sd '|' -)
+[ -n "$extra" ] && BASE_RE="^(main|master|develop|${extra})$"
 
 input=$(cat)
 tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
@@ -26,10 +35,16 @@ case "$tool" in
     [ -n "$file_path" ] || exit 0
     case "$file_path" in
       */.claude/*) exit 0 ;;                 # state, patterns, workflow files — any repo
-      "$WORKSPACE"/*.md) exit 0 ;;           # workspace-root notes
     esac
+    if [ "$LAYOUT" != "single-repo" ]; then
+      case "$file_path" in
+        "$WORKSPACE"/*.md) exit 0 ;;         # workspace-root notes (workspace layout only)
+      esac
+    fi
     root=$(git -C "$(dirname "$file_path")" rev-parse --show-toplevel 2>/dev/null) || exit 0
-    [ "$root" = "$WORKSPACE" ] && exit 0     # workspace-root repo holds workflow files only
+    # Workspace layout: the root repo holds workflow files only — exempt.
+    # Single-repo layout: the root IS the product repo — fall through to the branch check.
+    [ "$root" = "$WORKSPACE" ] && [ "$LAYOUT" != "single-repo" ] && exit 0
     branch=$(git -C "$root" branch --show-current 2>/dev/null)
     if [[ "$branch" =~ $BASE_RE ]]; then
       deny "BLOCKED (guard-base-branch): $(basename "$root") is on base branch '$branch'. Create the ticket branch first: git checkout -b <fix|feat>/PROJ-XXXX-<slug> (feedback_branch_before_edit). If parallel sessions share this checkout, use a worktree per /ticket §5.0."
@@ -42,8 +57,8 @@ case "$tool" in
     cdir=$(printf '%s' "$command" | sed -n 's/.*git -C \([^ ]*\).*/\1/p' | head -1)
     [ -n "$cdir" ] && dir="$cdir"
     root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || exit 0
-    if [ "$root" = "$WORKSPACE" ]; then
-      deny "BLOCKED (guard-base-branch): commit/push in the workspace-root repo — the .claude workflow system is never committed (feedback_no_commit_workflow_files)."
+    if [ "$root" = "$WORKSPACE" ] && [ "$LAYOUT" != "single-repo" ]; then
+      deny "BLOCKED (guard-base-branch): commit/push in the workspace-root repo — the .claude workflow system is never committed (feedback_no_commit_workflow_files). Installing into a single product repo? Set WORKFLOW_LAYOUT=single-repo in settings.json env."
     fi
     branch=$(git -C "$root" branch --show-current 2>/dev/null)
     if printf '%s' "$command" | grep -qE 'git[^|;&]*[[:space:]]commit([[:space:]]|$)' && [[ "$branch" =~ $BASE_RE ]]; then

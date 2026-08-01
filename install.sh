@@ -58,8 +58,15 @@ seed_repo_files() {
   seed "$HERE/templates/repo/ticket-checklist.md"  "$CLAUDE_DIR/ticket-checklist.md"
   # Optional — /pr falls back to a host default if absent, but seeding it helps.
   seed "$HERE/templates/repo/pr-template.md"       "$CLAUDE_DIR/pr-template.md"
-  # Runtime dirs the commands write state into (gitignored below).
-  mkdir -p "$CLAUDE_DIR/tickets" "$CLAUDE_DIR/state" "$CLAUDE_DIR/debug" "$CLAUDE_DIR/qa"
+  # Minimal CLAUDE.md skeleton — every command loads it first; /init can replace it.
+  seed "$HERE/templates/repo/CLAUDE.template.md"   "$TARGET/CLAUDE.md"
+  # Runtime dirs the commands and hooks write state into (gitignored below).
+  mkdir -p "$CLAUDE_DIR/tickets" "$CLAUDE_DIR/state" "$CLAUDE_DIR/debug" "$CLAUDE_DIR/qa" \
+           "$CLAUDE_DIR/builds" "$CLAUDE_DIR/refactors" "$CLAUDE_DIR/metrics" \
+           "$CLAUDE_DIR/screenshots" "$CLAUDE_DIR/e2e" "$CLAUDE_DIR/demos"
+  # State index — /status, /clarify and the analytics scripts read it; the
+  # PostToolUse hook upserts into it. Same shape state-index-upsert.sh self-inits.
+  [ -f "$CLAUDE_DIR/state/index.json" ] || printf '{"version":2,"generated":"","entries":[]}\n' > "$CLAUDE_DIR/state/index.json"
 }
 
 append_gitignore() {
@@ -79,6 +86,8 @@ append_gitignore() {
     echo ".claude/refactors/"
     echo ".claude/metrics/"
     echo ".claude/screenshots/"
+    echo ".claude/e2e/"
+    echo ".claude/demos/"
     echo ".claude/settings.local.json"
   } >>"$gi"
   echo "  updated .gitignore (local-state exclusions)"
@@ -112,22 +121,26 @@ echo ""
 echo "Done. core updated: $updated | seeded: $seeded | left untouched (already yours): $skipped"
 echo ""
 
-if [ ! -f "$TARGET/CLAUDE.md" ]; then
-  echo "!! No CLAUDE.md in $TARGET — the commands work far better with one."
-  echo "   Run 'claude' in the project and use /init to generate it."
+if grep -q '{placeholder}\|{One paragraph' "$TARGET/CLAUDE.md" 2>/dev/null; then
+  echo "!! CLAUDE.md is the seeded skeleton — fill the {placeholders} or run /init"
+  echo "   and merge. Every command loads it first; it's the highest-leverage file."
   echo ""
 fi
 
 cat <<'CHECKLIST'
 Next steps to specialize this project (fastest path first):
-  1. Open .claude/settings.json — set your ticket system (Jira CLI / MCP / none)
-     and check the permission list matches your tooling.
+  1. Open .claude/settings.json — check the permission list matches your tooling.
+     Installing into a SINGLE repo (no multi-repo workspace)? Add
+       "env": {"WORKFLOW_LAYOUT": "single-repo"}
+     so the branch guard treats this root as a product repo.
   2. Run /project-context once — it generates .claude/repo-profiles/<repo>.yaml
-     (base branch, CI command, dev server) that every other command reads.
+     (base branch, CI command, tracker + transition ids, dev server) that every
+     other command reads. tracker_system: none is a first-class mode.
   3. Skim .claude/codebase-patterns.md, testing-patterns.md, ticket-checklist.md —
      each has EXAMPLE entries showing the format. Replace with 2-3 real patterns
      from this codebase now, or just delete the examples and let /learn grow them
      after your first completed tickets.
   4. Work the pipeline: /clarify -> /ticket -> /verify -> /qa -> /pr -> /ci-check -> /learn
+     (no tracker? /build replaces /clarify+/ticket)
      /learn after each ticket is what makes the system project-specific over time.
 CHECKLIST

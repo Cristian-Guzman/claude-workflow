@@ -56,7 +56,29 @@ deploy:
   log_hint: ""                         # free-form: where runtime logs live (kubectl selector / CloudWatch group pattern)
 
 confluence_space: ""                   # e.g. "MVP"
-jira_project: "PROJ"                   # your ticket project key
+
+# Ticket tracker — the SINGLE home for tracker config. Commands and /bootstrap read
+# transitions from HERE (never from settings.json or command docs).
+# tracker_system: none → the pipeline degrades to the no-tracker lane: /build replaces
+# /clarify+/ticket and every ticket-transition step silently no-ops.
+tracker_system: jira                   # jira | github | linear | none
+jira_project: "PROJ"                   # your ticket project key (ids look like PROJ-1234)
+# Numeric transition ids — look up ONCE per Jira instance and record here:
+#   jira CLI:  jira issue move <KEY-1> --debug     (prints available transitions)
+#   MCP:       getTransitionsForJiraIssue
+# CLI state NAMES can carry suffixes (e.g. "Code Review (1)") — numeric ids do not.
+jira_transition_inprogress: ""
+jira_transition_codereview: ""
+jira_transition_qa: ""
+jira_transition_done: ""
+
+# Analytics defaults (tag-tickets.sh) — feature area to assume when file/branch
+# heuristics find nothing for this repo (e.g. "billing" for a billing service).
+default_feature_area: ""
+
+# UI surface (ui-fidelity agent) — how this repo's UI is verified visually.
+ui_surface: ""                         # free-form label, e.g. web | word-addin | gas-addin | swiftui
+visual_qa_notes: ""                    # the ONLY honest way to see it: dev-server URL, sideload steps, ImageRenderer recipe, ...
 
 notes: |
   Free-form. Gotchas, conventions, anything /clarify should know.
