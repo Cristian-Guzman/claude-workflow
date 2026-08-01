@@ -24,9 +24,15 @@ Two modes:
 This file is portable. Every path is derived from `WORKSPACE_ROOT` (resolved in step 0). Nothing is hardcoded — drop it into any workspace and it works.
 </objective>
 
+## The two installers (who does what)
+
+- **`install.sh`** (repo root of claude-workflow) — the file copier and the canonical FIRST step: clone the repo, run it, get core files refreshed + project-owned seeds + runtime dirs + `state/index.json`. Re-running it is the update mechanism (`git pull` + re-run).
+- **`/bootstrap`** (this command) — the adapter and release manager, run AFTER `install.sh`: probes capabilities (§3i), prunes gate-false commands to `_archived-commands/`, writes `capability-manifest.md`, and owns versioning (`--bump` / `--check`).
+- **Self-sufficient fallback** — dropped into a project as a single file with no repo clone, `/bootstrap` can still generate a minimal system from its inlined specs. That is the fallback path, not the primary one.
+
 ## Canonical inventory (single source of truth)
 
-The tables below define what a complete v0.4.0 install looks like. Both fresh-install and upgrade flows read from here. To change what bootstrap installs, edit these tables — nothing else. The `### Commands` table is **capability-gated** (the Gate column is a capability expression evaluated against the §3i probe), so the same canonical inventory yields a different installed set per project — and prunes commands whose gate goes false (§4).
+The tables below define what a complete install at the current workflow version looks like (`workflow-version.md` is the version authority). Both fresh-install and upgrade flows read from here. To change what bootstrap installs, edit these tables — nothing else. The `### Commands` table is **capability-gated** (the Gate column is a capability expression evaluated against the §3i probe), so the same canonical inventory yields a different installed set per project — and prunes commands whose gate goes false (§4).
 
 ### Commands (capability-gated — this table IS the capability→command matrix)
 
@@ -47,18 +53,16 @@ Tiers are install priority; the **Gate** column is the capability expression tha
 | `review-pr` | recommended | 0.1.1 | `vcs_host != none` |
 | `review-comments` | recommended | 0.1.1 | `vcs_host != none` |
 | `ci-check` | recommended | 0.1.1 | `vcs_host != none AND ci == yes` |
+| `test-plan` | recommended | 0.6.0 | always (SDET lane: reads the ticket state file when present, pasted ACs otherwise) |
 | `qa` | conditional | 0.1.0 | `ui_surfaces != none` |
 | `ui-fidelity` | conditional | 0.4.0 | `ui_surfaces != none` |
 | `screenshot` | conditional | 0.1.1 | `ui_surfaces != none AND (e2e == playwright OR dev_server present)` |
-| `e2e` | conditional | 0.1.1 | `e2e != none` (Playwright/Cypress detected or `e2e.enabled` in a repo-profile) |
-| `docs` | conditional | 0.2.0 | `wiki != none` (e.g. a Confluence space configured) |
 | `project-context` | multi-repo | 0.2.0 | `repo_count >= 2` |
 | `status` | multi-repo | 0.2.0 | `repo_count >= 2 OR ticket_system != none` |
-| `retro` | multi-repo | 0.2.0 | `ticket_system != none AND team == true` |
-| `demo-summary` | optional | 0.4.0 | `ticket_system != none AND team == true` (rarely needed — install only when there's a demo audience) |
-| `memory-lint` | optional | 0.4.0 | `memory_system == yes` (the auto-memory dir exists) |
-| `do` | optional | 0.2.0 | user opt-in (intent router) |
-| `queue` | optional | 0.2.0 | user opt-in (off-peak automation) |
+| `demo-summary` | optional | 0.4.0 | `ticket_system != none AND team == true` (install only when there's a demo audience) |
+| `memory-lint` | optional | 0.4.0 | `memory_system == yes` (the host assistant exposes a persistent-memory directory — e.g. Claude Code auto-memory; probe for it, never assume) |
+
+**Archived designs (NOT shipped):** `/do`, `/queue`, `/retro`, `/docs`, `/e2e` were pruned from the shipped set in 0.5.0; their designs live in `command-proposals.md` and the original deployment's `_archived-commands/`. Reintroducing one requires BOTH a row here AND a shipped `commands/*.md` — a row without a file (or a file without a row) is drift the `--check` flow must flag.
 
 ### Structural files (relative to WORKSPACE_ROOT)
 
@@ -70,21 +74,27 @@ Tiers are install priority; the **Gate** column is the capability expression tha
 | `.claude/ticket-checklist.md` | 0.1.0 | yes |
 | `.claude/pr-template.md` | 0.1.0 | yes |
 | `.claude/state-file-schema.md` | 0.1.1 | yes |
-| `.claude/command-proposals.md` | 0.2.0 | yes |
-| `.claude/capability-manifest.md` | 0.4.0 | yes (per-project capability vector + per-command install/prune decision + reason) |
-| `.claude/state/index.json` | 0.1.1 | yes |
+| `.claude/command-proposals.md` | 0.2.0 | auto-created by `/learn` on first proposal — never seeded |
+| `.claude/capability-manifest.md` | 0.4.0 | yes — written by `/bootstrap` §7.5 (capability vector + per-command install/prune decision + reason) |
+| `.claude/state/index.json` | 0.1.1 | yes — initialized by `install.sh`; `state-index-upsert.sh` also self-inits |
+| `CLAUDE.md` (project root) | 0.6.0 | yes — seeded as a skeleton by `install.sh`; `/init` can replace it |
 | `.claude/scripts/state-index-upsert.sh` | 0.1.1 | yes |
 | `.claude/scripts/state-index-scan.sh` | 0.1.1 | yes |
+| `.claude/scripts/guard-base-branch.sh` | 0.5.0 | yes (PreToolUse branch guard — layout-aware, profile-driven base branches) |
 | `.claude/scripts/audit_metrics.py` | 0.2.0 | yes (self-learning measurement) |
 | `.claude/scripts/run_audit.sh` | 0.2.0 | optional (launchd wrapper; only if tier ≥ recommended AND user opts in) |
-| `.claude/repo-profiles/_schema.yaml` | 0.1.1 | when multi-repo |
+| `.claude/repo-profiles/_schema.yaml` | 0.1.1 | yes — single home for base branch, tracker (`tracker_system`, `jira_transition_*`), CI commands, UI surface |
 | `.claude/agents/codebase-investigator.md` | 0.1.1 | yes |
-| `.claude/agents/jira-context-loader.md` | 0.1.1 | when ticket system = jira |
 | `.claude/agents/verifier.md` | 0.1.0 | yes |
+| `.claude/agents/commit-drafter.md` | 0.5.0 | when `vcs_host != none` |
+| `.claude/agents/pr-branch-reviewer.md` | 0.5.0 | when `vcs_host != none` |
+| `.claude/agents/jira-context-loader.md` | 0.1.1 | when ticket system = jira |
+| `.claude/agents/contract-verifier.md` | 0.5.0 | when an API spec source exists (swagger/OpenAPI files) |
+| `.claude/agents/ui-fidelity.md` | 0.5.0 | when `ui_surfaces != none` |
 
 ### State directories
 
-`tickets/`, `builds/`, `debug/`, `refactors/`, `e2e/`, `docs/`, `metrics/` under `.claude/` — created empty. `metrics/` accumulates one JSON snapshot per `audit_metrics.py` run; the directory listing IS the trend history.
+`tickets/`, `state/`, `debug/`, `qa/`, `builds/`, `refactors/`, `metrics/`, `screenshots/`, `e2e/`, `demos/` under `.claude/` — created empty by `install.sh` (all gitignored). `metrics/` accumulates one JSON snapshot per `audit_metrics.py` run; the directory listing IS the trend history.
 
 ---
 
@@ -330,7 +340,7 @@ Store as `STACK_FLAVOR`. The flavor gates these downstream choices:
 | Contract smoke test in `/verify` | when calling API | enable | enable | skip | skip |
 | Stack-flavored seed rules in `codebase-patterns.md` | FE rules below | BE rules below | both | CLI rules below | LIB rules below |
 | `/verify` simplify-check checklist | FE checklist | BE checklist | both | CLI checklist | LIB checklist |
-| `screenshot` / `e2e` install gate | yes if Playwright | no | yes if Playwright | no | no |
+| `screenshot` install gate | yes if Playwright | no | yes if Playwright | no | no |
 
 ### Stack-flavored seed rules for `codebase-patterns.md`
 
@@ -1456,7 +1466,7 @@ End-to-end ticket implementation. Five phases. Stops at PR generation — does N
 - **Tier 4 (everything):** epic-level work, cross-repo change, breaking API change.
 Each tier reads a different subset of `codebase-patterns.md`, prior tickets, and API docs. Save the tier in state frontmatter so `/resume-ticket` knows what context to reload.
 
-**1.5 Business context (Tier 3+ only).** If a wiki integration exists (`docs` command installed), search for the feature area. Surface page titles + 1-line summaries; user opens what's relevant. Skip on Tier 1/2 — overhead for low-stakes work.
+**1.5 Business context (Tier 3+ only).** If a wiki integration is configured (e.g. a Confluence space in the repo profile), search for the feature area. Surface page titles + 1-line summaries; user opens what's relevant. Skip on Tier 1/2 — overhead for low-stakes work.
 
 **2. Plan mode + investigate.** Enter `EnterPlanMode`. Use the `codebase-investigator` agent in parallel for: similar features (3 closest matches), reusable components/hooks/utilities, API endpoints touched, permission/auth patterns, existing tests for the surrounding area. Surface findings, not raw search output.
 
