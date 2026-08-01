@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-version: 0.4.0
+version: 0.6.0
 description: Set up a portable .claude command system in any project, OR manage the workflow version when run with --bump.
 argument-hint: "[project description] | --bump [minor|patch] | --check | --root <path> | --flavor <name>"
 allowed-tools:
@@ -1417,7 +1417,7 @@ exit 0
 
 ```markdown
 ---
-version: 0.3.1
+version: {TARGET_VERSION}
 last-updated: {YYYY-MM-DD}
 maintainer: {git user.email | "unknown"}
 placement: {workspace-root | inside-repo}

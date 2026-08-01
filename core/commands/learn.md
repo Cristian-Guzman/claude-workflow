@@ -1,6 +1,6 @@
 ---
 name: learn
-version: 0.4.0
+version: 0.6.0
 description: Extract lessons from completed tickets AND the current conversation (auto-detected, both in one pass) and update repo pattern files.
 argument-hint: "[repo-name] or blank for all repos (--session = conversation-only; never required)"
 allowed-tools:

@@ -1,6 +1,6 @@
 ---
 name: memory-lint
-version: 0.3.1
+version: 0.6.0
 description: Audit the auto-memory directory for drift — orphan files, broken pointers, schema violations, stale references. Reports only; no auto-fix without --fix flag + per-category confirmation.
 argument-hint: "[--fix]"
 allowed-tools:

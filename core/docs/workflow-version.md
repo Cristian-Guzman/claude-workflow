@@ -1,6 +1,6 @@
 ---
-version: 0.5.2
-last-updated: 2026-07-04
+version: 0.6.0
+last-updated: 2026-07-31
 maintainer: your-name@your-org.com
 ---
 
@@ -24,13 +24,22 @@ Run `/bootstrap --bump <minor|patch>` (after Phase A of the April 2026 refactor)
 
 ## Changelog
 
-### Unreleased — next: 0.6.0 (run `/bootstrap --bump minor` to formalize)
-**Theme:** new SDET lane — a parallel test-authoring pipeline alongside the ticket pipeline.
+### 0.6.0 — 2026-07-31
+**Theme:** generic kernel — the system works per-project with minimal context — plus the SDET lane.
 
-- **`/test-plan` command added** (`core/commands/test-plan.md`, v0.1.0) — turns a ticket's ACs into an adversarial, level-classified coverage matrix: cheapest honest test level per AC, the unstated edges, an existing-coverage check, and a **surface-testability step** that emits a minimal manual-QA remainder for surfaces that can't run locally (add-ins, mobile). Read-only on source; writes `.claude/tickets/PROJ-XXXX-test-plan.md`. First proven on a GDocs add-in ticket (20 ACs).
+**Generic kernel (design principle: config-driven topology + clean low-context degradation):**
+- **`guard-base-branch.sh` rearchitected** — `WORKSPACE_ROOT` resolves via `$CLAUDE_PROJECT_DIR` (no silent `$HOME/workspace` fallback that disabled the guard); protected base branches derived from repo-profiles at runtime (nothing hardcoded); `WORKFLOW_LAYOUT=single-repo` first-class mode (root = product repo: commits allowed, base-branch protection kept); honors leading `cd <path> &&` when judging git commands (live false-positive fixed). Functionally tested: 9 guard cases + full virgin-project install.
+- **`repo-profiles/_schema.yaml` is the single home for tracker config** — `tracker_system` (jira|github|linear|none) + numeric `jira_transition_*` ids + `default_feature_area` + `ui_surface`/`visual_qa_notes`. README, `pr.md`, `bootstrap.md` §4.5 all point here now (previously three contradicting homes).
+- **Zero hardcoded repo topology** — `tag-tickets.sh` maps repo→layer from the profile `type:` field; `audit_metrics.py` drops its repo-name fallback; ui-fidelity agent resolves surfaces profile-first → auto-detect → ask (hardcoded registry demoted to example).
+- **`install.sh` completes the low-context contract** — seeds a minimal `CLAUDE.md` skeleton (new `templates/repo/CLAUDE.template.md`), creates ALL runtime dirs the hooks/gitignore reference, initializes `state/index.json`, checklist covers single-repo env + no-tracker lane. Verified on a virgin single-repo project (no Jira, no CLAUDE.md): installs clean, guard works, re-run preserves user-owned files.
+- **`bootstrap.md` canonical inventory reconciled with the shipped set** — archived `/do` `/queue` `/retro` `/docs` `/e2e` rows removed (with an explicit drift rule), `/test-plan` added, all 7 agents listed with gates, "two installers" section defines install.sh (copies) vs /bootstrap (adapts) with single-file mode as explicit fallback.
+- Housekeeping: `test-plan.md` placeholder sanitized (`PROJ-XXXX`), dead `session-capture.js` shim deleted with its install/README references, README command count fixed (21).
+
+**SDET lane (carried from the unreleased 0.5.2 entry):**
+- **`/test-plan` command added** — turns a ticket's ACs into an adversarial, level-classified coverage matrix: cheapest honest test level per AC, the unstated edges, an existing-coverage check, and a **surface-testability step** that emits a minimal manual-QA remainder for surfaces that can't run locally (add-ins, mobile). Read-only on source; writes `.claude/tickets/PROJ-XXXX-test-plan.md`. First proven on a GDocs add-in ticket (20 ACs).
 - **Framed as a new lane, not a sixth-pipeline addition** — consistent with the 0.5.0 fold-don't-add principle. `/test-plan → /automate → /verify-coverage` is a distinct SDET pipeline (goal = coverage), reusing the state-file + repo-detection + `/learn` machinery. `/automate` and `/verify-coverage` are planned.
-- Wired into `README.md` (command inventory: SDET lane) and `core/commands/README.md` (SDET / Test Authoring section).
-- **Version bump pending:** adding a command is a MINOR per the versioning rules; `/bootstrap --bump minor` propagates 0.6.0 into all command frontmatter and refreshes the hash ledger.
+- `/verify` evidence-backed 0-100% confidence score (`verify-score.py` + design doc).
+- Frontmatter propagation done with this bump: every command carries `version: 0.6.0`.
 
 ### 0.5.2 — 2026-07-04
 **Theme:** close the loop on the /learn investigation — drift detection, dead-weight cut, planning-time read-path.
