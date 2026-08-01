@@ -25,7 +25,7 @@ Build a connection map across every repo in the workspace. Unlike `/clarify` (si
 
 **First run is expensive** (full scan of every repo). **Subsequent runs are fast** — only re-scans repos whose HEAD hash changed.
 
-Output: `$WORKSPACE_ROOT/.claude/project-map.md` — a living document all other commands (especially `/clarify`, `/ticket`, `/retro`) can read.
+Output: `$WORKSPACE_ROOT/.claude/project-map.md` — a living document all other commands (especially `/clarify`, `/ticket`, `/status`) can read.
 </objective>
 
 <process>
@@ -459,7 +459,7 @@ Extend `project-map-cache.json` (this command's own cache — **not** `index.jso
 
 Runtime: {seconds}s  (full scan {eta}s, your incremental: {seconds}s)
 
-Next recommended run: when any repo's HEAD changes, or after a sprint (weekly `/retro` calls this automatically).
+Next recommended run: when any repo's HEAD changes, or after a sprint.
 ```
 
 </process>
@@ -480,7 +480,7 @@ Next recommended run: when any repo's HEAD changes, or after a sprint (weekly `/
 </success_criteria>
 
 ## Related Commands
-- Consumers: `/clarify` (reads project-map AND stack-connections.md to recommend cross-repo impact + per-domain implementation recipes), `/retro` (reads loose ends + can mine `.claude/team-tickets/` dossiers for team-wide signals), `/ticket` (warns if ticket scope touches a loose end), `/learn` (can mine teammate dossiers for cross-team patterns, not just your own tickets)
+- Consumers: `/clarify` (reads project-map AND stack-connections.md to recommend cross-repo impact + per-domain implementation recipes), `/status` (reads loose ends), `/ticket` (warns if ticket scope touches a loose end), `/learn` (can mine teammate dossiers — `.claude/team-tickets/` — for cross-team patterns, not just your own tickets)
 - Companion file: `$WORKSPACE_ROOT/.claude/stack-connections.md` — backend-domain FE↔BFF↔Go map; Step 5b refreshes its endpoint tables on every backend-touching scan
 - Output folder: `$WORKSPACE_ROOT/.claude/team-tickets/` — per-ticket dossiers for teammates' work (Step 7); sibling to your `tickets/`, never mixed
 - Data sources: `.claude/repo-profiles/*.yaml`, each repo's git + .claude/ content, `gh` PRs, the `jira` CLI + REST changelog (sprint status + QA-bounce timeline)

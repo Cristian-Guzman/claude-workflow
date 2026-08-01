@@ -1,6 +1,6 @@
 ---
 name: commit-drafter
-description: Draft a conventional commit message and PR title from a git diff plus optional ticket context. Normalizes across Story/Bug/Task types, respects the repo's no-AI-attribution rule, and stays under 72 chars on the subject line. Used by /pr and /queue.
+description: Draft a conventional commit message and PR title from a git diff plus optional ticket context. Normalizes across Story/Bug/Task types, respects the repo's no-AI-attribution rule, and stays under 72 chars on the subject line. Used by /pr.
 model: opus
 tools:
   - Read

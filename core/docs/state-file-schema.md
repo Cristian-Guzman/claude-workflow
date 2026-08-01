@@ -1,7 +1,7 @@
 # Ticket State-File Schema Contract
 
 **Applies to:** `{repo}/.claude/tickets/PROJ-XXXX.md`
-**Read/write by:** `/ticket`, `/verify`, `/pr`, `/ci-check`, `/learn`, `/resume`, `/review-comments`, `/status`, `/retro`
+**Read/write by:** `/ticket`, `/verify`, `/pr`, `/ci-check`, `/learn`, `/resume-ticket`, `/review-comments`, `/status`
 
 Every ticket state file follows this contract. Commands that violate it silently corrupt downstream consumers. If you add a new field, document it here first.
 

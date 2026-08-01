@@ -43,6 +43,17 @@ Optional fields:
 - `dev_server_url` — URL where the dev server runs (e.g. `https://localhost:3002` — record your dev server in the repo profile)
 - `bff_depends_on` — list of repos this one depends on (e.g. a frontend depends on a BFF)
 - `confluence_space` — Confluence space key for docs lookups
+
+Tracker fields — **the profile is the SINGLE home for tracker config** (commands
+and `/bootstrap` read transitions from here, never from settings.json):
+- `tracker_system` — `jira | github | linear | none` (`none` = no-tracker lane: `/build` replaces `/clarify`+`/ticket`, transition steps no-op)
+- `jira_project` — ticket project key
+- `jira_transition_inprogress` / `_codereview` / `_qa` / `_done` — numeric transition ids (`_schema.yaml` documents how to look them up)
+
+Analytics / UI fields:
+- `default_feature_area` — fallback feature area for `tag-tickets.sh` when heuristics find nothing
+- `ui_surface` — free-form surface label (`web | word-addin | gas-addin | swiftui`) for the ui-fidelity agent
+- `visual_qa_notes` — the only honest way to verify this surface visually (dev-server URL, sideload steps, ImageRenderer recipe)
 - `notes` — free-form notes about the repo (gotchas, conventions)
 
 ## Maintenance

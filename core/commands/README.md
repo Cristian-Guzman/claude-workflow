@@ -74,6 +74,7 @@ pointed at coverage instead of implementation. `/test-plan` → `/automate` → 
 | `/status` | `[--days N]` | Cross-repo dashboard. Active tickets, open debug sessions, unresolved PRs, blocked items. Defaults to last 7 days. |
 | `/demo-summary` | `[--sprint\|--week] [--audience team\|stakeholders] [--artifact]` | Turns delivered work into a demo runbook: user-journey story, talking points, setup checklist, risks, ownership guard. |
 | `/ci-check` | `[PR#]` | Post-`/pr`: watches CI, prompts merge when green, auto-runs `/learn` after merge. Closes the pipeline loop. |
+| `/memory-lint` | `[--fix]` | Audits the assistant's persistent-memory directory for drift — orphan files, broken pointers, schema violations, stale references. Reports only unless `--fix`. Requires a host with a memory dir (gate: `memory_system == yes`). |
 
 ## State Files
 

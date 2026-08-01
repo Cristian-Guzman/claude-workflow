@@ -19,7 +19,14 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-WORKSPACE = Path(os.environ.get("WORKSPACE", os.path.expanduser("~/workspace")))
+# Resolution chain mirrors the shell scripts: WORKSPACE > WORKSPACE_ROOT >
+# CLAUDE_PROJECT_DIR > cwd. No silent ~/workspace fallback.
+WORKSPACE = Path(
+    os.environ.get("WORKSPACE")
+    or os.environ.get("WORKSPACE_ROOT")
+    or os.environ.get("CLAUDE_PROJECT_DIR")
+    or os.getcwd()
+)
 MEMORY_DIR = Path(os.environ.get(
     "MEMORY_DIR",
     os.path.expanduser("~/.claude/memory"),
@@ -431,11 +438,16 @@ def headline(snapshot):
             f"({s['lines']} lines)"
         )
     mi = m["memory_integrity"]
-    print(
-        f"  memory: {mi['total_files']} files | "
-        f"orphans={mi['orphan_count']} broken={mi['broken_pointer_count']} "
-        f"badFM={mi['bad_frontmatter_count']} staleProj={mi['stale_project_memories_count']}"
-    )
+    if "error" in mi:
+        # A machine without the assistant's memory dir still gets a valid
+        # snapshot and headline — never crash on a fresh install.
+        print(f"  memory: {mi['error']}")
+    else:
+        print(
+            f"  memory: {mi['total_files']} files | "
+            f"orphans={mi['orphan_count']} broken={mi['broken_pointer_count']} "
+            f"badFM={mi['bad_frontmatter_count']} staleProj={mi['stale_project_memories_count']}"
+        )
     rv = m["rule_violations_30d"]
     print(
         f"  violations(30d): coauthor={rv['totals']['coauthor']} "

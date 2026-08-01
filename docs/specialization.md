@@ -20,12 +20,18 @@ Run `/project-context` and let it generate this, or copy `_schema.yaml` and fill
 
 ### 2. Settings — `.claude/settings.json`
 
-The template ships with the hooks wired (base-branch guard, session capture) and
+The template ships with the hooks wired (base-branch guard, state index) and
 generic permissions. Adjust:
 
-- Ticket system: if Jira, confirm the `jira` CLI or Atlassian MCP works, and record
-  your workflow's transition IDs (look them up with `getTransitionsForJiraIssue` or
-  `jira transitions <ISSUE>`). If no ticket system, use `/build` instead of `/ticket`.
+- Layout: installing into a single product repo (not a multi-repo workspace)?
+  Set `"env": {"WORKFLOW_LAYOUT": "single-repo"}` so the branch guard treats
+  the root as a product repo.
+- Ticket system: if Jira, confirm the `jira` CLI or Atlassian MCP works, then
+  record `tracker_system` and the numeric `jira_transition_*` ids in the repo
+  profile (`.claude/repo-profiles/<repo>.yaml` — the single home for tracker
+  config; look ids up with `getTransitionsForJiraIssue` or `jira issue move
+  <ISSUE> --debug`). If no ticket system, set `tracker_system: none` and use
+  `/build` instead of `/ticket`.
 - Permissions: add your package manager / build tools to the allowlist so command
   runs don't prompt constantly.
 

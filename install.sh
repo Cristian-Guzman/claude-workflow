@@ -9,7 +9,7 @@ set -euo pipefail
 #                                              repo in a multi-repo workspace)
 #
 # Re-running is SAFE and is how you take updates:
-#   - core/ files (commands, agents, scripts, hooks, docs) are refreshed in place
+#   - core/ files (commands, agents, scripts, docs) are refreshed in place
 #   - seeded files the project owns (codebase-patterns.md, settings.json, ...) are
 #     NEVER overwritten once they exist
 
@@ -69,28 +69,35 @@ seed_repo_files() {
   [ -f "$CLAUDE_DIR/state/index.json" ] || printf '{"version":2,"generated":"","entries":[]}\n' > "$CLAUDE_DIR/state/index.json"
 }
 
+IGNORE_LINES=".claude/state/
+.claude/tickets/
+.claude/debug/
+.claude/qa/
+.claude/builds/
+.claude/refactors/
+.claude/metrics/
+.claude/screenshots/
+.claude/e2e/
+.claude/demos/
+.claude/settings.local.json"
+
 append_gitignore() {
   local gi="$TARGET/.gitignore"
   local marker="# --- claude-workflow local state ---"
-  if [ -f "$gi" ] && grep -qF "$marker" "$gi"; then
+  local added=0 line
+  if [ ! -f "$gi" ] || ! grep -qF "$marker" "$gi"; then
+    { echo ""; echo "$marker"; printf '%s\n' "$IGNORE_LINES"; } >>"$gi"
+    echo "  updated .gitignore (local-state exclusions)"
     return
   fi
-  {
-    echo ""
-    echo "$marker"
-    echo ".claude/state/"
-    echo ".claude/tickets/"
-    echo ".claude/debug/"
-    echo ".claude/qa/"
-    echo ".claude/builds/"
-    echo ".claude/refactors/"
-    echo ".claude/metrics/"
-    echo ".claude/screenshots/"
-    echo ".claude/e2e/"
-    echo ".claude/demos/"
-    echo ".claude/settings.local.json"
-  } >>"$gi"
-  echo "  updated .gitignore (local-state exclusions)"
+  # Marker exists (an earlier install) — line-idempotent upgrade: append any
+  # NEW exclusion lines a newer version introduced, never duplicate old ones.
+  while IFS= read -r line; do
+    grep -qxF "$line" "$gi" || { printf '%s\n' "$line" >>"$gi"; added=1; }
+  done <<EOF_LINES
+$IGNORE_LINES
+EOF_LINES
+  [ "$added" = 1 ] && echo "  updated .gitignore (new local-state exclusions)"
 }
 
 echo "Installing claude-workflow into $TARGET"
@@ -130,9 +137,9 @@ fi
 cat <<'CHECKLIST'
 Next steps to specialize this project (fastest path first):
   1. Open .claude/settings.json — check the permission list matches your tooling.
-     Installing into a SINGLE repo (no multi-repo workspace)? Add
-       "env": {"WORKFLOW_LAYOUT": "single-repo"}
-     so the branch guard treats this root as a product repo.
+     Installing into a SINGLE repo (no multi-repo workspace)? Change the seeded
+     env value to "WORKFLOW_LAYOUT": "single-repo" so the branch guard treats
+     this root as a product repo.
   2. Run /project-context once — it generates .claude/repo-profiles/<repo>.yaml
      (base branch, CI command, tracker + transition ids, dev server) that every
      other command reads. tracker_system: none is a first-class mode.

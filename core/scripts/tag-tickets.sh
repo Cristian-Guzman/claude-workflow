@@ -35,7 +35,7 @@ fi
 # unknown type → empty (the confidence scorer treats it as a missing axis).
 repo_to_layer() {
   local profile="$WORKSPACE/.claude/repo-profiles/$1.yaml" t=""
-  [ -f "$profile" ] && t=$(awk -F': *' '/^type:/{print $2; exit}' "$profile" | awk '{print $1}')
+  [ -f "$profile" ] && t=$(awk -F': *' '/^type:/{print $2; exit}' "$profile" | awk '{print $1}' | tr -d '"' | tr -d "'")
   case "$t" in
     frontend-ui|google-workspace-addin) echo "ui" ;;
     backend-bff)                        echo "bff" ;;

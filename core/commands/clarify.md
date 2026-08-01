@@ -330,7 +330,7 @@ These are `/learn` §2.7b's distilled how-we-work-here rules — capturing them 
 
 - **0 matches**: omit the section entirely. No "No prior art found" line.
 - **1–3 matches**: show all.
-- **4–5 matches**: show top 3 + one-liner: `N more hits — run /retro --feature-area <X> --layer <Y> to see all.`
+- **4–5 matches**: show top 3 + one-liner: `N more hits — grep state/index.json by feature_area/layer to see all.`
 - **>5 matches**: show top 3 + one-liner: `N total — your tags are broad. Narrow with --feature-area or --surface.`
 
 ### Overrides
@@ -1227,4 +1227,4 @@ When a ticket spans repos:
 - After clarification: /ticket (start implementing — reads `PROJ-XXXX-clarify.md` directly)
 - Deepen one phase mid-implementation: `/clarify PROJ-XXXX --phase N` (Step 0.7)
 - Context: related-ticket lookup is built into this command (Step 1.5)
-- Investigation: /docs (check Confluence for business context)
+- Business context: Confluence via MCP/search when a space is configured in the repo profile

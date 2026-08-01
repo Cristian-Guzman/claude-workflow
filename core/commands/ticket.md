@@ -421,7 +421,8 @@ mcp__atlassian__transitionJiraIssue(
 **Fallback — jira CLI:** `jira issue move PROJ-XXXX "In Progress"`
 
 Notes:
-- `<IN_PROGRESS_TRANSITION_ID>` — look up per-project via the jira CLI or `mcp__atlassian__getTransitionsForJiraIssue`, then record it for your ticket project key (e.g. PROJ).
+- Skip this entire step silently when the repo profile says `tracker_system: none`.
+- `<IN_PROGRESS_TRANSITION_ID>` — read `jira_transition_inprogress` from `repo-profiles/<repo>.yaml` (the single home for tracker config — see `_schema.yaml`). If empty, look it up via the jira CLI or `mcp__atlassian__getTransitionsForJiraIssue` and record it there.
 - Skip if the ticket is already in `In Progress`, `Code Review`, `QA`, or `Done`.
 - If the recorded id errors, re-fetch with `mcp__atlassian__getTransitionsForJiraIssue` — workflow ids can differ per project.
 - `/pr` handles the next transition (Code Review) when the PR is created; `/verify` leaves status alone until PR time.
@@ -614,7 +615,7 @@ State files are **never deleted** — they remain on disk after `learned` for re
 
 ## Related Commands
 - Next: /verify → /pr → /learn
-- Testing: /test | /e2e
+- Testing: /test-plan (SDET lane; e2e steps run inside /ticket §5.1a)
 - Context: /qa (related-ticket lookup is built into /clarify Step 1.5)
 - If interrupted: /resume-ticket
 - Building without ticket: /build

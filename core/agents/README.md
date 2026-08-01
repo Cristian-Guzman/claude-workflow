@@ -25,7 +25,7 @@ Every command that invokes an agent MUST have an inline fallback — agents are 
 |-------|---------|---------|
 | `codebase-investigator` | Parallel investigation of a repo for a feature area. Returns similar features, file-placement recommendation, reusable components (by atomic level), API surface, interactive patterns, permissions. | `/clarify`, `/ticket`, `/verify`, `/qa`, `/build`, `/refactor`, `/review-pr` |
 | `jira-context-loader` | Parallel Jira fetch — primary ticket + linked + epic siblings + subtasks + blockers. Normalizes MCP vs CLI output. | `/clarify`, `/ticket`, `/verify`, `/project-debug`, `/status` |
-| `commit-drafter` | Draft a conventional commit message from a diff + ticket context. Respects the no-AI-attribution rule and 72-char subject limit. | `/pr`, `/queue` |
+| `commit-drafter` | Draft a conventional commit message from a diff + ticket context. Respects the no-AI-attribution rule and 72-char subject limit. | `/pr` |
 | `contract-verifier` | Compare TypeScript (or Zod/Go) types against swagger AND/OR a live API response. Catches FE/BFF/backend contract drift. Supports cross-repo consumer trace. | `/verify`, `/clarify` |
 
 ## Planned agents (next)
