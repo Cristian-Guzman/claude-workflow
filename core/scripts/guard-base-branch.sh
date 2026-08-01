@@ -54,7 +54,12 @@ case "$tool" in
     command=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
     printf '%s' "$command" | grep -qE 'git[^|;&]*[[:space:]](commit|push)([[:space:]]|$)' || exit 0
     dir=$(printf '%s' "$input" | jq -r '.cwd // empty')
+    # The command may change directory before running git — honor `git -C <path>`
+    # first, then a leading `cd <path> && ...`. Otherwise a compound command like
+    # `cd /elsewhere && git commit` gets judged against the STALE shell cwd
+    # (false positives when the shell happens to sit in an unrelated repo).
     cdir=$(printf '%s' "$command" | sed -n 's/.*git -C \([^ ]*\).*/\1/p' | head -1)
+    [ -z "$cdir" ] && cdir=$(printf '%s' "$command" | sed -n 's/^[[:space:]]*cd[[:space:]]\{1,\}\([^;&|[:space:]]\{1,\}\).*/\1/p' | head -1)
     [ -n "$cdir" ] && dir="$cdir"
     root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || exit 0
     if [ "$root" = "$WORKSPACE" ] && [ "$LAYOUT" != "single-repo" ]; then
