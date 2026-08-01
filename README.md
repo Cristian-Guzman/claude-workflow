@@ -44,9 +44,9 @@ project has made its own (patterns, settings, checklists) is never overwritten.
 
 | Path in target | Contents | Owned by |
 |---|---|---|
-| `.claude/commands/` | 20 slash commands | upstream (refreshed on update) |
+| `.claude/commands/` | 21 slash commands | upstream (refreshed on update) |
 | `.claude/agents/` | 7 subagents (investigator, verifier, ui-fidelity, ...) | upstream |
-| `.claude/scripts/`, `.claude/hooks/` | base-branch guard hook, state index, session capture | upstream |
+| `.claude/scripts/` | base-branch guard hook, state index, metrics, verify score | upstream |
 | `.claude/routing.md`, `state-file-schema.md`, ... | system docs the commands reference | upstream |
 | `.claude/settings.json` | hooks + permissions (from template) | **your project** |
 | `.claude/codebase-patterns.md` | pattern catalog | **your project** (grown by /learn) |

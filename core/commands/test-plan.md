@@ -3,7 +3,7 @@ name: test-plan
 version: 0.1.0
 model: "opus[1m]"
 description: Turn a ticket's acceptance criteria into an adversarial, level-classified test coverage matrix. Picks the cheapest honest test level per AC, adds the edges the ACs don't state, checks against existing tests, and — for surfaces you can't run locally — emits the minimal manual-QA remainder. Read-only on source; writes a test-plan state file for /automate and /verify-coverage.
-argument-hint: "RPP-XXXX [focus: unit|integration|e2e]"
+argument-hint: "PROJ-XXXX [focus: unit|integration|e2e]"
 allowed-tools:
   - Read
   - Bash
@@ -44,8 +44,8 @@ CWD (must be one level below the workspace root, never the root itself), else li
 ask via AskUserQuestion. Store **REPO_ROOT** / **REPO_NAME**. Load `{REPO_ROOT}/CLAUDE.md` (warn if absent).
 
 ## 1. Load the acceptance criteria
-Resolve ACs in priority order: (a) `{REPO_ROOT}/.claude/tickets/RPP-XXXX.md` state file, (b)
-`RPP-XXXX-clarify.md` blueprint, (c) Jira via MCP or the `jira` CLI, (d) ACs pasted in $ARGUMENTS.
+Resolve ACs in priority order: (a) `{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md` state file, (b)
+`PROJ-XXXX-clarify.md` blueprint, (c) Jira via MCP or the `jira` CLI, (d) ACs pasted in $ARGUMENTS.
 Normalize to a numbered list. If none found, stop and ask.
 
 ## 2. Load the TEST-convention layer (this is the primary read — not codebase-patterns)
@@ -92,12 +92,12 @@ State `N/total fully automatable`, and list the gaps /verify-coverage must key o
 untested regression-class risks, un-automatable ACs to accept-as-manual or promote to a nightly @e2e).
 
 ## 9. Persist the plan
-Write `{REPO_ROOT}/.claude/tickets/RPP-XXXX-test-plan.md` with frontmatter
+Write `{REPO_ROOT}/.claude/tickets/PROJ-XXXX-test-plan.md` with frontmatter
 (`ticket, repo, artifact: test-plan, source_acs, test_stack, coverage_gate, e2e_tier`) + the matrix +
 boundaries + verdict. This is the contract `/automate` implements and `/verify-coverage` audits.
 
 ## 10. Stop
-Report the matrix summary and the file path. Do NOT author tests — that's `/automate RPP-XXXX`.
+Report the matrix summary and the file path. Do NOT author tests — that's `/automate PROJ-XXXX`.
 
 </process>
 

@@ -90,12 +90,11 @@ if [ "$MODE" = "--repo-only" ]; then
   seed_repo_files
   append_gitignore
 else
-  # 1. Core — commands, agents, scripts, hooks (refreshed on every run)
+  # 1. Core — commands, agents, scripts (refreshed on every run)
   for f in "$HERE"/core/commands/*.md;  do copy_core "$f" "$CLAUDE_DIR/commands/$(basename "$f")"; done
   for f in "$HERE"/core/agents/*.md;    do copy_core "$f" "$CLAUDE_DIR/agents/$(basename "$f")"; done
   for f in "$HERE"/core/scripts/*;      do copy_core "$f" "$CLAUDE_DIR/scripts/$(basename "$f")"; done
   chmod +x "$CLAUDE_DIR/scripts/"*.sh 2>/dev/null || true
-  for f in "$HERE"/core/hooks/*;        do copy_core "$f" "$CLAUDE_DIR/hooks/$(basename "$f")"; done
   # 2. System docs at .claude/ root — commands reference them by these exact paths
   for f in "$HERE"/core/docs/*.md;      do copy_core "$f" "$CLAUDE_DIR/$(basename "$f")"; done
 
