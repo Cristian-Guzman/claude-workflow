@@ -19,7 +19,7 @@ so the commands get sharper the more you work.
 ```
 
 Each command runs **once per ticket**, discretely — you pace the pipeline, nothing
-auto-chains. State persists in `.claude/tickets/<ID>.md` so any session (or `/resume`)
+auto-chains. State persists in `.claude/tickets/<ID>.md` so any session (or `/resume-ticket`)
 can pick up where the last one stopped.
 
 ## Install
