@@ -30,6 +30,9 @@ set -euo pipefail
 #     copies everything upstream-shaped to .claude/.upstream-prior/<date>/ before touching
 #     anything; every later run compares the installed core against .upstream-base/ and, when
 #     anything drifted, copies the drifted files + the old baseline there before refreshing
+#   - --stack appends seed packs per templates/seed-packs/README.md (marker + H2 for the two
+#     pattern files, DoD lines behind a marker in ticket-checklist.md, fullstack-monorepo
+#     composes frontend-web + backend-api first); every unit is appended at most once
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
@@ -537,13 +540,24 @@ EOF_MANIFEST
 }
 
 # ---------------------------------------------------------------- seed packs
-apply_seed_pack() { # templates/seed-packs/<flavor>/<name>.seed.md -> appended once to .claude/<name>.md
-  local flavor="$1" dir="$HERE/templates/seed-packs/$1" f name target h2 n=0
-  if [ ! -d "$dir" ]; then
-    echo "  no seed pack $flavor (templates/seed-packs/$flavor/ not in this checkout) — skipped"
-    return 0
-  fi
+# Convention: templates/seed-packs/README.md "The append convention". Each unit (one pack file
+# -> one target) is appended at most once; the H2 / DoD marker already present means skip.
+ensure_trailing_newline() { # $1 = file; a pack appended after an unterminated last line must not glue to it
+  [ -s "$1" ] || return 0
+  [ "$(tail -c 1 "$1" | od -An -c | tr -d ' \n')" = '\n' ] || printf '\n' >>"$1"
+}
+
+pack_has_files() { # $1 = pack dir; true if it ships at least one unit
+  local f
+  for f in "$1"/*.seed.md "$1"/ticket-checklist.dod.md; do [ -f "$f" ] && return 0; done
+  return 1
+}
+
+apply_pack_unit() { # $1 = flavor (dir under templates/seed-packs/); appends its files per the convention
+  local flavor="$1" dir="$HERE/templates/seed-packs/$1" f name target h2 marker n=0 today
+  today="$(date -u +%Y-%m-%d)"
   h2="## Seed pack: $flavor"
+  # 1-3. pattern files: <!-- seed-pack: <flavor> YYYY-MM-DD --> immediately before "## Seed pack: <flavor>"
   for f in "$dir"/*.seed.md; do
     [ -f "$f" ] || continue
     n=$((n + 1))
@@ -554,13 +568,52 @@ apply_seed_pack() { # templates/seed-packs/<flavor>/<name>.seed.md -> appended o
       continue
     fi
     if grep -qxF "$h2" "$target"; then
-      echo "  seed-pack $flavor already in $name.md — left as is"
+      echo "  seed-pack $flavor already in $name.md — already present, left as is"
       continue
     fi
-    { printf '\n%s\n\n' "$h2"; cat "$f"; printf '\n'; } >>"$target"
+    ensure_trailing_newline "$target"
+    { printf '\n<!-- seed-pack: %s %s -->\n%s\n\n' "$flavor" "$today" "$h2"; cat "$f"; printf '\n'; } >>"$target"
     echo "  seed-pack $flavor -> $name.md"
   done
-  [ "$n" = 0 ] && echo "  no seed pack $flavor (no *.seed.md under templates/seed-packs/$flavor/) — skipped"
+  # 4. DoD lines: appended at the END of ticket-checklist.md behind one marker (the idempotency check)
+  f="$dir/ticket-checklist.dod.md"
+  if [ -f "$f" ]; then
+    n=$((n + 1))
+    target="$CLAUDE_DIR/ticket-checklist.md"
+    marker="<!-- seed-pack: $flavor DoD -->"
+    if [ ! -f "$target" ]; then
+      echo "  seed-pack $flavor: ticket-checklist.md is not present in .claude/ — DoD lines skipped"
+    elif grep -qxF "$marker" "$target"; then
+      echo "  seed-pack $flavor DoD already in ticket-checklist.md — already present, left as is"
+    else
+      ensure_trailing_newline "$target"
+      { printf '%s\n' "$marker"; cat "$f"; } >>"$target"
+      ensure_trailing_newline "$target"
+      echo "  seed-pack $flavor DoD -> ticket-checklist.md"
+    fi
+  fi
+  [ "$n" = 0 ] && echo "  no seed pack $flavor (no *.seed.md / ticket-checklist.dod.md under templates/seed-packs/$flavor/) — skipped"
+  return 0
+}
+
+apply_seed_pack() { # --stack <flavor>[/<sub>]: resolve composition, then append each unit once
+  local flavor="$1" dir="$HERE/templates/seed-packs/$1" parent
+  case "$flavor" in
+    *[!A-Za-z0-9_/.-]*|/*|*/|*..*|'') echo "  no seed pack '$flavor' (not a valid pack name) — skipped"; return 0 ;;
+  esac
+  if [ ! -d "$dir" ]; then
+    echo "  no seed pack $flavor (templates/seed-packs/$flavor/ not in this checkout) — skipped"
+    return 0
+  fi
+  case "$flavor" in
+    fullstack-monorepo) # composes: frontend-web, then backend-api, then its own entries
+      apply_pack_unit frontend-web
+      apply_pack_unit backend-api ;;
+    */*) # a sub-pack lands AFTER its flavor pack, so the flavor pack goes first (idempotent)
+      parent="${flavor%/*}"
+      if pack_has_files "$HERE/templates/seed-packs/$parent"; then apply_pack_unit "$parent"; fi ;;
+  esac
+  apply_pack_unit "$flavor"
   return 0
 }
 
