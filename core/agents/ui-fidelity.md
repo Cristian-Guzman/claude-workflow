@@ -50,7 +50,7 @@ If the reference and the surface differ in framework (the common case — plain 
 
 ## Process
 
-### 0. Load this surface's meta-lessons (the learned playbook)
+### 0. Load this surface's meta-lessons (the learned rules)
 Before resolving anything, read `{ledger_path}` (or `{repo_root}/.claude/ui-fidelity-ledger.md`) if it exists and load every `## AUTO:META-LESSONS` entry whose `surface=` matches this ticket's surface. These are generalizations `/learn` §2.7 synthesized from past iteration misses on THIS surface (e.g. "always enumerate empty/overflow/inactive states before coding word-addin cards"). Treat each as a **mandatory gate item** in the contract you build (step 2) and the live-data pass (step 4), and in the report cite which meta-lesson covered which contract row — so a skipped lesson is visible. This is how you compound competence across tickets instead of re-deriving from a blank slate every time. If the ledger or section is absent, proceed normally (cold start).
 
 ### 1. Resolve reference + impl, in this surface's terms
@@ -67,7 +67,7 @@ Enumerate the data shapes the reference mock does NOT show, and check each is ha
 - **Empty/missing field** (no description, no count) → compact or placeholder, not broken layout
 - **Text overflow** (long title, long rich-text/HTML description with embedded headings) → `line-clamp`/truncation + ellipsis
 - **Inactive/disabled state** → visible affordance (pill/dim)
-- **Mixed types/versions** (v1 vs v2, redline vs guidance) → correct per-item rendering
+- **Mixed types/versions** (v1 vs v2, draft vs final) → correct per-item rendering
 - **Very long single token** (unbroken string) → wrap/ellipsis, no horizontal blowout
 Flag any unhandled shape as a finding even if it matches the mock — the mock is the happy path; live data is what ships.
 

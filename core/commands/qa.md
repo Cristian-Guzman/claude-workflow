@@ -1,6 +1,6 @@
 ---
 name: qa
-version: 0.7.0
+version: 0.8.0
 description: Generate a QA guide and optionally run it live with Playwright. Auto-detects backend tickets and produces a runtime-evidence guide instead (deploy confirmation, trigger, data inspection, logs). Also offers a CSS preview harness for sideload-only surfaces (Word Add-in, Google Docs Add-in) where Playwright can't drive the real app.
 argument-hint: "PROJ-XXXX [--live] [--guide-only] [--no-preview]"
 allowed-tools:
@@ -194,9 +194,9 @@ Name where the truth lives and give a runnable assertion:
 
 - **API response JSON** — the usual case. Give the exact fetch (or "DevTools Network tab → {request name}") AND generate a `jq` assertion from the ACs, e.g.:
   ```bash
-  jq '{passed: [.redline.twoTierResults.positionAnalyses[] | select(.status=="completed")] | length,
-       actions: [.redline.twoTierResults.actions[].id] | length,
-       dup_ids: ([.redline.twoTierResults.actions[].id] | length - (unique | length))}' doc.json
+  jq '{passed: [.result.items[] | select(.status=="completed")] | length,
+       actions: [.result.actions[].id] | length,
+       dup_ids: ([.result.actions[].id] | length - (unique | length))}' doc.json
   ```
   State the expected numbers/invariants next to it.
 - **Database** — only when no API exposes the state: port-forward command from CLAUDE.md + the one SELECT/DDB query.

@@ -260,7 +260,7 @@ Read each delivered ticket file. Extract:
   - "Kept" entries → patterns the team enforces in code review
   - "Disagreed" entries → potential pattern conflicts or gaps in documentation
 - The **Classification** section — ticket type and what context was loaded
-- The **Obsidian Links** topic (e.g., `[[playbooks-v2]]`) — used to connect related tickets
+- The **Obsidian Links** topic (e.g., `[[orders-v2]]`) — used to connect related tickets
 
 ### 1.5 Retrospective + Collaboration Reflection (tier-gated, evidence-drafted)
 
@@ -405,17 +405,17 @@ Track `additions : retirements` per /learn run. If you ran 10 times and retired 
 
 ## 2.6 E2E Drift Capture (e2e-enabled repos only — gate first, then classify)
 
-**Gate before anything.** This sub-section runs ONLY when the ticket's repo is e2e-enabled. Resolve `e2e.enabled` from the repo-profile at `$WORKSPACE_ROOT/.claude/repo-profiles/{repo}.yaml`; if the profile is silent, auto-detect (a `playwright.config(.ts|.js)` + a `test:e2e` script + a spec dir). Not e2e-enabled → **skip this entire sub-section silently** (no note, no friction) and continue. The full detection idiom and the spec-grep mechanics live in `addin-fe/.claude/testing-patterns.md` → **"## E2E repo-awareness, blast-radius & skip contract"** — cite that section; do not re-derive the logic here. Always read `spec_dir` from the profile; never hardcode `e2e/` (e.g. the gdocs-addin repo uses `test/e2e/`).
+**Gate before anything.** This sub-section runs ONLY when the ticket's repo is e2e-enabled. Resolve `e2e.enabled` from the repo-profile at `$WORKSPACE_ROOT/.claude/repo-profiles/{repo}.yaml`; if the profile is silent, auto-detect (a `playwright.config(.ts|.js)` + a `test:e2e` script + a spec dir). Not e2e-enabled → **skip this entire sub-section silently** (no note, no friction) and continue. The full detection idiom and the spec-grep mechanics live in the repo's `testing-patterns.md` canonical E2E section → **"## E2E repo-awareness, blast-radius & skip contract"** — cite that section; do not re-derive the logic here. Always read `spec_dir` from the profile; never hardcode `e2e/` (e.g. the gdocs-addin repo uses `test/e2e/`).
 
 **(a) Is this an e2e-fix ticket?** Detect from the diff/Files-Modified + Event Log: the ticket touched `{spec_dir}` specs, OR an Event Log entry / retro names a failing/skipped spec, OR the work was "fix the broken/flaky/skipped e2e suite." If none of these, skip to §3. (A frontend ticket that merely *changed product code* an e2e suite happens to cover is NOT an e2e-fix ticket — only classify when the fix WAS to the specs or to the spec/code contract.)
 
 **(b) Classify the fix into the E2E drift taxonomy.** Map each fix to a taxonomy bucket. The canonical bucket list is whatever the testing-patterns "E2E repo-awareness, blast-radius & skip contract" / drift-taxonomy section defines; the recurring buckets observed this cycle are:
 - **route/path versioning** — a ROUTE literal or `*Path`/`*Base`/`*_URL` const moved (e.g. `/word-addin/analyze` → `/v1/analyze`); spec asserted the old path.
-- **copy drift** — a user-visible string changed or was removed and a spec still asserts the old copy (REMOVED copy a spec asserts = guaranteed break; e.g. "Ask about your document" → "Product Assistant", "Create Playbook" → "Add Playbook").
+- **copy drift** — a user-visible string changed or was removed and a spec still asserts the old copy (REMOVED copy a spec asserts = guaranteed break; e.g. "Ask about your document" → "Product Assistant", "Create item" → "Add item").
 - **transport migration** — request mechanism changed (e.g. GET-poll → SSE) and the spec's `page.route("**/...")` / wait shape no longer matches.
 - **mock timing** — eager-init vs lazy mock setup; the mock wasn't installed before the surface read it.
 - **selector/markup drift** — header class-selectors → semantic markup; a CSS/`data-testid` selector the spec used disappeared.
-- **data-scale assumption** — list/fixture size changed (e.g. a 1000-playbook list now needs name-search to reach an item).
+- **data-scale assumption** — list/fixture size changed (e.g. a 1000-row list now needs name-search to reach an item).
 - **false-green skip guard** — drift was HIDDEN by a `test.skip` or an `isVisible().catch(()=>false)` guard rather than fixed; the lesson is the *un-skip*, not just the assertion. (Note the suite-health impact in step (c).)
 
 If a fix doesn't fit a bucket, add it as a new bucket in the taxonomy section (don't force-fit).
@@ -427,7 +427,7 @@ _Source: [[PROJ-XXXX]]_
 ```
 This append goes through the normal §4 approval batch (shown before write) and the §5 apply path — it is NOT auto-written. Append the bucket entry under the canonical **"## E2E drift taxonomy"** heading in testing-patterns.md (detection/skip rules live under **"## E2E repo-awareness, blast-radius & skip contract"**; the Suite-health stamp lives under the taxonomy section — see (d)). Never fabricate those headings from here — if either is missing, report it rather than re-creating a second copy.
 
-**(d) Stamp suite health as a trend signal.** For the e2e-enabled repo, capture the suite's skip-rate + failed-count so drift hidden as false-green stays visible run-over-run (the live un-caught drift this cycle was a `test.skip`-masked "Create Playbook" assertion at `playbooks-v2-move-positions.spec.ts:58`). Resolve `spec_dir`/`run_command` from the profile; do NOT run a `sideload_only: true` suite (e.g. the gdocs-addin real-API tier) — for those, only count statically and note "not run (sideload_only)". Static counts (no run needed):
+**(d) Stamp suite health as a trend signal.** For the e2e-enabled repo, capture the suite's skip-rate + failed-count so drift hidden as false-green stays visible run-over-run (the live un-caught drift this cycle was a `test.skip`-masked "Create item" assertion at `e2e/<area>/<flow>.spec.ts:NN`). Resolve `spec_dir`/`run_command` from the profile; do NOT run a `sideload_only: true` suite (e.g. the gdocs-addin real-API tier) — for those, only count statically and note "not run (sideload_only)". Static counts (no run needed):
 ```bash
 # resolve SPEC_DIR from the repo-profile (never hardcode e2e/)
 SPEC_DIR={spec_dir}; REPO=$WORKSPACE_ROOT/{repo}
@@ -649,9 +649,9 @@ If user approves:
 
 After processing all tickets, strengthen the knowledge graph:
 
-1. **Cross-link related tickets** — If multiple tickets share the same topic (e.g., `[[playbooks-v2]]`), add `[[PROJ-YYYY]]` to each other's `## Obsidian Links → Related` section (if not already there).
+1. **Cross-link related tickets** — If multiple tickets share the same topic (e.g., `[[orders-v2]]`), add `[[PROJ-YYYY]]` to each other's `## Obsidian Links → Related` section (if not already there).
 
-2. **Update topic hub pages** — Check if a topic hub exists at `$WORKSPACE_ROOT/specs/{topic}.md` (e.g., `specs/playbooks-v2.md`). If it does:
+2. **Update topic hub pages** — Check if a topic hub exists at `$WORKSPACE_ROOT/specs/{topic}.md` (e.g., `specs/orders-v2.md`). If it does:
    - Add any new tickets to the `## Tickets` section
    - Add a note about the new patterns learned: "Patterns added on YYYY-MM-DD from PROJ-XXXX, PROJ-YYYY"
    
@@ -791,8 +791,8 @@ Display:
   "### MUI: DatePicker requires LocalizationProvider wrapper
    <!-- Learned from [[PROJ-5580]], [[PROJ-5501]] -->
    _Source: [[PROJ-5580]], [[PROJ-5501]]_"
-→ Cross-links [[PROJ-5835]] ↔ [[PROJ-5873]] (both playbooks-v2)
-→ Updates specs/playbooks-v2.md with new ticket references
+→ Cross-links [[PROJ-5835]] ↔ [[PROJ-5873]] (both orders-v2)
+→ Updates specs/orders-v2.md with new ticket references
 → User approves → files updated, tickets marked as learned
 
 /learn addin-fe
@@ -803,7 +803,7 @@ Display:
 → Asks: "What patterns or gotchas did you discover in this session?"
 → User: "Playwright can't trigger MUI Autocomplete freeSolo chip creation"
 → Asks: "Any codebase surprises or undocumented behavior?"
-→ User: "Position V2 API returns null for conceptDetection, ifFoundAction, ifMissingAction"
+→ User: "Inventory V2 API returns null for conceptDetection, onFound, onMissing"
 → Asks: "Any testing insights?"
 → User: "Use Playwright MCP --extension mode with auth token for authenticated testing"
 → Asks: "Which repo(s)?" → detects addin-fe from CWD

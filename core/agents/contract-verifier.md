@@ -36,15 +36,15 @@ For each endpoint:
 
 > **These specs are Swagger 2.0** (`"swagger":"2.0"`), NOT OpenAPI 3.0, and they come in **two shapes**:
 > 1. **Real captured swagger** (automator, auth, the Control batch): `.paths[P].<method>.responses["200"].schema` carries a `$ref` → `#/definitions/...` (NOT `#/components/...`).
-> 2. **Hand-authored specs** (playbook-v2): `.paths[]` are index-only (operationId + summary, **no responses, no `$ref`**), and the real field contract lives directly in `.definitions[TypeName]`.
+> 2. **Hand-authored specs** (e.g. orders-v2): `.paths[]` are index-only (operationId + summary, **no responses, no `$ref`**), and the real field contract lives directly in `.definitions[TypeName]`.
 >
-> The field contract lives in `.definitions` in BOTH shapes, so **extract definition-centric** — match the TS interface name to a `definitions` key. Notes: `required` is an **array on the schema** (NOT per-field `required:true`) and is often absent in these specs; list-wrapper definitions nest fields under `.items` (resolve its `$ref`); path keys have no leading slash or `/v2/` prefix (`"positions"`, `"playbooks/derive"`).
+> The field contract lives in `.definitions` in BOTH shapes, so **extract definition-centric** — match the TS interface name to a `definitions` key. Notes: `required` is an **array on the schema** (NOT per-field `required:true`) and is often absent in these specs; list-wrapper definitions nest fields under `.items` (resolve its `$ref`); path keys have no leading slash or `/v2/` prefix (`"items"`, `"orders/derive"`).
 
 ```bash
-SPEC=$WORKSPACE_ROOT/.claude/api-reference/playbook-v2-api.json
+SPEC=$WORKSPACE_ROOT/.claude/api-reference/orders-api.json
 
 # 1. List available type definitions (the field contract) — empty means index-only spec
-jq -r '.definitions | keys[]' "$SPEC"        # -> Position, PlaybookV2, ...
+jq -r '.definitions | keys[]' "$SPEC"        # -> Item, OrderV2, ...
 #    If .definitions is empty/absent (billing, chat, project specs), STOP and report
 #    "no field contract available in spec" — do not silently find nothing.
 
@@ -72,14 +72,14 @@ Report shape:
 
 ```markdown
 ### Static Check — swagger vs types
-Swagger source: $WORKSPACE_ROOT/.claude/api-reference/playbook-v2-api.json
+Swagger source: $WORKSPACE_ROOT/.claude/api-reference/orders-api.json
 
 | Endpoint | Field | Swagger | TypeScript | Status |
 |----------|-------|---------|------------|--------|
 | GET /v2/positions | `id` | string (required) | `string` | ✅ |
 | GET /v2/positions | `isPublic` | boolean (required) | `isPublic?: boolean` | ❌ FE treats as optional, swagger says required |
 | GET /v2/positions/:id | `actions[].action` | object | `string` | ❌ type shape drift (FE expects string, BFF returns object) |
-| GET /v2/positions/:id/versions/:vid | `ifFoundAction` | nullable string | `string` | ❌ FE missing null case |
+| GET /v2/items/:id/versions/:vid | `onMissing` | nullable string | `string` | ❌ FE missing null case |
 | ... | ... | ... | ... | ... |
 ```
 

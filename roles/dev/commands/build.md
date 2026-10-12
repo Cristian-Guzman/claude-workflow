@@ -49,6 +49,7 @@ Once identified, store:
 - UI feature → + codebase-patterns.md + testing-patterns.md
 - Backend work → + codebase-patterns.md + ARCHITECTURE.md
 - Testing work → + testing-patterns.md only
+- If `$WORKSPACE_ROOT/.claude/codebase-patterns-shared.md` / `testing-patterns-shared.md` exist, load each first (shared rules); then the repo file.
 
 **If `{REPO_ROOT}/CLAUDE.md` does NOT exist AND no `.claude/*.md` files exist**, warn:
 > "This repo ({REPO_NAME}) has no CLAUDE.md or pattern files. I'll use generic defaults, but I won't know its conventions. Consider creating a CLAUDE.md."

@@ -26,7 +26,7 @@ Caller passes:
 1. **Study the actual diff first** — never draft from the ticket title alone. The diff is ground truth; the ticket may be out of date.
 2. **One subject line** — ≤72 characters, imperative mood, no trailing period.
 3. **Type prefix is required:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `style`, `build`, `ci`. No custom types.
-4. **Scope in parentheses:** use the ticket ID when present — `feat(PROJ-5901): ...`. If no ticket, use the feature domain — `fix(playbook-v2): ...`.
+4. **Scope in parentheses:** use the ticket ID when present — `feat(PROJ-5901): ...`. If no ticket, use the feature domain — `fix(orders-v2): ...`.
 5. **No AI attribution ever** — no `Co-Authored-By: Claude`, no "Generated with Claude Code", no emoji-signature. This is a hard rule.
 6. **Body optional** — include one only when the subject cannot capture the "why". Body lines ≤80 chars, wrapped.
 7. **Footer only for breaking changes** — `BREAKING CHANGE: <description>`.
@@ -85,7 +85,7 @@ Body format:
 
 <optional footer>
 Closes: PROJ-5901, PROJ-5902
-BREAKING CHANGE: `getPlaybook` now returns null instead of throwing.
+BREAKING CHANGE: `getOrder` now returns null instead of throwing.
 ```
 
 Never include `Co-Authored-By`, `Generated-by`, or any LLM attribution line.
@@ -123,28 +123,28 @@ Why:
 ## Examples
 
 **Example 1 — pure feature**
-Input: diff adds 2 new handler files + 1 component; branch = `feature/PROJ-5901-archive-playbook`; ticket type = Story.
+Input: diff adds 2 new handler files + 1 component; branch = `feature/PROJ-5901-archive-order`; ticket type = Story.
 Output:
 ```text
-feat(PROJ-5901): add archive-playbook action to playbook detail
+feat(PROJ-5901): add archive-order action to order detail
 ```
 
 **Example 2 — bugfix with non-obvious why**
 Input: diff changes one selector in a hook; branch = `fix/PROJ-5912-drawer-crash`.
 Output:
 ```text
-fix(PROJ-5912): guard useDrawerState against null playbook
+fix(PROJ-5912): guard useDrawerState against null order
 
-The drawer opened from a row whose parent playbook was still
+The drawer opened from a row whose parent order was still
 loading, crashing useDrawerState's downstream selector. Guard
 at the hook boundary so the drawer renders a skeleton instead.
 ```
 
 **Example 3 — refactor that looks like a feat**
-Input: diff renames `fetchPlaybook` to `fetchPlaybookWithCache`, no behavior change, no new tests.
+Input: diff renames `fetchOrder` to `fetchOrderWithCache`, no behavior change, no new tests.
 Output:
 ```text
-refactor(PROJ-6026): rename fetchPlaybook to fetchPlaybookWithCache
+refactor(PROJ-6026): rename fetchOrder to fetchOrderWithCache
 ```
 (Note commentary: "no new behavior; callers untouched; scope=PROJ-6026 from branch.")
 

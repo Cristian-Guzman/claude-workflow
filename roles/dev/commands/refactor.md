@@ -2,7 +2,7 @@
 name: refactor
 version: 0.8.0
 description: Scan existing code against codebase-patterns.md, find violations, plan fixes, and refactor with full pattern enforcement.
-argument-hint: "scope (e.g., playbooks-v2, app/_lib/tickets, or 'full')"
+argument-hint: "scope (e.g., orders-v2, app/_lib/tickets, or 'full')"
 allowed-tools:
   - Read
   - Bash
@@ -29,7 +29,7 @@ Use this after AI-generated code was merged without proper pattern enforcement, 
 
 Determine which repository to work in:
 
-1. **Parse $ARGUMENTS** for repo hints (e.g., "in addin-fe", "playbooks-v2 in addin-fe")
+1. **Parse $ARGUMENTS** for repo hints (e.g., "in addin-fe", "orders-v2 in addin-fe")
 2. **Check current working directory** — if CWD is inside `$WORKSPACE_ROOT/{repo-name}/`, use that repo. **IMPORTANT:** `$WORKSPACE_ROOT/` itself is NOT a valid target.
 3. **If still ambiguous**, list available repos and ask the user:
    ```bash
@@ -42,6 +42,7 @@ Once identified, store:
 
 **Load repo config (read each if it exists):**
 - `{REPO_ROOT}/CLAUDE.md` — conventions, commands, architecture
+- `$WORKSPACE_ROOT/.claude/codebase-patterns-shared.md` if it exists — load first (shared rules); then the repo file
 - `{REPO_ROOT}/.claude/codebase-patterns.md` — coding standards (**required for /refactor**)
 - `{REPO_ROOT}/.claude/testing-patterns.md` — test patterns
 
@@ -54,7 +55,7 @@ Parse $ARGUMENTS to identify what to scan:
 
 | Input | Scope |
 |-------|-------|
-| Feature name (e.g., "playbooks-v2") | Scan `app/(web)/playbooks-v2/` and related dirs |
+| Feature name (e.g., "orders-v2") | Scan `app/(web)/orders-v2/` and related dirs |
 | File path (e.g., "app/_lib/tickets") | Scan that specific path |
 | "full" or "all" | Scan entire repo source (warn: may be large) |
 | Empty | Ask user what scope to refactor |
