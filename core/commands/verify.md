@@ -479,13 +479,13 @@ If `codebase-patterns.md` was loaded, also check modified files for convention v
 
 1. **`networkidle` ban (mechanical):** changed e2e files must not introduce the discouraged anti-pattern (see testing-patterns "Never use waitForLoadState(\"networkidle\")"):
    ```bash
-   git diff --name-only $(git merge-base origin/develop HEAD)..HEAD -- 'e2e/**' \
+   git diff --name-only $(git merge-base origin/{BASE_BRANCH} HEAD)..HEAD -- 'e2e/**' \
      | xargs grep -nE 'waitForLoadState\("networkidle"\)' 2>/dev/null
    ```
    Any hit → cap the score at 85%, reason "reintroduces discouraged `networkidle`; replace with a web-first wait."
 2. **Force-lint the changed specs (mechanical):** e2e dirs commonly sit OUTSIDE every CI gate — many repos ignore the spec dir in their ESLint config AND exclude it from the CI tsconfig — so dead code (e.g. `const response = await page.goto(...)` with `response` never read) rides through the CI pipeline silently. Lint the changed spec files with the repo's own config, bypassing only the ignore list:
    ```bash
-   git diff --name-only $(git merge-base origin/develop HEAD)..HEAD -- 'e2e/**' \
+   git diff --name-only $(git merge-base origin/{BASE_BRANCH} HEAD)..HEAD -- 'e2e/**' \
      | xargs npx eslint --no-ignore
    ```
    `--no-ignore` skips just the `ignores` block — the config's test-file overrides (`**/*.spec.{ts,tsx}`) still match, so unused vars surface as `@typescript-eslint/no-unused-vars` warnings without production-rule noise. Any NEW error → cap the score at 85%. Warnings on lines this diff touched (unused vars, dead assignments) → name each in the report and fix before PR — they're one-line cleanups. Pre-existing warnings in UNCHANGED specs are rot — note, don't clamp ([[feedback_e2e_rot_not_blocking]]).

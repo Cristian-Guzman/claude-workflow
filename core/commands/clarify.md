@@ -954,7 +954,7 @@ Spec dir: `{spec_dir}` (from repo profile) · {N} affected spec(s)
 
 | Spec (file:line) | Surface this ticket changes | Matched token | Risk |
 |------------------|-----------------------------|---------------|------|
-| `e2e/playbooks-v2/playbooks-v2-move-positions.spec.ts:58` | "Add Playbook" drawer trigger (was "Create Playbook") | `getByText("Create Playbook")` | guaranteed break — spec asserts REMOVED copy |
+| `e2e/<area>/<flow>.spec.ts:58` | "Add item" primary action (was "Create item") | `getByText("Create item")` | guaranteed break — spec asserts REMOVED copy |
 | `e2e/analysis/analysis.spec.ts:120` | route `/v1/analysis` (was `/word-addin/analysis`) | `page.route("**/word-addin/analysis")` | guaranteed break — route renamed |
 
 **Coverage gap:** {if a critical user flow GAINS new behavior with no covering spec, name the flow and recommend `/e2e {feature}` — see Step 6 / ticket-checklist DoD.}
