@@ -81,10 +81,7 @@ state files are never deleted; project-owned files are never overwritten.
 
 ## `/bootstrap` deep cut and `<command-specs>` reconcile
 
-- **What:** cut `core/commands/bootstrap.md` (~1950 lines, flagged for ~40% since 0.2.1) and either regenerate the inlined `<command-specs>` from the shipped command files or delete the single-file fallback.
-- **Why deferred:** `/bootstrap` is itself an installer; refactoring it in the same release as the role split risks the install path. 0.8.0 marks the specs as a stale fork (names `security`/`debug`/`resume`, no SDET specs, `glab` fallback only there) and leaves them.
-- **Promote when:** the role split has survived one real upgrade cycle (`install.sh` 0.7.0 → 0.8.0 on a live workspace) without a `/bootstrap` regression.
-- **Design:** `core/commands/bootstrap.md` header note at `<command-specs>` (the stale-fork marker) and `install.sh` (the second installer). The drift to close: `/bootstrap` carries its own inlined copy of every command spec, so the same change has to land twice per release and the copies have already diverged; the cut either regenerates `<command-specs>` from `core/commands/*.md` + `roles/*/commands/*.md` at release time, or deletes the single-file fallback and lets `/bootstrap` read the shipped files.
+- **Landed in 0.9.0.** `bootstrap.md` is the adapter only (probe → gates → archive moves → manifest); `<command-specs>`, `<templates>`, `<agent-specs>` and the release-manager mode are deleted. Inventory → `core/docs/inventory.yaml`; probe → `core/scripts/capability-probe.sh`; decisions → `core/scripts/adapt-plan.py`; versioning → `scripts/release.py` (maintainer) + `/update` (installed). See the 0.9.0 changelog.
 
 ## Optional history rewrite
 

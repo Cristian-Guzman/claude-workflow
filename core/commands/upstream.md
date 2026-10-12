@@ -1,6 +1,6 @@
 ---
 name: upstream
-version: 0.8.0
+version: 0.9.0
 model: "opus[1m]"
 description: Harvest the GENERIC workflow learnings a confidential project produced (local edits to core commands, landed proposals, process lessons, feedback memories) into a sanitized, provenance-free bundle. Deterministic redaction + leak check + secrets scan; bundles go to a PRIVATE inbox repo as issues, never to the public repo. --intake runs on your personal machine, merges a month of bundles into ONE public PR under a scoped personal git identity, then restores the previous identity.
 argument-hint: "[--since YYYY-MM-DD] [--dry-run] [--publish] | --intake <bundle-dir|inbox>"
@@ -255,7 +255,7 @@ Window: {since} → {date} · {N} tickets delivered · mean fix-iterations {x} �
   produces `harvest/YYYY-MM` again — rebase onto it rather than opening a second PR.
 - The identity swap is local to the clone and bracketed by `save`/`restore`; a leftover backup file at
   `.git/upstream-identity-backup.json` means a previous run died mid-way — run `identity restore` first.
-- Related: `/learn` (produces the sources), `/bootstrap --bump` (lands an intake), `install.sh` (writes
+- Related: `/learn` (produces the sources), `scripts/release.py bump` (cuts the release after an intake), `install.sh` (writes
   the baseline this command diffs against).
 </guidelines>
 

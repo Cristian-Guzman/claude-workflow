@@ -26,7 +26,7 @@ Multi-repo workspace? Install once at the root, then `./install.sh <workspace>/r
 owns (patterns, settings, checklists) is never overwritten. Roles are remembered in the tracked `.claude/workflow-manifest.json`
 (flag → manifest → inferred from installed commands → `dev`); a dropped role's commands are archived to `.claude/_archived-commands/`,
 never deleted. The first run on a pre-0.7.0 install copies what it finds to `.claude/.upstream-prior/<date>/` (MANIFEST.md +
-SHA256SUMS) before touching anything; a 0.6.0 install's retired `test-plan.md` stays as an orphan that `/bootstrap --check` reports.
+SHA256SUMS) before touching anything; a 0.6.0 install's retired `test-plan.md` stays as an orphan that `/bootstrap` reports (ORPHAN, never moved). Inside an installed workspace, `/update` shows the changelog since your version and re-installs with local edits kept.
 
 ## Start here
 
@@ -57,7 +57,7 @@ Each command runs **once per ticket**, discretely. State persists in `.claude/ti
 
 ## All commands (advanced)
 
-- **core (15, every role):** `/pr` `/ci-check` `/learn` `/qa` `/review-pr` `/review-comments` `/resume-ticket` `/status` `/project-debug` `/project-context` `/screenshot` `/demo-summary` `/memory-lint` `/bootstrap` `/upstream`
+- **core (16, every role):** `/pr` `/ci-check` `/learn` `/qa` `/review-pr` `/review-comments` `/resume-ticket` `/status` `/project-debug` `/project-context` `/screenshot` `/demo-summary` `/memory-lint` `/bootstrap` `/update` `/upstream`
 - **dev (6):** `/clarify` `/ticket` `/build` `/refactor` `/verify` `/ui-fidelity`
 - **sdet (3):** `/cover` `/triage` (one red test, or a whole red run clustered by shared cause) `/log` (mint the ticket *from* the work)
 
@@ -67,7 +67,7 @@ Full matrix: [core/commands/README.md](core/commands/README.md). Deferred design
 
 | Path in target | Contents | Owned by |
 |---|---|---|
-| `.claude/commands/` | 15 core + 6 dev + 3 sdet slash commands, per the roles selected | upstream (refreshed on update) |
+| `.claude/commands/` | 16 core + 6 dev + 3 sdet slash commands, per the roles selected | upstream (refreshed on update) |
 | `.claude/agents/`, `scripts/`, `routing.md`, `state-file-schema.md`, `*-shared.md` | 7 subagents (same set for every role), hooks + scripts (sdet adds `guard-test-integrity.sh`, `triage-cluster.py`), system docs | upstream |
 | `.claude/learn-targets/<role>.yaml`, `workflow-manifest.json` | what `/learn` scans per role; which roles are installed (tracked) | upstream / install.sh |
 | `.claude/settings.json` | hooks + permissions (from template; sdet merges its hook fragment on first seed) | **your project** |
