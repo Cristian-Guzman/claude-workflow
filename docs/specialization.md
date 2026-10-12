@@ -88,7 +88,7 @@ no unrelated formatting churn, branch named `feature|fix/PROJ-XXXX-desc`.
 | `qa/*.md` | /qa | generated QA guides |
 | `workflow-manifest.json` | install.sh | which roles are installed (install-owned, tracked) |
 | `learn-targets/<role>.yaml` | install.sh | what /learn scans per role (upstream-owned, refreshed) |
-| `.upstream-prior/<date>/` | install.sh (first run on a pre-0.7.0 install) | your pre-upgrade files; local, delete after review |
+| `.upstream-prior/<date>/` | install.sh (first run on a pre-0.7.0 install) | your pre-upgrade files; local, delete after review | On later upgrades, any core file you edited locally (and the old baseline) is copied there too before the refresh, so local edits are never lost.
 | `_archived-commands/` | install.sh (role dropped / command retired), /bootstrap (gate false) | archived, never deleted |
 
 ## Power features (when you need them)

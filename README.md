@@ -25,7 +25,7 @@ Multi-repo workspace? Install once at the root, then `./install.sh <workspace>/r
 **Updating:** `git pull` here, re-run `install.sh`. Core and role files refresh in place; anything the project
 owns (patterns, settings, checklists) is never overwritten. Roles are remembered in the tracked `.claude/workflow-manifest.json`
 (flag → manifest → inferred from installed commands → `dev`); a dropped role's commands are archived to `.claude/_archived-commands/`,
-never deleted. The first run on a pre-0.7.0 install copies what it finds to `.claude/.upstream-prior/<date>/` (MANIFEST.md +
+never deleted. The first run on a pre-0.7.0 install copies what it finds to `.claude/.upstream-prior/<date>/` (MANIFEST.md + On later upgrades, any core file you edited locally (and the old baseline) is copied there too before the refresh, so local edits are never lost.
 SHA256SUMS) before touching anything; a 0.6.0 install's retired `test-plan.md` stays as an orphan that `/bootstrap --check` reports.
 
 ## Start here
