@@ -359,7 +359,7 @@ The preview file is a transient artifact — gitignored, not committed, regenera
 
 Auto-trigger this step when **ALL** of these hold:
 
-1. The changeset touches any file under `app/(word-addin)/`, `app/_main/Word-Addin/`, `app/_lib/word-addin/`, OR any other surface flagged in the repo profile's `sideload_only_routes:` list (e.g., Google Docs add-in paths).
+1. The changeset touches any file under a sideload-only surface's directories (e.g. `app/(<surface>)/`, `app/_main/<Surface>/`, `app/_lib/<surface>/`), OR any other surface flagged in the repo profile's `sideload_only_routes:` list (e.g., Google Docs add-in paths).
 2. The changeset includes at least one `*.module.css` change, OR the modified `.tsx` files contain `position: fixed`, `position: sticky`, or layout-affecting structural changes (new wrapper div, flex/grid changes, etc.).
 
 Skip if either condition is missing. For pure logic / data / API changes that don't move pixels, the preview adds no value.
@@ -372,7 +372,7 @@ Don't auto-generate without confirmation — it's an extra step that costs ~30s 
 
 ### Step 2: Generate the preview HTML
 
-Write to `{REPO_ROOT}/.claude/previews/{TICKET_ID}-{surface-slug}.html` (e.g., `[[PROJ-6296]]-word-addin-bottom-strip.html`).
+Write to `{REPO_ROOT}/.claude/previews/{TICKET_ID}-{surface-slug}.html` (e.g., `PROJ-XXXX-<surface>-bottom-strip.html`).
 
 **Path discipline:**
 - `.claude/` is already gitignored in addin-fe (and any repo where it's set up — confirm with `git check-ignore .claude/previews/test.html`). The preview file therefore won't accidentally commit.

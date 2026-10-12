@@ -71,7 +71,7 @@ sidecar for any `kind:`. Details, counts and the break-to-validate protocol: `ro
 **The hard rule:** real application bugs keep their tests red. The only sanctioned quarantine is
 `test.fail(true, 'BUG PROJ-n: …')`; `scripts/guard-test-integrity.sh` (PreToolUse) blocks `.only(` and any
 `.skip/.fixme/.fail` added without a `BUG <KEY>-n` / `FLAKY FL-n` key or a deterministic flag read.
-**Four numbers, always:** every `/cover` and `/triage` summary prints `passed / failed / known-failures-with-bug / skipped`;
+**Four numbers, always:** every `/cover` and `/triage` summary prints `passed / failed / known-failures-with-bug / skipped` (followed by `known-failures-unkeyed`, the expected-fail tests lacking a `BUG` key — reported as violations, never as passes);
 known failures are never folded into passes (native reporters count them as expected — the command reports are authoritative).
 Deferred (`/gaps` scoring, `/stabilize`, quarantine expiry, reporter, …): `docs/roadmap.md`.
 
