@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "path=$(jq -r '.tool_input.file_path // empty'); [[ \"$path\" =~ /\\.claude/(tickets|debug|builds|refactors|e2e)/[^/]+\\.md$ ]] && \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/state-index-upsert.sh \"$path\" || true",
+            "command": "path=$(jq -r '.tool_input.file_path // empty'); [ -n \"$path\" ] && \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/state-index-upsert.sh \"$path\" || true",
             "timeout": 5,
             "async": true
           }
