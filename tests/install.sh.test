@@ -134,6 +134,8 @@ $newer
 EOF
 assert_eq "only upstream-owned paths rewritten" "$bad_paths" ""
 assert "something was refreshed" test -n "$newer"
+assert "no drift capture when the core was not edited" test ! -e "$W/.claude/.upstream-prior"
+assert_grep "clean core reported in one line" "core matches the baseline — nothing to capture" "$S/out.log"
 end
 
 # ---------------------------------------------------------------- 5. switch roles and back
@@ -230,10 +232,25 @@ if git -C "$REPO" archive main 2>/dev/null | tar -x -C "$LEG7" && grep -q write_
   bash "$LEG7/install.sh" "$W" >/dev/null 2>&1
   assert "0.7.0 wrote a baseline" test -f "$W/.claude/.upstream-base/commands/test-plan.md"
   echo "<!-- local edit -->" >>"$W/.claude/commands/upstream.md"
+  echo "<!-- local edit review -->" >>"$W/.claude/commands/pr.md"
   run "$W"
   assert_eq "exit" "$(rc)" 0
   assert_grep "roles inferred" "roles    dev (inferred from installed commands)" "$S/out.log"
-  assert "no prior capture when a baseline exists" test ! -e "$W/.claude/.upstream-prior"
+  P="$W/.claude/.upstream-prior/$TODAY"
+  assert "drifted core captured before the refresh" test -d "$P"
+  assert "edited pr.md recoverable under installed/" grep -q "local edit review" "$P/installed/commands/pr.md"
+  assert "edited upstream.md recoverable under installed/" grep -q "local edit" "$P/installed/commands/upstream.md"
+  assert "old baseline copy of pr.md kept" cmp -s "$LEG7/core/commands/pr.md" "$P/baseline/commands/pr.md"
+  assert "old baseline kept whole (test-plan.md too)" test -f "$P/baseline/commands/test-plan.md"
+  assert "unedited files not duplicated under installed/" test ! -e "$P/installed/commands/clarify.md"
+  assert_grep "MANIFEST names pr.md" 'commands/pr.md' "$P/MANIFEST.md"
+  assert_grep "MANIFEST names upstream.md" 'commands/upstream.md' "$P/MANIFEST.md"
+  assert_grep "MANIFEST records versions old -> new" "Versions: 0.7.0 -> $(sed -n 's/^version: *//p' "$REPO/core/docs/workflow-version.md" | head -1)" "$P/MANIFEST.md"
+  assert "capture SHA256SUMS verifies" sh -c "cd '$P' && shasum -a 256 -c SHA256SUMS >/dev/null"
+  assert_grep "notice names the drifted file" "commands/pr.md (modified)" "$S/out.log"
+  assert_grep "notice counts both drifted files" "2 core file(s) differ from the 0.7.0 baseline" "$S/out.log"
+  assert "live pr.md is the fresh copy" cmp -s "$REPO/core/commands/pr.md" "$W/.claude/commands/pr.md"
+  assert "live pr.md lost the edit (it lives in the capture now)" sh -c "! grep -q 'local edit review' '$W/.claude/commands/pr.md'"
   assert "retired test-plan.md archived" test -f "$W/.claude/_archived-commands/test-plan.md"
   assert "retired test-plan.md gone from commands" test ! -e "$W/.claude/commands/test-plan.md"
   assert_grep "retirement reported" "retired upstream" "$S/out.log"
@@ -244,6 +261,17 @@ if git -C "$REPO" archive main 2>/dev/null | tar -x -C "$LEG7" && grep -q write_
   run "$W"
   assert "locally modified retired file is kept" test -f "$W/.claude/commands/test-plan.md"
   assert_grep "kept + explained" "locally modified" "$S/out.log"
+  assert "second drifted upgrade the same day gets a numeric suffix" test -d "$W/.claude/.upstream-prior/$TODAY.1"
+  assert "suffixed capture holds the drifted test-plan.md" grep -q "^edited$" "$W/.claude/.upstream-prior/$TODAY.1/installed/commands/test-plan.md"
+  assert "first capture untouched by the second" grep -q "local edit review" "$P/installed/commands/pr.md"
+  # Same 0.7.0 install, no local edits: nothing can be lost, so nothing is captured.
+  W="$(fresh c7c)"
+  bash "$LEG7/install.sh" "$W" >/dev/null 2>&1
+  run "$W"
+  assert_eq "exit (clean upgrade)" "$(rc)" 0
+  assert "clean 0.7.0 -> upgrade writes no .upstream-prior" test ! -e "$W/.claude/.upstream-prior"
+  assert_grep "clean upgrade says so in one line" "core matches the baseline — nothing to capture" "$S/out.log"
+  assert "clean upgrade still archives the retired command" test -f "$W/.claude/_archived-commands/test-plan.md"
 else
   bad "main is not a 0.7.0-shaped checkout"
 fi
@@ -380,19 +408,99 @@ printf '### [Pattern]: Co-locate feature code\nKeep a feature under one folder.\
 printf '### Mock at the boundary\n_Source: seed-pack:webapp_\n' >"$D/templates/seed-packs/webapp/testing-patterns.seed.md"
 printf '### Missing target\n' >"$D/templates/seed-packs/webapp/no-such-file.seed.md"
 printf '### Nested\n' >"$D/templates/seed-packs/webapp/nested/codebase-patterns.seed.md"
-W="$(fresh c14b)"
+printf -- '- [ ] No console errors on the changed routes\n- [ ] Every interactive state checked' >"$D/templates/seed-packs/webapp/ticket-checklist.dod.md"  # no trailing newline on purpose
+W="$(fresh c14b)"; mkdir -p "$W/.claude"
+printf '%s' "$(cat "$REPO/templates/repo/testing-patterns.md")" >"$W/.claude/testing-patterns.md"  # pre-seeded WITHOUT a trailing newline: the pack must not glue to the last line
 "$D/install.sh" "$W" --role dev --stack webapp >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
 assert_eq "exit" "$(rc)" 0
 assert_eq "H2 appended once to codebase-patterns" "$(grep -c '^## Seed pack: webapp$' "$W/.claude/codebase-patterns.md")" "1"
 assert_grep "body appended" "Co-locate feature code" "$W/.claude/codebase-patterns.md"
 assert_eq "H2 appended once to testing-patterns" "$(grep -c '^## Seed pack: webapp$' "$W/.claude/testing-patterns.md")" "1"
+assert_eq "marker line once in codebase-patterns" "$(grep -cE "^<!-- seed-pack: webapp $TODAY -->$" "$W/.claude/codebase-patterns.md")" "1"
+assert_eq "marker line once in testing-patterns" "$(grep -cE "^<!-- seed-pack: webapp $TODAY -->$" "$W/.claude/testing-patterns.md")" "1"
+assert_eq "marker is the line immediately before the H2" "$(grep -A1 "^<!-- seed-pack: webapp $TODAY -->$" "$W/.claude/codebase-patterns.md" | tail -1)" "## Seed pack: webapp"
+assert_eq "marker on its own line even after an unterminated file" "$(grep -A1 "^<!-- seed-pack: webapp $TODAY -->$" "$W/.claude/testing-patterns.md" | tail -1)" "## Seed pack: webapp"
 assert_grep "missing target skipped" "no-such-file.md is not present" "$S/out.log"
 assert "missing target not created" test ! -e "$W/.claude/no-such-file.md"
+assert_eq "DoD marker once" "$(grep -c '^<!-- seed-pack: webapp DoD -->$' "$W/.claude/ticket-checklist.md")" "1"
+assert_eq "DoD lines landed once" "$(grep -c '^- \[ \] No console errors on the changed routes$' "$W/.claude/ticket-checklist.md")" "1"
+assert_eq "DoD lines sit directly behind the marker at the end of the file" "$(tail -3 "$W/.claude/ticket-checklist.md")" "$(printf '<!-- seed-pack: webapp DoD -->\n- [ ] No console errors on the changed routes\n- [ ] Every interactive state checked')"
+assert_grep "DoD append reported" "seed-pack webapp DoD -> ticket-checklist.md" "$S/out.log"
 "$D/install.sh" "$W" --stack webapp >"$S/out.log" 2>"$S/err.log"
 assert_eq "re-run does not duplicate" "$(grep -c '^## Seed pack: webapp$' "$W/.claude/codebase-patterns.md")" "1"
 assert_grep "re-run reports already present" "already in codebase-patterns.md" "$S/out.log"
+assert_eq "re-run keeps one marker" "$(grep -cE "^<!-- seed-pack: webapp $TODAY -->$" "$W/.claude/codebase-patterns.md")" "1"
+assert_eq "re-run keeps one DoD marker" "$(grep -c '^<!-- seed-pack: webapp DoD -->$' "$W/.claude/ticket-checklist.md")" "1"
+assert_eq "re-run keeps DoD lines exactly once" "$(grep -c '^- \[ \] Every interactive state checked$' "$W/.claude/ticket-checklist.md")" "1"
+assert_grep "re-run reports DoD already present" "seed-pack webapp DoD already in ticket-checklist.md — already present" "$S/out.log"
 "$D/install.sh" "$W" --stack webapp/nested >"$S/out.log" 2>"$S/err.log"
 assert_eq "sub-pack gets its own H2" "$(grep -c '^## Seed pack: webapp/nested$' "$W/.claude/codebase-patterns.md")" "1"
+assert_eq "sub-pack H2 comes after the flavor H2" "$(grep -n '^## Seed pack: webapp' "$W/.claude/codebase-patterns.md" | cut -d: -f2- | paste -sd'|' -)" "## Seed pack: webapp|## Seed pack: webapp/nested"
+assert_eq "flavor pack not re-appended by the sub-pack run" "$(grep -c '^## Seed pack: webapp$' "$W/.claude/codebase-patterns.md")" "1"
+# Real packs from the checkout: composition, sub-pack ordering, testing/playwright scope.
+W="$(fresh c14c)"; run "$W" --role dev --stack fullstack-monorepo
+assert_eq "exit (fullstack-monorepo)" "$(rc)" 0
+assert_eq "fullstack-monorepo composes three H2s in order (codebase-patterns)" "$(grep '^## Seed pack: ' "$W/.claude/codebase-patterns.md" | paste -sd'|' -)" "## Seed pack: frontend-web|## Seed pack: backend-api|## Seed pack: fullstack-monorepo"
+assert_eq "fullstack-monorepo composes three H2s in order (testing-patterns)" "$(grep '^## Seed pack: ' "$W/.claude/testing-patterns.md" | paste -sd'|' -)" "## Seed pack: frontend-web|## Seed pack: backend-api|## Seed pack: fullstack-monorepo"
+assert_eq "fullstack-monorepo composes three DoD markers in order" "$(grep -o '^<!-- seed-pack: [a-z/-]* DoD -->$' "$W/.claude/ticket-checklist.md" | paste -sd'|' -)" "<!-- seed-pack: frontend-web DoD -->|<!-- seed-pack: backend-api DoD -->|<!-- seed-pack: fullstack-monorepo DoD -->"
+assert_eq "three dated markers, one per H2" "$(grep -c "^<!-- seed-pack: [a-z/-]* $TODAY -->$" "$W/.claude/codebase-patterns.md")" "3"
+assert_grep "frontend-web DoD line landed" "No console errors on the changed routes" "$W/.claude/ticket-checklist.md"
+assert_grep "fullstack-monorepo DoD line landed" "Both the frontend-web and backend-api DoD items apply" "$W/.claude/ticket-checklist.md"
+run "$W" --stack fullstack-monorepo
+assert_eq "composed re-run is idempotent (H2s)" "$(grep -c '^## Seed pack: ' "$W/.claude/codebase-patterns.md")" "3"
+assert_eq "composed re-run is idempotent (DoD)" "$(grep -c '^<!-- seed-pack: .* DoD -->$' "$W/.claude/ticket-checklist.md")" "3"
+run "$W" --stack frontend-web/nextjs
+assert_eq "sub-pack H2 present after its flavor pack" "$(grep -n '^## Seed pack: frontend-web' "$W/.claude/codebase-patterns.md" | cut -d: -f2- | paste -sd'|' -)" "## Seed pack: frontend-web|## Seed pack: frontend-web/nextjs"
+assert_grep "sub-pack run leaves the flavor pack alone" "seed-pack frontend-web already in codebase-patterns.md" "$S/out.log"
+W="$(fresh c14d)"; run "$W" --role dev --stack frontend-web/nextjs
+assert_eq "sub-pack alone brings its flavor pack first" "$(grep '^## Seed pack: ' "$W/.claude/codebase-patterns.md" | paste -sd'|' -)" "## Seed pack: frontend-web|## Seed pack: frontend-web/nextjs"
+W="$(fresh c14e)"; run "$W" --role dev
+shasum -a 256 "$W/.claude/codebase-patterns.md" "$W/.claude/ticket-checklist.md" >"$S/before14"
+run "$W" --stack testing/playwright
+assert_eq "exit (testing/playwright)" "$(rc)" 0
+assert_eq "testing/playwright lands in testing-patterns.md" "$(grep -c '^## Seed pack: testing/playwright$' "$W/.claude/testing-patterns.md")" "1"
+assert "testing/playwright touched only testing-patterns.md" sh -c "shasum -a 256 -c '$S/before14' >/dev/null"
+assert_nogrep "no 'testing' parent pack applied" "## Seed pack: testing$" "$W/.claude/testing-patterns.md"
+assert "no stray pack output for the empty parent" sh -c "! grep -q 'no seed pack testing ' '$S/out.log'"
+run "$W" --stack nothing-here --stack testing/playwright
+assert_eq "absent pack next to a present one is a no-op" "$(grep -c '^## Seed pack: testing/playwright$' "$W/.claude/testing-patterns.md")" "1"
+assert_grep "absent pack reported" "no seed pack nothing-here" "$S/out.log"
+assert "absent pack wrote nothing" sh -c "shasum -a 256 -c '$S/before14' >/dev/null"
+assert "pack files themselves untouched" sh -c "cd '$REPO' && git diff --quiet -- templates/seed-packs"
+end
+
+# ---------------------------------------------------------------- 15. drift capture on a 0.8.0 re-run
+begin "15 re-run with edited core captures the drifted files + old baseline; clean re-run writes nothing"
+W="$(fresh c15)"; run "$W" --role dev
+run "$W"
+assert "clean re-run: no .upstream-prior" test ! -e "$W/.claude/.upstream-prior"
+echo "<!-- agent tweak -->" >>"$W/.claude/agents/codebase-investigator.md"
+echo "<!-- doc tweak -->" >>"$W/.claude/workflow-version.md"
+rm "$W/.claude/scripts/upstream.py"
+echo "# mine" >"$W/.claude/commands/cover.md"   # project file at a path the sdet role is about to write
+cp "$W/.claude/.upstream-manifest.json" "$S/manifest15"
+run "$W" --roles dev,sdet
+assert_eq "exit" "$(rc)" 0
+P="$W/.claude/.upstream-prior/$TODAY"
+assert "capture dir" test -d "$P"
+assert "agents/ edit captured" grep -q "agent tweak" "$P/installed/agents/codebase-investigator.md"
+assert "root doc edit captured under docs/" grep -q "doc tweak" "$P/installed/docs/workflow-version.md"
+assert "deleted script has no installed copy but is listed" sh -c "test ! -e '$P/installed/scripts/upstream.py' && grep -q 'scripts/upstream.py.*missing' '$P/MANIFEST.md'"
+assert "unbaselined file about to be overwritten captured" grep -q "^# mine$" "$P/installed/commands/cover.md"
+assert_grep "MANIFEST flags it as unbaselined" "commands/cover.md.*unbaselined" "$P/MANIFEST.md"
+assert_grep "MANIFEST counts four" "## Drifted files (4)" "$P/MANIFEST.md"
+assert "old baseline copied whole (every core command present)" sh -c "for f in '$REPO'/core/commands/*.md; do test -f '$P/baseline/commands/'\$(basename \"\$f\") || exit 1; done"
+assert "old baseline is the pre-run baseline (no sdet command in it)" test ! -e "$P/baseline/commands/cover.md"
+assert "old baseline keeps the pre-edit agent" sh -c "! grep -q 'agent tweak' '$P/baseline/agents/codebase-investigator.md'"
+assert "SHA256SUMS verifies" sh -c "cd '$P' && shasum -a 256 -c SHA256SUMS >/dev/null"
+assert_grep "notice names each file" "agents/codebase-investigator.md (modified)" "$S/out.log"
+assert_grep "notice names the missing script" "scripts/upstream.py (missing)" "$S/out.log"
+assert "live agent refreshed" cmp -s "$REPO/core/agents/codebase-investigator.md" "$W/.claude/agents/codebase-investigator.md"
+assert "live script restored" cmp -s "$REPO/core/scripts/upstream.py" "$W/.claude/scripts/upstream.py"
+assert "live cover.md is the sdet copy" cmp -s "$REPO/roles/sdet/commands/cover.md" "$W/.claude/commands/cover.md"
+assert "drift clean again" sh -c "python3 '$REPO/core/scripts/upstream.py' --root '$W/.claude' drift | grep -q 'no local edits'"
+run "$W"
+assert_eq "clean re-run after the capture adds nothing" "$(ls "$W/.claude/.upstream-prior" | wc -l | tr -d ' ')" "1"
 end
 
 echo ""
