@@ -312,8 +312,9 @@ If the local server is down, run against the configured default and SAY which ta
 Component/API: the repo's `test_command` scoped to the new files.
 
 **6.2 Count four numbers** with `python3 $WORKSPACE_ROOT/.claude/scripts/triage-cluster.py .claude/tickets/cover--<slug>/run.json --spec-dir {spec_dir} --key-pattern {jira_project}` —
-it prints `passed= failed= known-failures-with-bug= skipped=`. Known failures (`test.fail(true,'BUG …')`)
-are never passes; a known failure without a key is a violation and fails the `known-failures-linked` gate.
+it prints `passed= failed= known-failures-with-bug= skipped=` followed by `known-failures-unkeyed=`. Known
+failures (`test.fail(true,'BUG …')`) are never passes; a known failure without a key is a violation — counted
+only under `known-failures-unkeyed`, never under `known-failures-with-bug` — and fails the `known-failures-linked` gate.
 
 **6.3 Lint**: `npx eslint --no-ignore <new specs>`; `exit 0` required.
 

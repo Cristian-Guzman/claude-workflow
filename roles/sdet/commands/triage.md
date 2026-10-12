@@ -24,7 +24,10 @@ The hard rule this command exists to enforce: **a real application bug keeps its
 delete, never `.skip`. The only sanctioned quarantine is `test.fail(true, 'BUG <KEY>-<n>: …')` — it
 keeps executing and fails the suite the day the bug is fixed — and `test.fixme` only when the failure
 is a hang whose wall-clock cost blocks the tier. Every summary prints four numbers
-(passed / failed / known-failures-with-bug / skipped); known failures are never passes.
+(passed / failed / known-failures-with-bug / skipped); known failures are never passes. The
+known-failures-with-bug count holds only `test.fail` tests with a `BUG` key — `triage-cluster.py` prints
+the unkeyed ones next to it as `known-failures-unkeyed` (the violations count), never as passes nor as
+known failures with bug.
 
 Stops after the state table. `/pr` is the user's next step; bug drafts hand off to `/log --bug`.
 </objective>
