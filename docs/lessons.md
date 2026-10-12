@@ -31,6 +31,13 @@ They're phrased as instructions to the AI, but most cut both ways.
 - **Check commit content after history surgery.** A squash via `reset --soft`
   captures the index, not the working tree. After any squash or amend, `git status`
   must be empty — otherwise you may have just shipped the wrong content.
+- **When local CI hangs, don't pretend it ran.** Run the lint and tests you can run
+  standalone, lean on the remote CI, and say exactly that in the PR description. A
+  green badge nobody saw is not evidence; a stated gap is.
+- **Verify the actual lever before building a stakeholder-framed fix.** "Make it like
+  the other surface" or "use a new id" can be directionally right and mechanically
+  wrong. Confirm against the code and the contract which value the system actually
+  keys on, then fix that — the literal ask often wouldn't have fixed anything.
 
 ## Scope is a promise
 
@@ -49,6 +56,10 @@ They're phrased as instructions to the AI, but most cut both ways.
   `git diff` for accidental drift before claiming you didn't.
 - **A ticket's layer is part of its scope.** A UI-only ticket doesn't grow feature
   flags, API clients, or backend changes on the way — even when they'd be "easy".
+- **For a clone-across-surfaces ticket, the sibling's merged implementation is the
+  design contract.** It was built from the same mockups and is code-readable when the
+  ticket's screenshots aren't. If the sibling is still moving, re-check it right
+  before you merge — a mid-flight divergence otherwise ships twice.
 
 ## Communication that survives contact
 
@@ -64,6 +75,9 @@ They're phrased as instructions to the AI, but most cut both ways.
   the human explicitly says to — even if the fix seems obvious.
 - **Report outcomes faithfully.** Failing tests get reported with their output;
   skipped steps get named as skipped. "Done" means verified, not hoped.
+- **Advisory auto-close lags the merge.** A security alert stays open for hours after
+  the fix lands. Say so in the evidence comment and give the reviewer a verifiable
+  check (the resolved version in the lockfile) instead of waiting for the badge.
 
 ## Git discipline
 
@@ -77,6 +91,9 @@ They're phrased as instructions to the AI, but most cut both ways.
   unstaged work and a branch switch is how changes land on the wrong branch.
 - **One PR per ticket unless asked otherwise.** Don't volunteer to split work
   across PRs; it multiplies review overhead without being requested.
+- **One commit per package in a dependency batch.** When one PR bumps several
+  packages, keep each bump in its own commit so a bad one reverts cheaply and the
+  bisect points at a package, not a batch.
 - **Each pipeline step runs discretely.** Clarify, implement, verify, PR — run one,
   stop, let the human pace the next. Auto-chaining removes the checkpoints that
   catch mistakes while they're still cheap.
@@ -91,6 +108,13 @@ They're phrased as instructions to the AI, but most cut both ways.
   round beat one big speculative rewrite.
 - **Controls live at the scope they affect.** A selector that changes a modal's
   action belongs inside the modal, not on the page behind it.
+- **Enumerate every data and interactive state before coding.** Empty, overflowing,
+  disabled, mixed content, fixed-vs-content height, which element scrolls — the
+  mock shows only the happy path, and each unenumerated state costs a QA round.
+  Write the list into the contract first; the implementation is then a checklist.
+- **Placement claims need a screenshot, not `toBeVisible()`.** "Is rendered" and "is
+  where the design put it" are different assertions; only an image answers the
+  second. Attach the capture to the claim, or don't make the claim.
 
 ## The learning loop itself
 
@@ -105,3 +129,14 @@ They're phrased as instructions to the AI, but most cut both ways.
 - **Right-size the ceremony to the task.** Classify the tier first: a trivial fix
   skips the investigation fan-out entirely. Heavy process on light work is how
   workflows get abandoned.
+- **Project files accrete rules that outlive the workflow that wrote them.** A
+  "never commit" rule written for one tool's era can sit at the top of a patterns
+  file long after the pipeline itself commits and opens PRs. The retirement
+  criterion for "contradicted by current behavior" exists for exactly this —
+  run it, don't just add.
+- **For a bug that survived several fixes, write the full state-matrix test before
+  the next fix.** Each earlier fix moved the bug to a state nobody had listed.
+  Enumerate the states, write the matrix, then fix once.
+- **Age-gate usage evidence before pruning.** "No artifacts anywhere" means dead
+  for a feature that has had months to leave traces, and means *new* for one that
+  shipped last week. Check the introduction date before reading absence as disuse.

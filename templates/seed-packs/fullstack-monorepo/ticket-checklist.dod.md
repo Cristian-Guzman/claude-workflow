@@ -1,0 +1,2 @@
+- [ ] Both the frontend-web and backend-api DoD items apply
+- [ ] A contract change is reflected in the spec, the regenerated client types, and both test suites

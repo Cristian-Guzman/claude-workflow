@@ -1,0 +1,3 @@
+- [ ] No console errors on the changed routes (verified manually or via `/qa`)
+- [ ] Every data / interactive state enumerated and checked (empty, overflow, disabled, mixed)
+- [ ] No shared component modified unless the ticket names it

@@ -9,6 +9,9 @@
 
 # Testing Patterns — {repo-name}
 
+**Shared rules:** [[testing-patterns-shared.md]] — read first (never mock the unit under test, fixtures match the production read path, set-diff registry tests, …).
+This file holds only what is specific to THIS repo: framework, mock idioms, placement, QA gotchas.
+
 > Test-writing patterns learned from real ticket work. Run `/learn` to grow this file.
 
 ## Index
@@ -58,3 +61,9 @@ const MockedUsersService = UsersService as jest.MockedClass<typeof UsersService>
 <!-- EXAMPLE — replace with your project's pattern -->
 A change that only alters visibility for a specific role proves nothing under an admin login. Real before/after needs a second account with the restricted role; the unit test asserting the permission args is the dev-side proof.
 _Source: [[PROJ-456]]_
+
+## E2E drift taxonomy
+<!-- /learn §2.6 appends one-line, spec-anchored drift lessons here under bucket sub-headings (route/path versioning · copy drift · transport migration · mock timing · selector/markup drift · data-scale assumption · false-green skip guard). Leave empty until this repo has an e2e suite; never re-create a second copy elsewhere. -->
+
+## E2E suite health
+<!-- /learn §2.6 stamps one HTML comment per pass: <!-- e2e-suite-health: repo=… date=… specs=N skips=N soft-guards=N failed-last-run=N|n/a --> — a diffable trend; a skip-rate that climbs while failures drop is drift being hidden, not fixed. -->

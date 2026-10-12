@@ -10,6 +10,9 @@
 
 # Codebase Patterns — {repo-name}
 
+**Shared rules:** [[codebase-patterns-shared.md]] — read first (minimalism ladder, comment hygiene, dependency / contract / flag rules).
+This file holds only what is specific to THIS repo.
+
 > **Seed file** — Initial patterns observed from codebase structure, not learned
 > from delivered tickets. Run `/learn` after completing tickets to grow this file.
 
@@ -42,7 +45,7 @@ _Source: [[PROJ-123]] — surfaced when a bad payload looked like an outage in Q
 
 ## Code comment hygiene
 
-Write a comment ONLY to state a non-obvious constraint or gotcha a future reader genuinely needs. **Default to no comment** — let names, types, and the commit message carry intent. Never write comments that narrate reasoning to the reviewer, restate what the code says, or carry ticket refs / "used to be X" history (git blame carries that).
+Default to no comment. The full rule and the gate that enforces it (`/verify` §3.4, `/pr` §5e) live in [[codebase-patterns-shared.md]] — do not copy them here.
 
 <!--
   ENTRY FORMAT (what /learn appends):

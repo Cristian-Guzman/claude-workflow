@@ -1,0 +1,3 @@
+- [ ] API spec updated for any new or changed endpoint
+- [ ] Migration tested against a fresh DB and an existing-data DB
+- [ ] Error responses carry the operation name and a stable error code

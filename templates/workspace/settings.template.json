@@ -29,7 +29,8 @@
       "Bash(echo \"CI EXIT=$?\")",
       "Bash(mkdir -p *)",
       "Bash(gh run *)",
-      "Bash(jira version *)"
+      "Bash(jira version *)",
+      "Bash(gh api:*)"
     ]
   },
   "hooks": {

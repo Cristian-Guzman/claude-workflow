@@ -1,0 +1,2 @@
+- [ ] `--help` reflects the new flags and exit codes
+- [ ] Exit codes documented; `--dry-run` covers any new write path

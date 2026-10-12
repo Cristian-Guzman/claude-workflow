@@ -1,4 +1,4 @@
-<!-- last-updated: 2026-06-15 -->
+<!-- last-updated: 2026-10-12 -->
 # Shared Codebase Patterns (cross-repo)
 
 Workspace-level patterns that apply to every repo, referenced by each repo's `codebase-patterns.md`. `/clarify`, `/build`, and `/refactor` honor these alongside the repo-specific file.
@@ -32,3 +32,21 @@ Where we deliberately diverge from ponytail's defaults:
 ### When it applies
 
 Cleanest on logic/internal code with a single caller and no UI or trust boundary. On customer-facing UI, apply rungs 1–2 (don't build what exists, don't over-abstract) but read rungs 3–6 through the UI-fidelity and atomic-design lens above.
+
+## Dependencies & advisories
+
+Rules for dependency bumps and security advisories — the ticket class most often done wrong at speed.
+
+1. **Grep the whole lockfile for the package, not the first hit.** Several resolved ranges of one package coexist (direct + transitive, or two majors); a CVE fix that moves one entry leaves the others vulnerable. `grep -A1 '^<pkg>@' <lockfile>` and read every block before declaring the fix complete. Mechanical: a `/verify` battery line on lockfile-touching diffs.
+2. **Trace the dependency path before adding a defensive resolution.** Find who pulls the vulnerable version in and whether the caller ever reaches the vulnerable code path. If it does not, "no fix needed" with the path written into the PR is a valid outcome — a blind `resolutions` pin is not.
+3. **Read the advisory's first-patched version before choosing a bump target.** The advisory names it; the latest release is not always it, and bumping past the patched version may cross a major for nothing.
+4. **Across a major bump, read the new types and every caller.** A major version changes signatures and defaults; CI passing means the compiler accepted it, not that each call site still means what it did. List the callers, read each, then commit.
+
+## Contracts & failure handling
+
+1. **Fail loud, never fake.** No empty `catch`, no sample data substituted when a fetch fails, no silent fallback to a default that looks like real data. Degradation is allowed only when it is disclosed to the user and logged. Mechanical: `/verify` greps added code for swallowed catches.
+2. **Re-derive enums and unions from the spec with a set-equality test.** Never from a chat message or a screenshot, and never infer field names from ID prefixes. The spec file is the input; a test asserts the code's set equals the spec's set, so a spec change fails the build instead of a user flow.
+
+## Feature flags
+
+1. **A flag read that cannot identify the caller can only be a flat rollout.** Pre-auth or anonymous contexts have no distinct id, so any targeting rule evaluates to the default — usually `false` — and the feature silently never ships. Flat percentage or on/off only. The same silence applies to a renamed or missing key: it evaluates to `false` with no error, so create the key in the flag service before the code that reads it lands.
