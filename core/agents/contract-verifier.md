@@ -15,10 +15,10 @@ You are a contract verifier. Given a set of API endpoints and type definitions, 
 
 Caller passes:
 
-- `endpoints` — list of HTTP endpoints to check (e.g. `["GET /v2/positions", "GET /v2/positions/:id/versions/:vid"]`)
+- `endpoints` — list of HTTP endpoints to check (e.g. `["GET /v2/items", "GET /v2/items/:id/versions/:vid"]`)
 - `ts_types_paths` — list of TypeScript interface files the consumer relies on (from `/verify`'s scan of modified files, or from `/clarify`'s candidate file placement)
 - `swagger_paths` — list of swagger JSON files (default: `$WORKSPACE_ROOT/.claude/api-reference/*.json`)
-- `live_base_url` — optional, e.g. `https://localhost:3002/bff`. If provided, try a live call.
+- `live_base_url` — optional, e.g. `http://localhost:<port>/bff`. If provided, try a live call.
 - `auth_cookie_env` — optional shell var name holding the session cookie (never embed the value)
 - `mode` — `static | live | auto` (default `auto` = live if `live_base_url` given, else static)
 
@@ -28,14 +28,14 @@ Caller passes:
 2. **Parallelize fetches.** When checking N endpoints, fire all swagger reads + all live calls (if enabled) in a single tool-use block. Collate results after.
 3. **Never execute mutations (POST/PUT/PATCH/DELETE)** in live mode unless the caller explicitly names them with `allow_mutations: true`. For mutations, always return a "manual verification recommended" flag.
 4. **Never embed auth credentials** in output. Use `$COOKIE` placeholder if auth is required.
-5. **Ground every flag.** If you claim "`Position.name` is string in FE but object in Go", cite: FE path:line + swagger-or-live path+field.
+5. **Ground every flag.** If you claim "`Item.name` is string in FE but object in Go", cite: FE path:line + swagger-or-live path+field.
 
 ## Static comparison (swagger vs types)
 
 For each endpoint:
 
 > **These specs are Swagger 2.0** (`"swagger":"2.0"`), NOT OpenAPI 3.0, and they come in **two shapes**:
-> 1. **Real captured swagger** (automator, auth, the Control batch): `.paths[P].<method>.responses["200"].schema` carries a `$ref` → `#/definitions/...` (NOT `#/components/...`).
+> 1. **Real captured swagger** (specs exported from a running service): `.paths[P].<method>.responses["200"].schema` carries a `$ref` → `#/definitions/...` (NOT `#/components/...`).
 > 2. **Hand-authored specs** (e.g. orders-v2): `.paths[]` are index-only (operationId + summary, **no responses, no `$ref`**), and the real field contract lives directly in `.definitions[TypeName]`.
 >
 > The field contract lives in `.definitions` in BOTH shapes, so **extract definition-centric** — match the TS interface name to a `definitions` key. Notes: `required` is an **array on the schema** (NOT per-field `required:true`) and is often absent in these specs; list-wrapper definitions nest fields under `.items` (resolve its `$ref`); path keys have no leading slash or `/v2/` prefix (`"items"`, `"orders/derive"`).
@@ -49,14 +49,14 @@ jq -r '.definitions | keys[]' "$SPEC"        # -> Item, OrderV2, ...
 #    "no field contract available in spec" — do not silently find nothing.
 
 # 2. Extract a definition's fields: name -> type | enum (resolve .items / $ref for wrappers)
-jq -r '.definitions.Position.properties | to_entries[]
+jq -r '.definitions.Item.properties | to_entries[]
        | "\(.key): \(.value.type // (.value.enum|tostring) // (.value["$ref"]|sub("#/definitions/";"")) // "object")"' "$SPEC"
 
 # 2b. (real-swagger shape only) which definition does an endpoint return?
 jq -r '.paths["alert"].get.responses["200"].schema["$ref"] | sub("#/definitions/";"")' "$SPEC"
 
 # 3. Find the consumer type, then compare field-by-field
-grep -l "interface Position\|type Position " <ts_types_paths>
+grep -l "interface Item\|type Item " <ts_types_paths>
 ```
 
 Compare (Swagger 2.0 semantics):
@@ -76,9 +76,9 @@ Swagger source: $WORKSPACE_ROOT/.claude/api-reference/orders-api.json
 
 | Endpoint | Field | Swagger | TypeScript | Status |
 |----------|-------|---------|------------|--------|
-| GET /v2/positions | `id` | string (required) | `string` | ✅ |
-| GET /v2/positions | `isPublic` | boolean (required) | `isPublic?: boolean` | ❌ FE treats as optional, swagger says required |
-| GET /v2/positions/:id | `actions[].action` | object | `string` | ❌ type shape drift (FE expects string, BFF returns object) |
+| GET /v2/items | `id` | string (required) | `string` | ✅ |
+| GET /v2/items | `isActive` | boolean (required) | `isActive?: boolean` | ❌ FE treats as optional, swagger says required |
+| GET /v2/items/:id | `actions[].kind` | object | `string` | ❌ type shape drift (FE expects string, BFF returns object) |
 | GET /v2/items/:id/versions/:vid | `onMissing` | nullable string | `string` | ❌ FE missing null case |
 | ... | ... | ... | ... | ... |
 ```
@@ -113,7 +113,7 @@ Report:
 
 ```markdown
 ### Live Check — swagger vs runtime response
-Endpoint: GET /v2/positions
+Endpoint: GET /v2/items
 Base: $live_base_url
 
 | Field | Swagger | Live response | Status |

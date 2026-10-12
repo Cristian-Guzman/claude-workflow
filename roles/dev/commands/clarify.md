@@ -119,7 +119,7 @@ Store **REPO_ROOT**, **REPO_NAME**, and determine **REPO_TYPE**:
 - `addin-fe` → **frontend-ui** (Next.js, React, MUI)
 - `web-app` → **frontend-ui** (legacy frontend)
 - `api-bff` → **backend-bff** (Node BFF)
-- `backend-services`, `shared-go-lib`, `mail-service` → **backend-go** (Go Lambda)
+- `go-service`, `shared-lib`, `mail-service` → **backend-go** (Go Lambda)
 - `ios-app` → **mobile-ios** (Swift)
 - `gdocs-addin` → **google-workspace-addin**
 - `billing-service` → **backend-service** (standalone)
@@ -443,7 +443,7 @@ When the prototype reference is detected, add a one-line watch-list to the bluep
 
 ## 2.5b Visual Spec Extraction
 
-> **Cross-framework / sideload surfaces → hand to the `ui-fidelity` agent (contract mode).** When the design reference is a *different framework* than the target (e.g. the GDocs add-in is the reference for a Word/addin-fe ticket) OR the surface is sideload-only (Word add-in, GDocs add-in, iOS), the CSS-Module grep below under-delivers. Invoke the agent to produce the **target contract in this surface's idiom** + the **live-data hardening list** up front, so gaps are known before coding (this burned PROJ-6603 over 4 QA rounds — [[feedback_design_fidelity_live_data]]):
+> **Cross-framework / sideload surfaces → hand to the `ui-fidelity` agent (contract mode).** When the design reference is a *different framework* than the target (e.g. the GDocs add-in is the reference for a Word/addin-fe ticket) OR the surface is sideload-only (Word add-in, GDocs add-in, iOS), the CSS-Module grep below under-delivers. Invoke the agent to produce the **target contract in this surface's idiom** + the **live-data hardening list** up front, so gaps are known before coding (this burned a prior ticket over 4 QA rounds — [[feedback_design_fidelity_live_data]]):
 > ```
 > Task(subagent_type: "ui-fidelity", description: "UI contract for {TICKET_ID}",
 >   prompt: "ticket_id: {PROJ-XXXX}; repo_root: {REPO_ROOT}; surface: auto; design_reference: {sibling-surface path | Figma | screenshots}; impl_files: {candidate file placement}; locked_decisions: {from clarify}; ledger_path: {REPO_ROOT}/.claude/ui-fidelity-ledger.md; mode: contract")
@@ -455,7 +455,7 @@ When the prototype reference is detected, add a one-line watch-list to the bluep
 
 - Step 1.8 classified `{DESIGN_CASE}` as `prototype` or `spec` AND Step 2.5 detected a prototype branch reference, **OR**
 - Ticket modifies any `*.module.css` file (CSS Module changes almost always carry an implicit visual contract worth locking)
-- Ticket touches `app/_lib/word-addin/` or any UI-domain feature folder like `app/_lib/{domain}/components/`
+- Ticket touches a sideload-only surface folder (`app/_lib/<surface>/`) or any UI-domain feature folder like `app/_lib/{domain}/components/`
 - Ticket has a Figma link in the description, comments, or attachments (Figma → extract states even without a prototype branch)
 - Ticket has labels containing `visual-bug`, `ux`, `design`, `QA-blocker`, or `fix-forward`
 - Ticket title/description contains visual keywords: `button`, `layout`, `footer`, `header`, `color`, `spacing`, `centered`, `aligned`, `overlap`, `scroll`, `viewport`, `responsive`, `dark mode`
@@ -627,13 +627,13 @@ Task(
        For each UI element or code unit the ticket mentions, check existing implementations:
        - Frontend: search `app/_common/`, `app/_lib/`
        - BFF: search `src/middlewares/`, `src/utils/`
-       - Go: search `internal/`, `pkg/`, `shared-go-lib/`
+       - Go: search `internal/`, `pkg/`, `shared-lib/`
        Report: exact name, file path, props/args, whether it fits.
 
     Investigation 4 — **Reusable hooks / helpers**
        - Frontend: `app/_common/hooks/`, `app/_lib/{{domain}}/hooks/`, `app/_api/`
        - BFF: `src/hooks/`, util modules
-       - Go: `shared-go-lib/` exports
+       - Go: `shared-lib/` exports
        Report: name, what it does, whether it fits.
 
     Investigation 5 — **API endpoints & BFF routes** (parallel internal sub-queries)
@@ -702,7 +702,7 @@ Based on existing structure and conventions, recommend exact file paths:
 | Tests | `__tests__/lib/items-v2/components/` | Mirrors source structure |
 
 **If the ticket has a FILE MAP:** Compare the ticket's proposed paths against your recommendation. Flag any disagreements:
-> "Ticket suggests `app/(web)/positions/page.tsx` but the codebase convention is `app/(web)/library/positions/page.tsx` (positions are under the library route group). Recommend using the library path."
+> "Ticket suggests `app/(web)/items/page.tsx` but the codebase convention is `app/(web)/library/items/page.tsx` (items are under the library route group). Recommend using the library path."
 ```
 
 ### 4b. Pattern Recommendations (atomic-design aware)
@@ -955,7 +955,7 @@ Spec dir: `{spec_dir}` (from repo profile) · {N} affected spec(s)
 | Spec (file:line) | Surface this ticket changes | Matched token | Risk |
 |------------------|-----------------------------|---------------|------|
 | `e2e/<area>/<flow>.spec.ts:58` | "Add item" primary action (was "Create item") | `getByText("Create item")` | guaranteed break — spec asserts REMOVED copy |
-| `e2e/analysis/analysis.spec.ts:120` | route `/v1/analysis` (was `/word-addin/analysis`) | `page.route("**/word-addin/analysis")` | guaranteed break — route renamed |
+| `e2e/<area>/<other-flow>.spec.ts:120` | route `/v1/<resource>` (was `/legacy/<resource>`) | `page.route("**/legacy/<resource>")` | guaranteed break — route renamed |
 
 **Coverage gap:** {if a critical user flow GAINS new behavior with no covering spec, name the flow and recommend `/e2e {feature}` — see Step 6 / ticket-checklist DoD.}
 ```

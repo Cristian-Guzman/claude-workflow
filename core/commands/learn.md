@@ -410,7 +410,7 @@ Track `additions : retirements` per /learn run. If you ran 10 times and retired 
 **(a) Is this an e2e-fix ticket?** Detect from the diff/Files-Modified + Event Log: the ticket touched `{spec_dir}` specs, OR an Event Log entry / retro names a failing/skipped spec, OR the work was "fix the broken/flaky/skipped e2e suite." If none of these, skip to §3. (A frontend ticket that merely *changed product code* an e2e suite happens to cover is NOT an e2e-fix ticket — only classify when the fix WAS to the specs or to the spec/code contract.)
 
 **(b) Classify the fix into the E2E drift taxonomy.** Map each fix to a taxonomy bucket. The canonical bucket list is whatever the testing-patterns "E2E repo-awareness, blast-radius & skip contract" / drift-taxonomy section defines; the recurring buckets observed this cycle are:
-- **route/path versioning** — a ROUTE literal or `*Path`/`*Base`/`*_URL` const moved (e.g. `/word-addin/analyze` → `/v1/analyze`); spec asserted the old path.
+- **route/path versioning** — a ROUTE literal or `*Path`/`*Base`/`*_URL` const moved (e.g. `/legacy/<resource>` → `/v1/<resource>`); spec asserted the old path.
 - **copy drift** — a user-visible string changed or was removed and a spec still asserts the old copy (REMOVED copy a spec asserts = guaranteed break; e.g. "Ask about your document" → "Product Assistant", "Create item" → "Add item").
 - **transport migration** — request mechanism changed (e.g. GET-poll → SSE) and the spec's `page.route("**/...")` / wait shape no longer matches.
 - **mock timing** — eager-init vs lazy mock setup; the mock wasn't installed before the surface read it.

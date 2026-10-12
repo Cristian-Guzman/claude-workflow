@@ -207,9 +207,9 @@ Use `{REPO_ROOT}/.claude/pr-template.md` if available, otherwise use this format
 - [ ] CI passes
 ```
 
-**Feature-flag key rename → ops-dependency DoD item.** If the diff renames a string literal assigned to a `FeatureFlag` enum member (a removed `= "old-key"` paired with an added `= "new-key"` on the same member — e.g. `app/context/posthog/utils.ts` in addin-fe; the equivalent enum in gdocs-addin):
+**Feature-flag key rename → ops-dependency DoD item.** If the diff renames a string literal assigned to a `FeatureFlag` enum member (a removed `= "old-key"` paired with an added `= "new-key"` on the same member — e.g. `app/context/analytics/utils.ts` in addin-fe; the equivalent enum in gdocs-addin):
 ```bash
-git -C {REPO_ROOT} diff $BASE_BRANCH...HEAD -- '**/posthog/utils.ts' | grep -E '^[-+].*=\s*"' | head -10
+git -C {REPO_ROOT} diff $BASE_BRANCH...HEAD -- '**/analytics/utils.ts' | grep -E '^[-+].*=\s*"' | head -10
 ```
 auto-insert an unchecked DoD item: `- [ ] ⚠ PostHog flag '<new-key>' must exist with targeting identical to '<old-key>' BEFORE deploy — the enum string IS the lookup key; a missing key reads as false and silently disables the gated feature for everyone, and neither CI nor unit tests can catch it ([[feedback_flag_rename_needs_posthog_first]])`.
 

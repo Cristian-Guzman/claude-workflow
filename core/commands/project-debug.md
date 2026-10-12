@@ -87,7 +87,7 @@ For versioned-API issues, check the version-specific swagger file (e.g. `v2-api.
 
 **Only trigger if** the issue involves a URL not working, page not loading, endpoint returning errors, or UI not rendering.
 
-**Sideload-surface gate (check FIRST):** when the debug subject's affected files / diff / state-file paths include ANY of `app/(word-addin)/`, `app/_main/Word-Addin/`, `app/_lib/word-addin/` (or a repo-profile `sideload_only_routes:` path), SKIP this entire section — browser Playwright on the local dev server (e.g. `https://localhost:3002` — record your dev server in the repo profile) cannot reproduce the bug (Office-detection hooks like `useWordFileInfo` short-circuit to `isIncompatible: true` without Office.js). Emit instead:
+**Sideload-surface gate (check FIRST):** when the debug subject's affected files / diff / state-file paths include ANY of a sideload-only surface's folders — `app/(<surface>)/`, `app/_main/<Surface>/`, `app/_lib/<surface>/` — (or a repo-profile `sideload_only_routes:` path), SKIP this entire section — browser Playwright on the local dev server (e.g. `http://localhost:<port>` — record your dev server in the repo profile) cannot reproduce the bug (Office-detection hooks like `use<Surface>FileInfo` short-circuit to `isIncompatible: true` without Office.js). Emit instead:
 > "Word Add-in flow — renders inside Office's task-pane WebView. Open Safari → Develop menu → [your Mac] → [the Word task-pane URL] for DOM/console access (test sideload-only add-in flows in the host app, not the bare dev server)."
 
 If the symptom mentions popover / dropdown / tooltip, also surface the codebase-patterns "Fluent v9 popover won't open" console-probe sequence.
@@ -96,7 +96,7 @@ If Playwright MCP tools are available (and the gate above didn't fire):
 
 1. **Navigate to the problem URL:**
    ```
-   mcp__playwright — navigate to {dev-server-url}/{problem-path}  # e.g. https://localhost:3002 — record your dev server in the repo profile
+   mcp__playwright — navigate to {dev-server-url}/{problem-path}  # e.g. http://localhost:<port> — record your dev server in the repo profile
    ```
    If the page requires auth, note NEEDS_AUTH and ask the user what they see instead.
 
