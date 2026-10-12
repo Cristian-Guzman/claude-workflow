@@ -26,8 +26,10 @@ set -euo pipefail
 #   - seeded files the project owns (codebase-patterns.md, settings.json, ...) are
 #     NEVER overwritten once they exist
 #   - commands of a role you drop are ARCHIVED to .claude/_archived-commands/, never deleted
-#   - the first run on a pre-0.7.0 install copies what it finds to .claude/.upstream-prior/<date>/
-#     before touching anything, so local edits to generic commands are never lost
+#   - local edits to generic commands are never lost: the first run on a pre-0.7.0 install
+#     copies everything upstream-shaped to .claude/.upstream-prior/<date>/ before touching
+#     anything; every later run compares the installed core against .upstream-base/ and, when
+#     anything drifted, copies the drifted files + the old baseline there before refreshing
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
@@ -190,12 +192,115 @@ sha256_list() { # stdin: file paths; stdout: "<sha>  <path>" lines
   fi
 }
 
+prior_dir() { # $1 = UTC day; prints a fresh .upstream-prior/<day>[.N] path (never an existing one)
+  local dst="$CLAUDE_DIR/.upstream-prior/$1" n=1
+  while [ -e "$dst" ]; do dst="$CLAUDE_DIR/.upstream-prior/$1.$n"; n=$((n + 1)); done
+  printf '%s' "$dst"
+}
+
+base_dest() { # $1 = baseline top dir -> installed dir (same map as upstream.py CORE_MAP)
+  case "$1" in docs) printf '%s' "$CLAUDE_DIR" ;; *) printf '%s/%s' "$CLAUDE_DIR" "$1" ;; esac
+}
+
+shipped_paths() { # every "top/rel" the selected sources will write this run
+  local s r f
+  for s in $(selected_sources); do
+    for f in "$s"/commands/*.md; do [ -f "$f" ] && echo "commands/$(basename "$f")"; done
+    for f in "$s"/agents/*.md;   do [ -f "$f" ] && echo "agents/$(basename "$f")"; done
+    for f in "$s"/scripts/*;     do [ -f "$f" ] && echo "scripts/$(basename "$f")"; done
+    for f in "$s"/docs/*.md;     do [ -f "$f" ] && echo "docs/$(basename "$f")"; done
+    [ -f "$s/learn-targets.yaml" ] && echo "learn-targets/$(basename "$s").yaml"
+  done
+  return 0
+}
+
+capture_drifted() {
+  # A baseline exists, so we can tell exactly which upstream-owned files the project edited.
+  # The refresh below overwrites every shipped file and `rm -rf`s the baseline those edits would
+  # be diffed against — so before either, copy the drifted files and the whole old baseline aside.
+  # Nothing drifted -> nothing to lose -> nothing written.
+  local top rel bp ip status drifted="" count=0 day dst prev_version line
+  for top in commands agents scripts docs learn-targets; do
+    [ -d "$BASE/$top" ] || continue
+    while IFS= read -r rel; do
+      [ -n "$rel" ] || continue
+      bp="$BASE/$top/$rel"; ip="$(base_dest "$top")/$rel"
+      if [ ! -f "$ip" ]; then status=missing
+      elif cmp -s "$bp" "$ip"; then continue
+      else status=modified
+      fi
+      drifted="$drifted$status $top/$rel"$'\n'
+    done <<EOF_BASE
+$(cd "$BASE/$top" && find . -type f | sed 's|^\./||' | sort)
+EOF_BASE
+  done
+  # Installed files the refresh is about to overwrite that the baseline cannot vouch for.
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    top="${line%%/*}"; rel="${line#*/}"
+    [ -f "$(base_dest "$top")/$rel" ] || continue
+    [ -f "$BASE/$top/$rel" ] && continue
+    drifted="${drifted}unbaselined $line"$'\n'
+  done <<EOF_SHIPPED
+$(shipped_paths | sort -u)
+EOF_SHIPPED
+  if [ -z "$drifted" ]; then
+    echo "  prior    core matches the baseline — nothing to capture before the refresh"
+    return 0
+  fi
+  day="$(date -u +%Y-%m-%d)"
+  dst="$(prior_dir "$day")"
+  mkdir -p "$dst/installed" "$dst/baseline"
+  cp -R "$BASE/." "$dst/baseline/"
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    status="${line%% *}"; rel="${line#* }"
+    count=$((count + 1))
+    [ "$status" = missing ] && continue
+    top="${rel%%/*}"
+    mkdir -p "$(dirname "$dst/installed/$rel")"
+    cp "$(base_dest "$top")/${rel#*/}" "$dst/installed/$rel"
+  done <<EOF_DRIFT
+$drifted
+EOF_DRIFT
+  prev_version="$(sed -n 's/^version: *//p' "$CLAUDE_DIR/workflow-version.md" 2>/dev/null | head -1 || true)"
+  [ -n "$prev_version" ] || prev_version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$CLAUDE_DIR/.upstream-manifest.json" 2>/dev/null | head -1 || true)"
+  (cd "$dst" && find . -type f ! -name SHA256SUMS ! -name MANIFEST.md -print | sort | sha256_list >SHA256SUMS)
+  {
+    cat <<EOF_PRIOR
+# Pre-upgrade capture — $day
+
+Taken by install.sh before refreshing the core: these upstream-owned files differed from the
+baseline recorded by the previous install (or had no baseline copy), so the refresh would have
+overwritten them with no way to diff. Versions: ${prev_version:-unknown} -> $VERSION.
+
+## Drifted files ($count)
+
+EOF_PRIOR
+    printf '%s' "$drifted" | sed 's/^\([a-z]*\) \(.*\)$/- `\2` (\1)/'
+    cat <<EOF_PRIOR
+
+- installed/  the project's copy of each drifted file, as it was before the refresh
+- baseline/   the whole previous upstream baseline (.upstream-base/ as the last install wrote it)
+- Verify:  (cd $(rel "$dst") && shasum -a 256 -c SHA256SUMS)
+- Diff:    (cd $(rel "$dst") && for f in \$(cd installed && find . -type f); do diff -u "baseline/\$f" "installed/\$f"; done)
+- Re-apply an edit: port the hunks from that diff onto the fresh .claude/<path> (docs/<name>.md lives at .claude/<name>.md)
+- Carry an edit upstream: /upstream (drift against .claude/.upstream-base/ from now on)
+
+This directory is local state (gitignored). Delete it once the diff has been reviewed.
+EOF_PRIOR
+  } >"$dst/MANIFEST.md"
+  echo "  prior    $count core file(s) differ from the ${prev_version:-previous} baseline — copied to $(rel "$dst")/ before the refresh:"
+  printf '%s' "$drifted" | sed 's/^\([a-z]*\) \(.*\)$/             \2 (\1)/'
+  echo "           re-apply from $(rel "$dst")/installed/ (MANIFEST.md + SHA256SUMS inside)"
+}
+
 capture_prior() {
   # A pre-0.7.0 install has commands but no baseline, so /upstream drift cannot tell which
   # generic files the project edited. Snapshot everything upstream-shaped exactly once,
-  # before the first refresh overwrites it.
+  # before the first refresh overwrites it. With a baseline, capture only what drifted.
   [ -d "$CLAUDE_DIR/commands" ] || return 0
-  [ -d "$BASE" ] && return 0
+  if [ -d "$BASE" ]; then capture_drifted; return 0; fi
   local day dst d f prev_version
   day="$(date -u +%Y-%m-%d)"
   dst="$CLAUDE_DIR/.upstream-prior/$day"
