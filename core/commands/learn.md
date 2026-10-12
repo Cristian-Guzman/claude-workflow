@@ -202,7 +202,7 @@ targets:
       - {kind: cover,  where: "b2v.mutation == dead-selector && b2v.exit == 0"}
       - {diff: spec_dir, add: "getBy(Role|TestId)", remove: "getByText|\\[class\\*="}
 ```
-`where` is a predicate over the delivered state file's tables (cluster rows, break-to-validate receipts, event lines); `diff` signals read the delivered branch's diff scoped to a repo-profile directory. Directory absent or a file unparsable → use the built-ins, say so once in §6, never fail the run.
+`where` is a predicate over the delivered state file's tables (cluster rows, break-to-validate receipts, event lines); `diff` signals read the delivered branch's diff scoped to a repo-profile directory. `lesson_section` may also be `by-category` — the file's own H2 taxonomy: the lesson is filed under the heading that matches its category (plus its `## Index` line), the way §5 fills `codebase-patterns.md` and `testing-patterns.md`; an empty `log_section` (`""`) means the target has no log step and its signals are clustered directly, and an empty `lesson_section` is only meaningful with `log_only: true`. Directory absent or a file unparsable → use the built-ins, say so once in §6, never fail the run.
 
 ```bash
 KINDS="ticket"
