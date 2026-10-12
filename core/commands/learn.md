@@ -1,8 +1,8 @@
 ---
 name: learn
-version: 0.7.0
-description: Extract lessons from completed tickets AND the current conversation (auto-detected, both in one pass) and update repo pattern files.
-argument-hint: "[repo-name] or blank for all repos (--session = conversation-only; never required)"
+version: 0.8.0
+description: Extract lessons from delivered work (tickets and role sidecars) AND the current conversation, synthesize per-target lessons (log → cluster → lesson at ≥2), and update repo pattern files; --mine seeds a fresh repo from mined PR history.
+argument-hint: "[repo-name] or blank for all repos (--session = conversation-only; --mine = also ingest .claude/state/mine/<date>/candidates.json; neither required)"
 allowed-tools:
   - Read
   - Bash
@@ -45,6 +45,12 @@ FINALIZES each ticket's own documentation. At mark-learned (§5) it (a) refuses 
 closes the asymmetry where teammates' tickets got a rich Outcome+Health dossier but your own delivered
 tickets got only a `status: learned` stamp. Own tickets are firsthand, so the Closeout states cause
 directly — no "inferred" hedge.
+
+**Kind-aware, target-driven (0.8.0):** "delivered work" is whatever kinds the learn-targets contract names
+(§0) — tickets by default, plus role sidecars such as `cover`/`triage` when a role installs them. Synthesis
+is ONE routine (§2.7: log → cluster by key → lesson at `promote_at`) run over a target table; dev installs
+ship the UI and process targets built in, roles add theirs in `learn-targets/*.yaml`. `--mine` (§0.7) feeds
+mined PR-history candidates into the same draft → review → apply path for cold-start repos.
 
 **Obsidian Integration:** This command uses `[[wiki links]]` when writing pattern entries and ticket
 state files. It also connects related tickets to each other and to topic hub pages, strengthening
@@ -153,52 +159,90 @@ Conversation learning is especially valuable after:
 
 8. **Skip to Summary** (step 6 of the main flow).
 
+## 0.7 Mined Candidates (`--mine` — cold-start input, opt-in, offline)
+
+A fresh install has no delivered work to learn from. `scripts/mine-history.sh` (run by hand; needs `gh` and ≥10 merged PRs, degrades to a message otherwise) reads merged PRs, review comments and a test survey, and writes `{REPO}/.claude/state/mine/<date>/candidates.json`. `--mine` makes that file an INPUT to the same §3 draft → §4 review → §5 apply path as everything else — no new write path, no auto-write, no new command.
+
+**Contract** (the producer enforces `occurrences >= 2`; /learn re-checks it and never relaxes it):
+```json
+[{ "id": "m-001",
+   "title": "BFF: snake_case attributes are mapped at the gateway, never in components",
+   "kind": "pattern",                       // pattern | gotcha | testing | checklist
+   "occurrences": 3,                        // distinct PRs (or test files) carrying the signal — must be >= 2
+   "evidence": [{"pr": 123, "path": "src/api/mapper.ts", "excerpt": "one line that carries the rule"}],
+   "files_hint": ["src/api/"] }]
+```
+
+1. **Locate.** Newest file wins: `ls -1d {REPO}/.claude/state/mine/*/ 2>/dev/null | sort | tail -1` → `candidates.json` (fall back to `$WORKSPACE_ROOT/.claude/state/mine/`). None → say "No mined candidates for {repo}. Run `scripts/mine-history.sh` in the repo first (needs `gh` and ≥10 merged PRs)." and skip the `--mine` lane; the rest of the run proceeds normally.
+2. **Filter.** Drop `occurrences < 2` and report the count dropped (that is a producer bug, not a judgement call — the ≥2 bar is the same one §3 applies to tickets). Drop any candidate whose `title` already appears as a `###` heading (case-insensitive) in `{REPO}/.claude/codebase-patterns.md`, `{REPO}/.claude/testing-patterns.md`, or the shared floor every repo inherits — `$WORKSPACE_ROOT/.claude/codebase-patterns-shared.md` / `testing-patterns-shared.md`.
+3. **Route by kind.** `pattern | gotcha` → `codebase-patterns.md`; `testing | checklist` → `testing-patterns.md` — both through §3's normal drafting rules (≤8 lines, the rule + the why + the source). Source tag: `_Source: mined:PR#123,#145_` listing every evidence PR, or `_Source: mined:tests_` for test-survey facts. An evidence excerpt goes into the body only when it IS the rule; never paste a diff.
+4. **Review + apply** through §4 and §5 unchanged (shown before write, approval per batch). On the first mined write to a file, add a file-level marker on the line after `last-updated` — `<!-- seeded-by: mine-history YYYY-MM-DD -->` — once per file, never duplicated. Mined entries then age under §2.5 criterion 6 like any other seed.
+5. **Summary (§6):** `mine: {N} candidates, {dropped} below the ≥2 bar, {dup} already present, {proposed} proposed, {applied} applied`.
+
+`--mine` combines with a repo argument (`/learn --mine web-app`) and never replaces the delivered-work scan, which still runs when there is delivered work.
+
 ---
 
-## 0. Scan for Delivered Tickets (Multi-Repo)
+## 0. Scan for Delivered Work (Multi-Repo, kind-aware)
 
-Scan ALL repos for delivered tickets by default. If $ARGUMENTS specifies a repo name, limit to that repo.
+Scan ALL repos for delivered work by default. If $ARGUMENTS specifies a repo name, limit to that repo.
+
+**Which kinds count** comes from the learn-targets contract when present, else the built-in default (`ticket` only — today's behaviour). Files: `$WORKSPACE_ROOT/.claude/learn-targets/*.yaml` (installed by a role, upstream-owned) plus `{REPO}/.claude/learn-targets/*.yaml` (project-owned additions). All files are merged — `kinds` are unioned, `targets` are appended, nothing overrides anything. Contract (inline list form for `kinds`; one target per `- file:`):
+```yaml
+kinds: [cover, triage]                    # state-file kinds scanned for status: delivered, in addition to ticket
+targets:
+  - file: .claude/selectors.md            # repo-relative knowledge file this target writes
+    log_section: "## AUTO:SELECTOR-LOG"   # one line per incident, append-only, dedupe by source id
+    lesson_section: "## Selector lessons" # promoted rules live here
+    promote_at: 2                         # cluster size that promotes log rows to a lesson (default 2; never lower)
+    compile_to_check: true                # mechanically checkable → §5.6 COMPILE-TO-CHECK on FIRST sight
+    log_only: false                       # true = ledger only (e.g. a flaky ledger); logs, never promotes
+    signals:                              # what counts as an incident for this target
+      - {kind: triage, where: "cluster.class == broken-test && cluster.subclass in [selector, copy]"}
+      - {kind: cover,  where: "b2v.mutation == dead-selector && b2v.exit == 0"}
+      - {diff: spec_dir, add: "getBy(Role|TestId)", remove: "getByText|\\[class\\*="}
+```
+`where` is a predicate over the delivered state file's tables (cluster rows, break-to-validate receipts, event lines); `diff` signals read the delivered branch's diff scoped to a repo-profile directory. Directory absent or a file unparsable → use the built-ins, say so once in §6, never fail the run.
 
 ```bash
-for dir in $WORKSPACE_ROOT/*/; do
-  repo=$(basename "$dir")
-  tickets=$(grep -l 'status: delivered' "$dir/.claude/tickets/"*.md 2>/dev/null)
-  if [ -n "$tickets" ]; then
-    count=$(echo "$tickets" | wc -l | tr -d ' ')
-    echo "$repo: $count delivered ticket(s)"
-    echo "$tickets"
-  fi
+KINDS="ticket"
+for y in "$WORKSPACE_ROOT"/.claude/learn-targets/*.yaml "$WORKSPACE_ROOT"/*/.claude/learn-targets/*.yaml; do
+  [ -f "$y" ] && KINDS="$KINDS $(sed -n 's/^kinds:[[:space:]]*\[\(.*\)\]/\1/p' "$y" | tr ',' ' ')"
 done
+INDEX=$WORKSPACE_ROOT/.claude/state/index.json
+if [ -f "$INDEX" ]; then
+  jq -r --arg kinds "$KINDS" '($kinds | split(" ") | map(select(length>0))) as $k
+    | .entries[] | select(.status=="delivered" and (.kind as $x | $k | index($x)) and .archived!=true)
+    | "\(.repo)\t\(.kind)\t\(.key)\t\(.path)"' "$INDEX"
+else
+  for dir in $WORKSPACE_ROOT/*/; do          # no index → today's grep; sidecars live in tickets/ too
+    grep -l 'status: delivered' "$dir/.claude/tickets/"*.md 2>/dev/null
+  done
+fi
 ```
 
 Display the results:
 ```
-Found delivered tickets:
+Found delivered work:
   addin-fe: 3 tickets ([[PROJ-5835]], [[PROJ-5873]], [[PROJ-5878]])
   api-bff: 1 ticket ([[PROJ-5901]])
-  backend-services: 1 ticket ([[PROJ-5920]])
+  web-app: 1 cover (orders-v2-checkout, ticket: null)
 
-Processing all 5 tickets across 3 repos.
+Processing 5 items across 3 repos.
 ```
 
 If $ARGUMENTS specifies a repo (e.g., `/learn addin-fe`), filter to that repo only.
 
-If NO delivered tickets found anywhere, tell the user: "No delivered tickets found in any repo. Complete tickets with `/ticket` → `/pr`, then `/ci-check` marks them `delivered` after the PR merges."
+If NO delivered work is found anywhere, tell the user: "No delivered work found in any repo. Complete tickets with `/ticket` → `/pr` (or `/cover` → `/pr` for coverage work), then `/ci-check` marks them `delivered` after the PR merges."
 
-For each repo that has delivered tickets, load its config:
+For each repo that has delivered work, load its config:
 - Read `{REPO_ROOT}/CLAUDE.md` for current conventions
 - Read `{REPO_ROOT}/.claude/codebase-patterns.md` if it exists
 - Read `{REPO_ROOT}/.claude/testing-patterns.md` if it exists
 
-## 1. Collect Delivered Tickets
+## 1. Collect Delivered Work
 
-Find all ticket state files with `status: delivered` (tickets with `status: learned` are automatically excluded since grep only matches `delivered`):
-
-```bash
-grep -l 'status: delivered' {REPO_ROOT}/.claude/tickets/*.md 2>/dev/null
-```
-
-As a safety check, after collecting files verify none already have a `learned_date` field — skip any that do.
+Use the §0 list (index fast path, grep fallback). `status: learned` files are excluded by construction; as a safety check, verify none of the collected files already carries a `learned_date` field — skip any that do. Non-ticket kinds (`cover`, `triage`, `build`) are read with the same section rules below where the sections exist; their own tables (scenario + break-to-validate receipts, cluster + class) are the Event-Log equivalent for the §2.7 role targets.
 
 If none found, tell the user: "No delivered tickets with retrospectives found in {REPO_NAME}. Complete some tickets with /ticket first — the retrospective section gets filled at delivery."
 
@@ -323,6 +367,7 @@ A pattern entry should be **retired** when any of these is true:
 3. **Code reality changed** — the pattern names a file/function/import that no longer exists. Verify with `grep` or `Glob` before deletion. If the rename is the lesson, rewrite — don't delete and re-add.
 4. **Contradicted by current behavior** — the pattern says "X causes Y" but recent tickets show "X is fine, do it". The newer ticket's lesson invalidates the older one.
 5. **Pure process commentary** — entries that are PM/process narrative rather than codebase patterns (e.g., "PM conflict resolution"). Move to `command-proposals.md` or delete; do not keep in `codebase-patterns.md`.
+6. **Uncited seed** — an entry whose source is `mined:` (§0.7) or `seed-pack:` (install-time stack seeds) with **no** `Following pattern from:` Event-Log hit in any state file of that repo AND no second citation, after **90 days or 10 learned tickets in that repo** (whichever comes first). Seeds are hypotheses about the codebase; recurrence confirms them, silence retires them. Count learned tickets from the index (`.kind=="ticket" and .status=="learned"`, `.learned_date` after the file's `seeded-by` marker date).
 
 ### How to scan
 
@@ -331,6 +376,8 @@ For each repo's existing `codebase-patterns.md`:
 ```bash
 # 1. List all _Source: PROJ-XXXX_ references and their ages
 grep -nE '_Source: \[\[PROJ-[0-9]+\]\]_' {REPO}/.claude/codebase-patterns.md
+# 1b. Seeds (criterion 6): mined / seed-pack entries + the file's seeded-by date
+grep -nE '_Source: (mined|seed-pack):|<!-- seeded-by:' {REPO}/.claude/codebase-patterns.md {REPO}/.claude/testing-patterns.md
 
 # 2. For each cited ticket, check whether it's referenced anywhere else (cross-cite)
 # If only one entry cites it AND ticket >90d old → candidate for retirement
@@ -395,50 +442,49 @@ Record the snapshot as an HTML comment at the top of the testing-patterns drift-
 ```
 Report the delta vs. the previous stamp in §6 as a health signal: "addin-fe e2e: skip-rate {old}→{new}, failed {old}→{new}." A skip-rate that climbs while failures drop is the false-green pattern (drift being skipped, not fixed) — flag it explicitly, don't read it as improvement. `failed-count` is only meaningful when the suite was actually run this pass (CI/local); otherwise stamp `n/a`.
 
-## 2.7 UI-Iteration Synthesis (the meta-learning loop — UI repos only)
+## 2.7 Target Synthesis — one routine: log → cluster by key → lesson at `promote_at`
 
-This is the **abstraction step**: turn the per-ticket UI iteration captures (`/verify` §8.5) into **synthesized, surface-keyed generalizations** that the `ui-fidelity` agent reads on every future UI ticket (its Process step 0) — and compute the iteration KPI that proves the loop works. Gate: skip silently for repos with no `ui-fidelity-ledger.md` and no `ui-iteration` event lines.
+This is the **abstraction step** and the PRIMARY /learn output: per-incident captures become synthesized, keyed generalizations that future sessions and agents read. It used to be two near-identical bodies (UI iteration, process); it is now ONE routine driven by a target table. Dev installs ship two built-in targets, so behaviour is unchanged for them; role installs add theirs through the learn-targets contract (§0).
 
-### (a) Collect this cycle's captures
-For each UI repo, read `{REPO}/.claude/ui-fidelity-ledger.md` `## AUTO:ITERATION-LOG` plus any `ui-iteration` Event-Log lines in delivered tickets not yet logged. Append the latter into `AUTO:ITERATION-LOG` (dedupe by PROJ-id). Exclude `rounds=unrecorded` from everything below — absence is never success.
+### (a) Targets in force this run
 
-### (b) Cluster + synthesize (the "be more abstract" step)
-Cluster log rows by **`(surface, correction-class)`**. For any cluster that is **≥2 distinct tickets OR has any single incident at `rounds≥4`**, draft/refresh a meta-lesson — a forward-looking gate rule that none of the source incidents stated individually — and fold the matching `feedback_*` UI memories (the visual-fidelity family) in as provenance. Write it into the ledger's `## AUTO:META-LESSONS` region:
-```markdown
-### [surface={surface} · cluster={class}] {one-line generalization}
-{imperative gate instruction the agent applies BEFORE coding}
-Provenance: [[PROJ-XXXX]], [[PROJ-YYYY]] ({N} incidents, {sum} rounds)
-Confidence: {HIGH if ≥3 incidents or any 4+, else MED} · mean_rounds_at_synth={X.X} · first_synth=YYYY-MM-DD · last_reinforced=YYYY-MM-DD
-```
-This is the FIRST `/learn` output that makes an AGENT smarter, and it sidesteps the §5.6 "command-file targets only" rule because the agent reads the ledger at runtime — the agent file itself is never edited. **Honest ceiling:** this generalizes WITHIN the pre-named correction-classes; it does NOT discover a brand-new latent root cause the vocabulary doesn't name (that is a separate, larger cross-corpus synthesis build — flag it, don't fake it here).
+| target | file (repo-relative) | log_section | lesson_section | cluster key | promote_at | signals (incident source) | gate |
+|---|---|---|---|---|---|---|---|
+| **ui** (built-in) | `.claude/ui-fidelity-ledger.md` | `## AUTO:ITERATION-LOG` | `## AUTO:META-LESSONS` | `(surface, correction-class)` | 2 distinct tickets, **or** any single incident at `rounds≥4` | `ui-iteration` Event-Log lines written by `/verify` §8.5 | skip silently when the repo has neither the ledger nor any `ui-iteration` line |
+| **process** (built-in) | `.claude/process-ledger.md` | `## AUTO:PROCESS-LOG` | `## AUTO:PROCESS-LESSONS` | ticket class (tier, surface, or feature_area from the state-file tags) | 2 | `## Process Summary` blocks written by `/pr` §8 | all repos; create file + regions if absent |
+| role targets | `file:` from `learn-targets/*.yaml` | `log_section` | `lesson_section` | the fields the `where` / `diff` signal names | `promote_at` (default 2, never lower) | `signals:` | file absent → create it with both regions; `log_only: true` → steps 1–2 only |
 
-### (c) Iteration KPI — the causal, per-class number
-Compute mean `rounds` per `(surface, correction-class)` over a trailing window (most-recent 3 vs prior 3 per key). `rounds=99` (still-not-right) is excluded from the mean and counted as an open-failure tally per class. BSD/zsh-safe (ISO dates sort lexically; no GNU `date` needed):
-```bash
-LEDGER={REPO}/.claude/ui-fidelity-ledger.md
-awk '/^- 20[0-9][0-9]-/ { s=c=r=""; for(i=1;i<=NF;i++){
-    if($i~/^surface=/)s=$i; if($i~/^rounds=/)r=substr($i,8); if($i~/^correction=/)c=$i }
-    if(r+0>0 && r+0<99){ k=s" "c; sum[k]+=r; n[k]++ } }
-  END{ for(k in sum) printf "%s\tmean=%.1f\tn=%d\n", k, sum[k]/n[k], n[k] }' "$LEDGER" | sort
-```
-Stamp the result as an HTML comment at the top of `AUTO:META-LESSONS` (diffable, same idiom as §2.6 suite-health) and surface the delta in §6. Unlike the repo-level metrics (which §5.6.5 says cannot attribute causally), this KPI HAS a per-class join key (`surface × correction`) and is causally readable: the correction-class that caused the pain is the one whose round-count you watch fall. A class that stays flat or climbs means its meta-lesson isn't working — actionable, not vanity.
+### (b) The routine (run per target, per repo)
 
-All of (b)'s writes go through the normal §4 shown-before-write approval batch — never auto-write. Retire a meta-lesson whose class KPI has been flat-low (≤2) for the last 3 windows (the pain is gone) — fold this into the §2.5 retire pass so the ledger doesn't grow write-only.
+1. **Log.** For every newly-delivered state file that fires one of the target's signals, append ONE line to `log_section` (create file + region if absent). Dedupe by source id — `PROJ-id` for tickets, `<kind>:<slug>` for sidecars. Shape: `- YYYY-MM-DD <source-id> <key fields> <metrics>` — ui: `surface= correction= rounds= source=`; process: `class= sessions= phases= fix_iter= debug= days=`; role targets: the fields their `where` names. **Never fabricate a missing field** — write `unrecorded` and exclude it from every mean below. For `ui`, `rounds=unrecorded` rows are logged but excluded from everything: absence is never success.
+2. **Cluster by key.** Group the log rows by the target's cluster key.
+3. **Lesson at `promote_at`.** For every cluster with ≥ `promote_at` distinct sources (or the target's stated single-incident exception), draft or refresh ONE lesson in `lesson_section` — a forward-looking, imperative gate rule none of the source incidents stated individually, with provenance. Below the bar the rows stay in the log: a single incident is an anecdote. `compile_to_check: true` targets route a mechanically-checkable lesson to §5.6 COMPILE-TO-CHECK on FIRST sight — prose demonstrably does not prevent recurrence.
+   ```markdown
+   ### [{key}] {one-line generalization}
+   {imperative instruction applied BEFORE the work starts next time}
+   Provenance: [[PROJ-XXXX]], [[PROJ-YYYY]] ({N} incidents, {metric sum})
+   Confidence: {HIGH if ≥3 incidents or the exception fired, else MED} · mean_at_synth={X.X} · first_synth=YYYY-MM-DD · last_reinforced=YYYY-MM-DD
+   ```
+   The ui target writes its key as `surface={surface} · cluster={class}` — the `ui-fidelity` agent greps that shape at its Process step 0; keep it exactly.
+4. **KPI.** Per cluster key, the mean of the target's primary metric (ui: `rounds`; process: `fix_iter` and `sessions`; role targets: the first numeric field in `where`), trailing 3 vs prior 3. BSD/zsh-safe awk (ISO dates sort lexically; `M` = metric name, `K` = key-field regex):
+   ```bash
+   awk -v M=rounds -v K='^(surface|correction|class|key)=' '/^- 20[0-9][0-9]-/ { k=""; v=""
+       for(i=1;i<=NF;i++){ if($i~K)k=k" "$i; if(index($i,M"=")==1)v=substr($i,length(M)+2) }
+       if(v+0>0 && v+0<99){ sum[k]+=v; n[k]++ } }
+     END{ for(k in sum) printf "%s\tmean=%.1f\tn=%d\n", k, sum[k]/n[k], n[k] }' "$LEDGER" | sort
+   ```
+   `99` (still-not-right) is excluded from the mean and tallied as an open failure for its key. Stamp the result as an HTML comment at the top of `lesson_section` (diffable, same idiom as the §2.6 suite-health stamp) and surface the delta in §6. Unlike the repo-level metrics §5.6.5 refuses to attribute causally, this KPI has a real per-key join: the key whose number falls is the one whose lesson is working; flat or climbing means the lesson is not landing — actionable, not vanity.
+5. **Retire.** A lesson whose key KPI has been flat-low (≤2) for the last 3 windows has done its job — fold it into the §2.5 retire pass so the ledger does not grow write-only.
 
-## 2.7b Process Synthesis (all repos — the PRIMARY /learn output)
+All writes in steps 3–5 go through the normal §4 shown-before-write approval batch — never auto-write. **Honest ceiling:** this generalizes WITHIN the keys the vocabulary names; it does not discover a latent root cause the vocabulary lacks — flag that, don't fake it.
 
-§2.7 generalized beyond UI. This is what /learn is *for*: distilling **how work goes in this project** — steps, sessions, iterations, where friction concentrates — not accumulating code patterns (§3 is now recurrence-gated and secondary).
+### 2.7b Process target (built-in) — what the routine is *for*
 
-**Input:** each delivered ticket's `## Process Summary` block, written mechanically by `/pr` §8. Because capture happens at PR time, tickets whose chats were closed without /learn lose NOTHING — this section reads everything since the last run.
+The process target is why §2.7 exists: distilling **how work goes in this project** — steps, sessions, iterations, where friction concentrates — not accumulating code patterns (§3 is recurrence-gated and secondary). Because `/pr` §8 captures the `## Process Summary` at PR time, tickets whose chats were closed without `/learn` lose nothing; this target reads everything since the last run. Typical lessons: "visual tickets here average 3+ rounds; the cause is live-data shapes", "api-bff tickets are 1-session but bounce on lint", "tickets that skipped /clarify average 2× fix_iter". `/clarify` prior-art cites them at planning time.
 
-**(a) Log.** Append one line per newly-delivered ticket into `{REPO}/.claude/process-ledger.md` under `## AUTO:PROCESS-LOG` (create file + region if absent; dedupe by PROJ-id):
-`- YYYY-MM-DD PROJ-XXXX class={tier or ticket-class} sessions={N} phases={N} fix_iter={N} debug={n|slugs} days={N}`
+### 2.7c UI target (built-in) — the agent-facing one
 
-**(b) Cluster + distill.** Cluster by ticket class (tier, surface, or feature-area from the state-file tags). For any cluster with **≥2 tickets** where the numbers say something ("visual tickets here average 3+ rounds; the cause is live-data shapes", "BFF tickets are 1-session but bounce on lint", "tickets that skipped /clarify average 2× fix_iterations"), write/refresh a process lesson under `## AUTO:PROCESS-LESSONS` — an imperative "next time, do X first" rule with provenance `[[PROJ-ids]]`, same format discipline as §2.7(b). These lessons are the "how to do things in THIS project" knowledge; `/clarify` prior-art and future sessions cite them.
-
-**(c) KPI.** Mean `fix_iterations` and `sessions` per class, trailing 3 vs prior 3 — same awk idiom as §2.7(c). A class whose numbers don't fall means its lesson isn't working.
-
-Same rules as §2.7: shown-before-write, never fabricate missing fields (`unrecorded` is excluded from means), retire lessons whose class KPI stays flat-low for 3 windows.
+The ui target is the FIRST `/learn` output that makes an AGENT smarter: the `ui-fidelity` agent reads `AUTO:META-LESSONS` at runtime, so the agent file itself is never edited (which is how it sidesteps the §5.6 "command-file targets only" rule). When a cluster promotes, fold the matching `feedback_*` UI memories (the visual-fidelity family) into its provenance.
 
 ## 3. Draft Updates
 
@@ -560,6 +606,8 @@ If user approves:
 2. **Finalize each ticket — integrity gate → Closeout → mark learned:**
 
    **(a) Integrity gate (never mark a mid-flight ticket `learned`).** Before flipping status, assert the record is whole: the Implementation Progress table has NO rows in a non-terminal state (anything other than `DONE`/✅ — so unrecognized in-flight tokens like `WIP`/`BLOCKED`/`TODO` block too, not just `IN_PROGRESS`/`PENDING`), AND — for **Standard/Complex** tickets only — the Retrospective is non-empty (Trivial/Dependabot tickets legitimately have none per §1.5's tier gate; don't demand one). If a required check fails, route through §1.5 (backfill the retro; confirm/complete the phase table). If it genuinely can't be completed, leave the ticket at its current status and report it skipped — do NOT stamp `learned` on a frozen-mid-flight doc. (PROJ-6045 reached `learned` with an `IN_PROGRESS` phase table — the phase-table check catches that regardless of tier.)
+
+   **Non-ticket kinds (`cover`, `triage`, `build`) — same gate, their own tables.** No phase table exists, so the gate reads the kind's table instead: `cover` → every scenario row carries a break-to-validate receipt with `reverted: yes`; `triage` → no cluster row is unresolved (a `real-app-bug` row counts as resolved once its `/log --bug` draft or key is recorded — it stays red by design); `build` → the progress table has no non-terminal rows. The Retrospective is optional for sidecars (fill it from the Event Log when present). Closeout (b): when `ticket: null`, write Outcome from git + PR only (merge date, PR number, cycle = first event → merge) and omit the tracker timeline / `qa_bounces`; when `/log` keyed a ticket, compute as for tickets. Mark learned (c) is identical — `status: learned` + `learned_date` in the sidecar's frontmatter; the file is never renamed or deleted, and the index id stays `<repo>:<kind>:<slug>`.
 
    **(b) Write the Closeout (own-ticket Outcome + Health).** Create a `## Closeout` section (just above `## Obsidian Links`) if missing, and refresh the region between `<!-- AUTO:CLOSEOUT START -->` and `<!-- AUTO:CLOSEOUT END -->` — everything outside the markers, including the human `## Retrospective`, is NEVER touched. Populate it with the ticket's Outcome (status timeline, `qa_bounces`, cycle time) + Health band, computed per **[[ticket-outcome-spec.md]]**. If `/ci-check` already snapshotted an `outcome:` frontmatter block at merge, **seed `qa_bounces`/`timeline`/`jira_status` from it** (freshest, and survives a skipped retro) and **compute cycle time + story points yourself if absent** — the snapshot intentionally carries only the changelog-derived fields (see the `outcome:` contract in [[ticket-outcome-spec.md]]). Own tickets are FIRSTHAND — state cause directly; no "⚠ inferred" hedge (that's teammate dossiers only). Example:
    ```markdown
@@ -723,7 +771,8 @@ Display:
 - **Aging gate (§0.3):** `aging: {applied} applied now, {recorded} recorded as landed, {killed} killed, {deferred} deferred ({at_cap} hit defer-cap), {carried} carried over`
 - **Capture triage (§5.6):** `capture: {applied} applied now, {compiled} compiled to checks, {filed} filed to batch, {dropped} dropped, {bumped} occurrence bumps`
 - **Pattern ROI (§5.6.5):** lead with Tier-1 process-ROI (`landing rate {X}% this window` + `add:retire {A}:{R}`); append Tier-2 repo-level directional deltas only where n ≥ 5, explicitly labeled `directional, not causal`. If neither is meaningful this run, print `ROI: process landing rate {X}% (loop KPI); repo-level deltas below noise floor`.
-- **UI-iteration KPI (§2.7, UI repos only):** per active `(surface, correction-class)`, `ui-fidelity {repo}: {surface}/{class} rounds {old}→{new} (n={N})` — the per-class, causally-readable proof the UI meta-learning works (down = improving). Flag flat/climbing classes as meta-lessons that aren't landing, and note `{open-failures}` still-not-right per class. Omit entirely for repos with no captures. This is the one number with a real per-topic join key, unlike the repo-level metrics above.
+- **Target synthesis (§2.7), one line per target that had captures:** `{target} {repo}: +{logged} logged, {promoted} lessons promoted/refreshed, {retired} retired · KPI {key}: {old}→{new} (n={N})` — e.g. `ui-fidelity web-app: +2 logged, 1 promoted · rounds surface=cards/per-state 4.0→2.0 (n=3)`. Flag flat/climbing keys as lessons that aren't landing and note `{open-failures}` still-not-right per key. Omit targets with no captures; say once if `learn-targets/` was present but unparsable and the built-ins were used.
+- **Mined input (§0.7, only with `--mine`):** `mine: {N} candidates, {dropped} below the ≥2 bar, {dup} already present, {proposed} proposed, {applied} applied`.
 - Reminder: "These patterns will be automatically loaded by /ticket, /test, /verify, and other commands."
 - If proposals were written: "Review command proposals at `.claude/command-proposals.md` when you have time."
 
@@ -764,6 +813,17 @@ Display:
 
 /learn --session api-bff   (optional hint — skips ticket scan; plain /learn api-bff already learns from the conversation too)
 → Same as above but targets api-bff specifically
+
+/learn --mine web-app      (cold start — the repo has merged PRs but no delivered state files yet)
+→ Reads web-app/.claude/state/mine/2026-04-21/candidates.json (7 candidates, 1 dropped: occurrences=1)
+→ Drops 2 whose titles already exist in codebase-patterns-shared.md
+→ Drafts 4 entries tagged _Source: mined:PR#88,#102_ → shown for approval → applied
+→ Adds `<!-- seeded-by: mine-history 2026-04-21 -->` under last-updated; entries age under §2.5 criterion 6
+
+/learn                     (SDET role installed — learn-targets/sdet.yaml declares kinds: [cover, triage])
+→ Finds 1 delivered cover sidecar (web-app cover:orders-v2-checkout, ticket: null)
+→ §2.7 role target selectors.md: 1 incident logged (b2v dead-selector exit 0); below promote_at — stays in the log
+→ Marks the sidecar learned (every scenario receipted); no tracker Closeout (ticket null)
 ```
 
 </examples>
@@ -773,6 +833,8 @@ Display:
 - [ ] **§0.3 aging gate ran first** — aged proposals (incl. NO-STATUS) swept to LAND/LAND-NOW/DEFER/KILL; defer-cap (2) enforced; carry-over reported if >15
 - [ ] **Command-file edits (LAND-NOW / APPLY-NOW) applied only after the user approved the shown diff**; each landing recorded in command-proposals.md
 - [ ] Sources auto-detected (not flag-gated): delivered tickets AND/OR current conversation, whichever had signal
+- [ ] **Kinds from the learn-targets contract (§0):** `learn-targets/*.yaml` merged when present (kinds unioned, targets appended), else `ticket` only; index fast path, grep fallback; an unparsable file degrades to built-ins and is reported once
+- [ ] **`--mine` (§0.7, only when passed):** newest `candidates.json` read; `occurrences < 2` and titles already in the repo/shared pattern files dropped and counted; survivors went through §3/§4/§5 unchanged with `_Source: mined:…_` tags and one `seeded-by` marker per file
 - [ ] Delivered ticket files (if any) found, read, retrospectives analyzed
 - [ ] Conversation learning (whenever substantial context existed): questions offered, answers tagged `session YYYY-MM-DD`
 - [ ] Lessons clustered by category (pitfalls, patterns, undocumented, precedents)
@@ -791,11 +853,12 @@ Display:
 - [ ] **Missed commands:** Conversation scanned for activities that map to unused commands (if enough context)
 - [ ] **Missed commands:** Recurring misses promoted to proposals
 - [ ] Summary of changes displayed (including proposal count and missed commands)
-- [ ] **UI-iteration synthesis (§2.7, UI repos only):** iteration captures collected into `ui-fidelity-ledger.md`; clusters ≥2 tickets (or any 4+) synthesized into surface-keyed `AUTO:META-LESSONS` with provenance (shown for approval, never auto-written); per-class KPI computed (`rounds=unrecorded` excluded, `99` excluded from mean) and the delta surfaced in §6
+- [ ] **Target synthesis (§2.7):** every target in force (built-in ui + process, plus role targets) ran log → cluster by key → lesson at `promote_at`; lessons shown for approval, never auto-written; `unrecorded` excluded from means, `99` excluded and tallied as open failures; per-key KPI delta surfaced in §6; `log_only` targets never promoted
+- [ ] **Non-ticket kinds marked learned** through the kind's own integrity table (cover receipts / triage resolutions), Closeout without a tracker timeline when `ticket: null`, file never renamed
 
 ## Related Commands
-- Source: /ticket (delivered tickets) AND the current conversation — both auto-detected in one pass, no flag needed
-- Updates: codebase-patterns.md | testing-patterns.md | .claude/command-proposals.md
+- Source: /ticket (delivered tickets), role sidecars named by `learn-targets/*.yaml` (e.g. /cover, /triage), AND the current conversation — all auto-detected in one pass, no flag needed; `--mine` adds `scripts/mine-history.sh` output
+- Updates: codebase-patterns.md | testing-patterns.md | per-target ledgers (§2.7) | .claude/command-proposals.md
 - Pipeline: /ticket → /verify → /pr → /learn
 - Closes the loop: §0.3 aging gate forces land/defer/kill on aged proposals; §5.6.5 reports process-ROI
 - Review proposals: read `.claude/command-proposals.md` and decide which to implement

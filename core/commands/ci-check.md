@@ -1,6 +1,6 @@
 ---
 name: ci-check
-version: 0.7.0
+version: 0.8.0
 description: Post-/pr CI watcher. Waits until CI is green on your open PR, prompts you to merge, then auto-runs /learn. Closes the pipeline loop.
 argument-hint: "[PR# — optional, discovers from current branch]"
 allowed-tools:
@@ -42,7 +42,7 @@ if [ -z "$PR_NUMBER" ]; then
 fi
 ```
 
-Also resolve `REPO_NAME` from CWD and the ticket ID from the current branch name (pattern `feature/PROJ-XXXX-*`).
+Also resolve `REPO_NAME` from CWD and — when the branch carries one — the ticket ID from the branch name (pattern `feature/PROJ-XXXX-*`). A `test/<slug>` branch has no ticket; that is normal for `/cover` / `/triage` work. The state file is always found by **branch** in §5.1, never by ticket, so a missing ticket ID blocks nothing here.
 
 ## 1.5 Resolve Base Branch (via repo profile)
 
@@ -124,6 +124,7 @@ A red check doesn't end the watch. For each failing check:
 2. Apply the cause-known gate (canonical: `routing.md`): if you can name the cause in one sentence (lint error, stale snapshot, missing format:check, env skew), draft the minimal fix. If you cannot, stop and suggest `/project-debug` — don't guess-and-push.
 3. Show the diff. Commit + push ONLY after explicit confirmation ([[feedback_confirm_before_commit_push]]), then re-enter Step 2 polling.
 4. Max 2 repair rounds. A third red on the same check means stop and suggest `/project-debug`; if the failure is an E2E spec, reproduce locally first ([[feedback_local_e2e_before_blind_ci]]) instead of iterating through CI dispatches.
+5. **Failing check is the repo's e2e job → the repair entry is `/triage <spec>`** (single-spec mode: reproduces locally, classifies broken-test / env-or-data / flaky / real-app-bug, and keeps a real app bug red instead of skipping it). Name the failing spec from the log tail; do not re-dispatch CI to see if it goes green.
 
 ## 4. Merge prompt
 
@@ -144,7 +145,13 @@ If the user picks "Hold off", exit cleanly without touching anything.
 
 Only if the merge succeeded:
 
-1. **Transition the ticket to delivered + snapshot the outcome** — find `{REPO_ROOT}/.claude/tickets/{PROJ-XXXX}.md`.
+1. **Transition the state file to delivered + snapshot the outcome** — resolve it by branch via the index, for ANY kind (ticket, build, cover, triage), the same way `/pr` §2 does:
+   ```bash
+   STATE_FILE=$(jq -r --arg r "$REPO_NAME" --arg b "$current_branch" \
+     '[.entries[] | select(.repo==$r and .branch==$b and .archived!=true)] | sort_by(.updated) | last | .path // empty' \
+     "$WORKSPACE_ROOT/.claude/state/index.json" 2>/dev/null)
+   : "${STATE_FILE:={REPO_ROOT}/.claude/tickets/{PROJ-XXXX}.md}"   # no index / no match → today's ticket path
+   ```
    - Expected incoming status: `pr-generated` (set by `/pr`). If it's already `delivered` or `learned`, skip the transition — the merge is late to the state file, not first.
    - Set `status: delivered`.
    - Append an event-log line `- [HH:MM] Merged via PR #{PR_NUMBER} to {BASE_BRANCH} (CI-check)`.
@@ -157,9 +164,10 @@ Only if the merge succeeded:
        qa_bounces: 1              # (transitions toString=='QA') − 1
        timeline: "To Do → In Progress → Code Review → QA → Code Review → QA"
      ```
-     This is the changelog-derived subset of the `outcome:` contract in [[ticket-outcome-spec.md]]; cycle time + story points are derived later by `/learn`, not snapshotted here. Best-effort: if Jira auth isn't available (the `--debug` grep is empty), skip this bullet silently — it never blocks the merge.
+     This is the changelog-derived subset of the `outcome:` contract in [[ticket-outcome-spec.md]]; cycle time + story points are derived later by `/learn`, not snapshotted here. Best-effort: if Jira auth isn't available (the `--debug` grep is empty) or the state file has `ticket: null` (ticket-less sidecar), skip this bullet silently — it never blocks the merge.
 
 1b. **Scoped post-deploy E2E re-check** (e2e-enabled repos only — skip silently otherwise). If the state file has an `## E2E Affected Specs (post-deploy re-check)` section (written by `/verify` §3.2c Step 5), the related-only spec list now becomes meaningful: deployed dev is about to serve the merged code. This is the substitute for waiting on the nightly full regression to discover a scoped break.
+   - **`kind: cover` files have no such section** — their spec list is the `*.spec.*` entries in the file's `## Files Modified` (the tests this branch wrote). Build the `run:` line from the repo profile's e2e `run_command` + those paths and treat it exactly as below; the merge just made those specs run against deployed code for the first time.
    - **Merged ≠ deployed** ([[reference_diagnosing_stuck_dev_deploy]]): the run is only valid once the dev deploy lands. Don't poll for it — ask (user-paced, [[feedback_run_commands_discretely]]) via AskUserQuestion:
      > "This ticket has {N} related e2e specs to re-check against deployed dev. Run them now (only if the dev deploy has landed), or I'll leave the command in the state file for when it has?"
      > Options: `Deploy landed — run now` | `Later — keep the command handy`
@@ -175,14 +183,14 @@ Only if the merge succeeded:
 
 3. **Offer `/learn`**:
    > "Ticket delivered. Run `/learn` now to extract patterns from the retrospective while context is fresh?"
-   - Yes → show the user the single-ticket learn flow for this ticket number.
+   - Yes → show the user the single-ticket learn flow for this ticket number (or the `<kind>:<slug>` for a sidecar — `/learn` scans delivered cover/triage files too).
    - No → remind them `/learn` will pick it up on the next multi-ticket run.
 
 ## 6. Summary
 
 ```
 ✓ PR #{PR_NUMBER} merged ({merge_method}) into {BASE_BRANCH}
-✓ Ticket {PROJ-XXXX} marked delivered
+✓ State file {PROJ-XXXX | <kind>:<slug>} marked delivered
 ✓ Jira outcome snapshotted ({qa_bounces} QA bounce(s)) for the /learn Closeout
 ✓ Local branch {branch} deleted
   → Next: /learn to extract patterns (optional)
@@ -195,7 +203,8 @@ Only if the merge succeeded:
 - [ ] CI status shown clearly; never offers merge while failing or pending
 - [ ] Review decision respected (never merges over CHANGES_REQUESTED)
 - [ ] Merge method is explicitly chosen, not defaulted
-- [ ] Ticket state file updated on successful merge
+- [ ] State file (resolved by branch via the index — any kind) updated to `delivered` on successful merge
+- [ ] Failing e2e job routed to `/triage <spec>`, not a blind CI re-dispatch
 - [ ] On merge, the Jira outcome (status timeline + `qa_bounces`) is snapshotted into the state file `outcome:` frontmatter when auth is available (best-effort; never blocks merge)
 - [ ] Offers `/learn` after merge — doesn't auto-run it
 - [ ] On merge in an e2e-enabled repo whose state file carries `## E2E Affected Specs`, the scoped post-deploy re-check was offered (user-paced, never auto-run, merged≠deployed respected)

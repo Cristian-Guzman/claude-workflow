@@ -1,6 +1,6 @@
 ---
 name: status
-version: 0.7.0
+version: 0.8.0
 description: Cross-repo work dashboard. Active tickets, open debug sessions, unresolved PRs, blocked items. Grouped by state, prioritized by recency.
 argument-hint: "[--days N] [--repo NAME] [--all]"
 allowed-tools:
@@ -51,9 +51,12 @@ Advantages: one file read vs 45 filesystem walks, consistent across commands, or
 If `index.json` doesn't exist or `jq` fails, fall back to the old glob:
 
 ```bash
+# Kind directories come from the schema's enum line, not a hardcoded list (state-file-schema.md → Kinds).
+KIND_DIRS=$(sed -n 's/^<!-- kind-dirs: \(.*\) -->$/\1/p' "$WORKSPACE_ROOT/.claude/state-file-schema.md" 2>/dev/null)
+: "${KIND_DIRS:=tickets debug builds refactors e2e}"   # schema doc absent → last known list
 for dir in "$WORKSPACE_ROOT"/*/; do
   repo=$(basename "$dir")
-  for kind in tickets debug builds refactors e2e; do
+  for kind in $KIND_DIRS; do
     for f in "$dir.claude/$kind/"*.md; do
       [ -f "$f" ] || continue
       status=$(awk '/^status:/{print $2; exit}' "$f")
