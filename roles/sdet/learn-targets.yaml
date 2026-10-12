@@ -1,0 +1,62 @@
+# learn-targets.yaml — the SDET role's contract with core /learn.
+# Installed to .claude/learn-targets/sdet.yaml. /learn scans these kinds for `status: delivered`
+# alongside tickets, and runs ONE routine per target: log every incident -> cluster by key ->
+# write a lesson at `promote_at` occurrences (shown-before-write). `log_only` targets never get
+# lessons here; `compile_to_check` lets a mechanically checkable lesson become a hook/lint rule on
+# its first occurrence (the COMPILE-TO-CHECK exception).
+kinds: [cover, triage]
+
+targets:
+  - file: .claude/selectors.md
+    log_section: "## AUTO:SELECTOR-LOG"
+    lesson_section: "## Selector lessons"
+    promote_at: 2
+    compile_to_check: true
+    log_only: false
+    signals:
+      - kind: triage
+        where: "cluster.class == 'broken-test' && cluster.subclass in ['selector', 'copy']"
+      - kind: cover
+        where: "b2v.mutation == 'dead-selector' && b2v.exit == 0"
+      - diff: spec_dir
+        add: "getBy(Role|TestId|Label)\\("
+        remove: "getByText\\(|\\[class\\*=|waitForLoadState\\(.networkidle.\\)"
+
+  - file: .claude/test-data.md
+    log_section: "## AUTO:DATA-LOG"
+    lesson_section: "## Data lessons"
+    promote_at: 2
+    compile_to_check: false
+    log_only: false
+    signals:
+      - kind: triage
+        where: "cluster.class == 'env-or-data' && cluster.subclass == 'data'"
+      - kind: cover
+        where: "scenario.data_needs != '' && files_modified matches 'seed|fixture|cleanup'"
+      - diff: spec_dir
+        add: "(seed|create|cleanup|archive)[A-Z][A-Za-z]*\\("
+        remove: ""
+
+  - file: .claude/environments.md
+    log_section: "## AUTO:ENV-LOG"
+    lesson_section: "## Environment lessons"
+    promote_at: 2
+    compile_to_check: false
+    log_only: false
+    signals:
+      - kind: triage
+        where: "cluster.class == 'env-or-data' && cluster.subclass in ['env', 'auth', 'deploy']"
+      - kind: triage
+        where: "status == 'env-blocked'"
+      - kind: cover
+        where: "run.target != 'local' || exploration == 'static'"
+
+  - file: .claude/flaky-ledger.md
+    log_section: "## Ledger"
+    lesson_section: ""
+    promote_at: 0
+    compile_to_check: false
+    log_only: true
+    signals:
+      - kind: triage
+        where: "cluster.class == 'flaky'"
