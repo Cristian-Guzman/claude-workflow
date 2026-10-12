@@ -53,6 +53,7 @@ CORE_MAP = {  # baseline path (as in core/) -> installed path (relative to .clau
     "agents": "agents",
     "scripts": "scripts",
     "docs": ".",  # core/docs/*.md land at .claude/*.md
+    "learn-targets": "learn-targets",  # roles/<r>/learn-targets.yaml -> .claude/learn-targets/<r>.yaml
 }
 
 EMAIL_RX = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")

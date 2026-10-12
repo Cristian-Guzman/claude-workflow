@@ -550,9 +550,10 @@ Next steps to specialize this project (fastest path first):
      Installing into a SINGLE repo (no multi-repo workspace)? Change the seeded
      env value to "WORKFLOW_LAYOUT": "single-repo" so the branch guard treats
      this root as a product repo.
-  2. Run /project-context once — it generates .claude/repo-profiles/<repo>.yaml
-     (base branch, CI command, tracker + transition ids, dev server) that every
-     other command reads. tracker_system: none is a first-class mode.
+  2. Create .claude/repo-profiles/<repo>.yaml by copying _schema.yaml and filling
+     base_branch + ci_command (tracker + transition ids, dev server as you learn them).
+     Every other command reads it; tracker_system: none is a first-class mode.
+     (/project-context maps cross-repo dependencies; it does not write profiles.)
   3. Skim .claude/codebase-patterns.md, testing-patterns.md, ticket-checklist.md —
      each has EXAMPLE entries showing the format. Replace with 2-3 real patterns
      from this codebase now, or just delete the examples and let /learn grow them
