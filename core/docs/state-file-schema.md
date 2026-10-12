@@ -109,10 +109,10 @@ A ticket may also exit at any point to **`abandoned`** — terminal, explicitly 
 | `delivered` | `/ci-check` Step 5.1 on successful merge | Merged to base branch |
 | `learned` | `/learn` Step 5 | Patterns extracted; ticket dropped from active lists (file kept on disk) |
 
-**Auxiliary (non-linear) statuses** seen in real state files — valid, set ad hoc when the happy path stalls:
-`in-review` (PR open, awaiting reviewer), `rework-pushed-awaiting-rereview` (changes pushed after review), `blocked-on-backend` (waiting on a dependency), `env-blocked` (sidecars: target environment unavailable — see Sidecars). All resolve back onto the line above.
+**Auxiliary (non-linear) statuses** seen in real state files, set ad hoc when the happy path stalls:
+`in-review` (PR open, awaiting reviewer), `rework-pushed-awaiting-rereview` (changes pushed after review), `blocked-on-backend` (waiting on a dependency), `env-blocked` (sidecars: target environment unavailable — see Sidecars). All resolve back onto the line above. Of these only `env-blocked` is in the closed vocabulary below; the other three are tolerated, not schema — the next paragraph says exactly what happens to them.
 
-**Closed status vocabulary** (what `state-index-upsert.sh` accepts without logging drift): the six lifecycle statuses, `abandoned`, the debug trio (`investigating`, `root-cause-found`, `fixed`), the terminal kind markers (`reviewed`, `blueprint`), `env-blocked`, and `unknown`. A file with **no `status:` at all** indexes as `unknown` AND writes a `missing status` line to `state/schema-drift.log`; a status outside this list indexes as written AND logs `non-schema status`. Fix the file, not the log.
+**Closed status vocabulary** (what `state-index-upsert.sh` accepts without logging drift): the six lifecycle statuses, `abandoned`, the debug trio (`investigating`, `root-cause-found`, `fixed`), the terminal kind markers (`reviewed`, `blueprint`), `env-blocked`, and `unknown`. A file with **no `status:` at all** indexes as `unknown` AND writes a `missing status` line to `state/schema-drift.log`. Any other status — the three auxiliary ones above included — is **tolerated**: the entry indexes with the status as written AND a `non-schema status` line goes to the drift log; nothing refuses the file. Fix the file, not the log.
 
 **Critical rule:** `/pr` sets `pr-generated`, NOT `delivered`. Only `/ci-check` transitions to `delivered` after confirmed merge. If `/pr` sets `delivered` prematurely, `/ci-check`'s event-log entry gets overwritten and `/learn` can't tell whether verification happened.
 

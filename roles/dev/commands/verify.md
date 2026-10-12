@@ -180,7 +180,7 @@ Classify the ticket on three independent axes, then run only the checks that app
 
 **HAS-UI?** yes if any of:
 - `tags.layer == "ui"` OR `tags.atomic_level ∈ {atom, molecule, organism, template, page}`
-- any modified file matches `*.tsx | *.module.css | globals.css | app/(web)/ | app/(word-addin)/ | app/_common/ | app/_lib/**/components/`
+- any modified file matches `*.tsx | *.module.css | globals.css | app/(web)/ | app/(<surface>)/ | app/_common/ | app/_lib/**/components/`
 - AC text matches `/\b(render|click|button|page|view|column|section|hover|focus|tab|modal|drawer|tooltip|badge|pill|chip|accordion|dropdown|menu|card|banner|skeleton|breadcrumb|toast|chevron|icon|panel|sidebar|header|footer|layout|placeholder|input|toggle|form|field|displayed|appears|shown|visible|hidden|collapsed|expanded)\b/i`
 
 **HAS-WIRING?** yes if any of:
@@ -213,9 +213,9 @@ if HAS_VISUAL_SPEC:    battery += [visual_compare]   # runs BOTH static + runtim
 if not HAS_UI and not HAS_WIRING:  battery += [targeted_unit_test_only]
 ```
 
-When `HAS_UI=true` AND the file list includes anything under `app/_lib/word-addin/` OR `app/(word-addin)/`, force `viewport_sweep` to include the `320x800` viewport (Word Add-in pane width). When `HAS_UI=true` AND a Figma link or Visual/CSS claim was extracted in `/clarify` Step 2, force `visual_compare` to RUN (do not skip even if visual-spec.yaml was missing — emit `NOT_RUN_STATIC` so the report flags it).
+When `HAS_UI=true` AND the file list includes anything under a sideload-only surface's folders (`app/_lib/<surface>/`, `app/(<surface>)/`, or a path in the repo profile's `sideload_only_routes:` list), force `viewport_sweep` to include the `320x800` viewport (Word Add-in pane width). When `HAS_UI=true` AND a Figma link or Visual/CSS claim was extracted in `/clarify` Step 2, force `visual_compare` to RUN (do not skip even if visual-spec.yaml was missing — emit `NOT_RUN_STATIC` so the report flags it).
 
-**Sideload-only surfaces:** when every UI-modified file sits under `app/(word-addin)/`, `app/_main/Word-Addin/`, `app/_lib/word-addin/`, or a path in the repo profile's `sideload_only_routes:` list, browser Playwright cannot drive the real surface (Office.js task-pane WebView) — emit `viewport_sweep = NOT_RUN_EXPECTED` (skip the runtime probes silently; in-Word manual QA is the substitute). This is reported, never clamped — MEDIUM-when-actually-HIGH on every Word Add-in ticket erodes trust in all the other clamps.
+**Sideload-only surfaces:** when every UI-modified file sits under a sideload-only surface's folders (`app/(<surface>)/`, `app/_main/<Surface>/`, `app/_lib/<surface>/`) or a path in the repo profile's `sideload_only_routes:` list, browser Playwright cannot drive the real surface (Office.js task-pane WebView) — emit `viewport_sweep = NOT_RUN_EXPECTED` (skip the runtime probes silently; in-Word manual QA is the substitute). This is reported, never clamped — MEDIUM-when-actually-HIGH on every Word Add-in ticket erodes trust in all the other clamps.
 
 ### Named battery: mechanical-removal tickets
 
@@ -333,7 +333,7 @@ for (const width of [320, 450, 1280]) {
 **Result codes:**
 - `OK` — all viewports render the spec consistently
 - `BREAKPOINT_DRIFT` — element bounding box or computed style changes unexpectedly across viewports (vs the spec's `narrow_viewport` declarations)
-- `NARROW_VIEWPORT_BUG` — narrow viewport renders differently than spec AND the component is in `app/_lib/word-addin/` (this MUST block PR; the Word Add-in pane is always narrow)
+- `NARROW_VIEWPORT_BUG` — narrow viewport renders differently than spec AND the component is in a sideload-only surface folder (`app/_lib/<surface>/`) (this MUST block PR; the Word Add-in pane is always narrow)
 - `NOT_RUN` — Playwright unavailable
 - `NOT_RUN_EXPECTED` — sideload-only surface (see §2.6): the runtime probe is structurally impossible, in-Word QA is the substitute. No clamp; gets its own report row.
 
@@ -494,8 +494,8 @@ If `codebase-patterns.md` was loaded, also check modified files for convention v
 3. **Run the touched specs against the BRANCH, not the old deploy** (frontend repos; creds in `.env`). The config's default baseURL is DEPLOYED dev — pre-merge it still serves the code *without* this branch, so a touched spec asserting new behavior can only fail there ([[PROJ-6522]] was flagged-not-run for exactly this). Target the local dev server instead (canonical: testing-patterns "## E2E repo-awareness, blast-radius & skip contract" §2b):
    ```bash
    LOCAL=$(grep -A60 '^e2e:' "$PROFILE" | grep 'local_base_url:' | awk '{print $2}' | tr -d '"')   # fallback below is an example — record e2e.local_base_url in the repo profile
-   curl -sk -o /dev/null -w "%{http_code}" "${LOCAL:-https://localhost:3002}" --max-time 3   # 2xx/3xx = branch is being served
-   PLAYWRIGHT_BASE_URL="${LOCAL:-https://localhost:3002}" yarn test:e2e {changed e2e spec paths} --workers=1 --reporter=line
+   curl -sk -o /dev/null -w "%{http_code}" "${LOCAL:-http://localhost:3000}" --max-time 3   # 2xx/3xx = branch is being served
+   PLAYWRIGHT_BASE_URL="${LOCAL:-http://localhost:3000}" yarn test:e2e {changed e2e spec paths} --workers=1 --reporter=line
    ```
    Auth is domain-scoped — never `REUSE_AUTH=true` across targets; the setup project re-logs-in from `.env` creds (§2b gotchas). If the local server is DOWN, ask the user to start `yarn dev` or record the specs as flagged for the post-deploy re-check (§3.2c Step 5) — never silently fall back to deployed dev pre-merge.
    Record pass/fail in the report. A genuine failure that survives the config's retries → do NOT report HIGH; name the failing test. Pre-existing rot in UNCHANGED specs is non-blocking ([[feedback_e2e_rot_not_blocking]]) — note it, don't clamp. Run low-concurrency (`--workers=1`) so you measure correctness, not self-induced load flake.
@@ -521,7 +521,7 @@ SIDELOAD=$(grep -A6 '^e2e:' "$PROFILE" 2>/dev/null | grep 'sideload_only:' | awk
 RUN_CMD=$(grep -A6 '^e2e:' "$PROFILE" 2>/dev/null | grep 'run_command:' | sed -E 's/.*run_command:\s*//' | tr -d '"')
 ```
 
-**Step 2 — Fire only when the diff changes APP surfaces (not just specs).** If the diff is spec-only, §3.2b already covers it — skip here. Otherwise apply the **blast-radius idiom** from the canonical section (do NOT re-derive it): extract changed surfaces from the diff and grep `{SPEC_DIR}` for each — (1) ROUTE literals + `*Path`/`*Base`/`*_URL` consts; (2) user-visible COPY strings (especially REMOVED copy a spec still asserts = guaranteed break); (3) `data-testid` values; (4) API/SSE endpoint paths (`page.route("**/...")`). Emit `affected_specs` as `file:line + matched token`. The drift this prevents is real and recurring — `/word-addin/analyze`→`/v1/analyze` versioning, `"Ask about your document"`→`"Document Assistant"`, GET-poll→SSE, header class-selectors→semantic markup, `"Create item"`→`"Add item"` (live un-caught drift at `e2e/<area>/<flow>.spec.ts:NN`).
+**Step 2 — Fire only when the diff changes APP surfaces (not just specs).** If the diff is spec-only, §3.2b already covers it — skip here. Otherwise apply the **blast-radius idiom** from the canonical section (do NOT re-derive it): extract changed surfaces from the diff and grep `{SPEC_DIR}` for each — (1) ROUTE literals + `*Path`/`*Base`/`*_URL` consts; (2) user-visible COPY strings (especially REMOVED copy a spec still asserts = guaranteed break); (3) `data-testid` values; (4) API/SSE endpoint paths (`page.route("**/...")`). Emit `affected_specs` as `file:line + matched token`. The drift this prevents is real and recurring — `/legacy/<resource>`→`/v1/<resource>` versioning, `"Ask about your document"`→`"Document Assistant"`, GET-poll→SSE, header class-selectors→semantic markup, `"Create item"`→`"Add item"` (live un-caught drift at `e2e/<area>/<flow>.spec.ts:NN`).
 
 **Then UNION Tier 0 — the profile's `feature_map` (canonical §2b "Related-spec selection & execution target").** The token grep is Tier 1 (precision); it is blind to behavior changes that break a spec without renaming any token — which is why every §3.2c firing before 2026-07-10 ended `NO_AFFECTED`/`FLAGGED` while the nightly still caught scoped breaks. For each changed file, prefix-match against `e2e.feature_map` entries (`"app-prefix => spec-path"`; every matching entry contributes) and add those spec paths to `affected_specs` tagged `feature-map:{prefix}`. A changed file matching `e2e.shared_paths` adds `e2e.smoke_specs` (bounded canary) — NEVER the whole suite; full regression is the nightly's job. Profile lacks the §2b keys → Tier-1-only (status quo), note it in the report.
 
@@ -530,10 +530,10 @@ RUN_CMD=$(grep -A6 '^e2e:' "$PROFILE" 2>/dev/null | grep 'run_command:' | sed -E
 - **Runnable repos** (e.g. addin-fe): pre-merge, the run MUST target the **local dev server serving this branch** — the config's default baseURL is DEPLOYED dev, which pre-merge serves the code *without* the branch, so a green there proves nothing about the change and a red is usually the old deploy, not a bug (this is why pre-2026-07 firings only ever FLAGGED). Canonical: testing-patterns §2b.
   ```bash
   LOCAL=$(grep -A60 '^e2e:' "$PROFILE" | grep 'local_base_url:' | awk '{print $2}' | tr -d '"')   # fallback below is an example — record e2e.local_base_url in the repo profile
-  up=$(curl -sk -o /dev/null -w "%{http_code}" "${LOCAL:-https://localhost:3002}" --max-time 3)
+  up=$(curl -sk -o /dev/null -w "%{http_code}" "${LOCAL:-http://localhost:3000}" --max-time 3)
   # cap at 5 to keep verify bounded — order: in-diff specs → Tier-1 token hits →
   # Tier-0 specs sharing a filename token with a changed file's basename → remainder alphabetical
-  PLAYWRIGHT_BASE_URL="${LOCAL:-https://localhost:3002}" ${RUN_CMD:-yarn test:e2e} {first ≤5 affected_specs} --workers=1 --reporter=line
+  PLAYWRIGHT_BASE_URL="${LOCAL:-http://localhost:3000}" ${RUN_CMD:-yarn test:e2e} {first ≤5 affected_specs} --workers=1 --reporter=line
   ```
   Auth is domain-scoped — never `REUSE_AUTH=true` across targets; the setup project re-logs-in from `.env` `TEST_USER_EMAIL`/`TEST_USER_PASSWORD` (§2b gotchas). Local server DOWN (`$up` not 2xx/3xx) → AskUserQuestion: **(a)** "I started `yarn dev` — run now" (re-probe, then run) or **(b)** "Flag for the post-deploy re-check" → result `DRIFT_FLAGGED (local-server-down)`. Never silently fall back to deployed dev pre-merge.
   Record pass/fail per spec, naming any failing test. Per [[feedback_e2e_rot_not_blocking]] a run failure is a **real finding but NEVER an auto-block** — report it, clamp per §7, do not flip the verdict to a hard block on the strength of an E2E red alone. If creds do NOT resolve → FLAG instead: "these N specs likely need updating — couldn't run (no creds)."
@@ -764,10 +764,10 @@ method: live | swagger-static
 ### Endpoints Tested
 | Endpoint | Method | Result | Details |
 |----------|--------|--------|---------|
-| /api/v2/positions | GET | ✅ | Response matches PositionListResponse |
-| /api/v2/positions?ownership=MINE | GET | ⚠️ | Identical to unfiltered — backend may not implement param |
-| /api/v2/positions/:id | GET | ❌ | actions[].action is object, frontend expects string |
-| /api/v2/positions | POST | ⚠️ | Mutation not tested — manual verify recommended |
+| /api/v2/items | GET | ✅ | Response matches ItemListResponse |
+| /api/v2/items?ownership=MINE | GET | ⚠️ | Identical to unfiltered — backend may not implement param |
+| /api/v2/items/:id | GET | ❌ | actions[].kind is object, frontend expects string |
+| /api/v2/items | POST | ⚠️ | Mutation not tested — manual verify recommended |
 
 ### Mismatches Found
 {detailed field-by-field comparison for any ❌ results}

@@ -1,31 +1,29 @@
-# learn-targets.yaml — what /learn grows for the dev role.
+# learn-targets.yaml — the dev role's contract with core /learn.
+# Installed to .claude/learn-targets/dev.yaml. /learn reads every *.yaml in that directory and
+# merges them (kinds unioned, targets appended); when the directory is absent it falls back to
+# its built-in scan. This file makes the dev behaviour explicit: the two files /learn grows,
+# where it logs, where it promotes, and the state kinds it scans for `status: delivered`.
 #
-# Installed to .claude/learn-targets/dev.yaml. /learn reads every *.yaml in that
-# directory; absent directory = built-in behaviour (identical to this file).
-#
-# Contract:
-#   kinds:    state-file kinds whose delivered/learned entries this role scans
-#   targets:  one entry per project-owned file /learn may append to
-#     file              path relative to the repo's .claude/
-#     log_section       H2 where raw observations are logged (null = no log step)
-#     lesson_section    H2 (or "by-category" = the file's own H2 taxonomy) for promoted entries
-#     promote_at        occurrences needed before a logged observation becomes an entry
-#     compile_to_check  true = a promoted lesson may also become a mechanical check
-#                       (hook, lint rule, script) proposed through command-proposals.md
-#     log_only          true = never promote; the section is a ledger
-#     signals           where observations come from:
-#       {kind, where}   a state-file kind and the section inside it
-#       {diff, add, remove}  a diff-shaped signal (files added/removed in the ticket branch)
-
-schema: 1
-role: dev
-
+# Shape (the contract is documented in core/commands/learn.md §0):
+#   kinds             state-file kinds scanned for `status: delivered`, in addition to ticket
+#   targets           one entry per project-owned file /learn may append to
+#     file            repo-relative path of the knowledge file
+#     log_section     H2 ("## ...") where one line per incident is appended;
+#                     "" = no log step, the signals are clustered directly
+#     lesson_section  H2 for promoted lessons, or "by-category" = the file's own H2 taxonomy
+#     promote_at      distinct sources needed before a cluster becomes a lesson (never below 2)
+#     compile_to_check  true = a mechanically checkable lesson may also become a hook, lint rule
+#                     or script (COMPILE-TO-CHECK, proposed through command-proposals.md)
+#     log_only        true = ledger only; never promotes
+#     signals         what counts as an incident for this target:
+#       {kind, where}        a state-file kind and the section/predicate inside it
+#       {diff, add, remove}  a diff-shaped signal over the delivered branch
 kinds: [ticket, build, refactor, debug, e2e]
 
 targets:
-  - file: codebase-patterns.md
-    log_section: null
-    lesson_section: by-category
+  - file: .claude/codebase-patterns.md
+    log_section: ""
+    lesson_section: "by-category"
     promote_at: 2
     compile_to_check: true
     log_only: false
@@ -37,9 +35,9 @@ targets:
       - { kind: refactor, where: "Violations fixed" }
       - { kind: debug,    where: "Root cause" }
 
-  - file: testing-patterns.md
-    log_section: "E2E drift taxonomy"
-    lesson_section: by-category
+  - file: .claude/testing-patterns.md
+    log_section: "## E2E drift taxonomy"
+    lesson_section: "by-category"
     promote_at: 2
     compile_to_check: false
     log_only: false

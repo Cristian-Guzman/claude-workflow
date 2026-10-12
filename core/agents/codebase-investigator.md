@@ -39,7 +39,7 @@ Report for each: file path, what components it uses, layout structure, any notew
 Based on the repo's existing structure:
 - **frontend-ui**: which `app/_lib/{domain}/` belongs to this? Which `app/(web)/` route maps to it? Where should tests live in `__tests__/`?
 - **backend-bff**: which `src/routes/` file? Any `src/schemas/`? Middlewares needed?
-- **backend-go**: which `lambdas/ms-*/` folder? Shared utilities from `shared-go-lib`?
+- **backend-go**: which `services/<name>/` folder? Shared utilities from `shared-lib`?
 - **mobile-ios**: which Xcode target? Which `Sources/*/Views/` folder?
 
 If the ticket has a FILE MAP, flag any paths that don't match repo conventions.
@@ -49,7 +49,7 @@ If the ticket has a FILE MAP, flag any paths that don't match repo conventions.
 Search the repo's shared-code directories:
 - **frontend-ui**: `app/_common/`, `app/_lib/`, the repo's API-client directory (e.g. `app/_api/`)
 - **backend-bff**: `src/middlewares/`, `src/utils/`, `src/schemas/`
-- **backend-go**: `internal/`, `pkg/`, shared `shared-go-lib`
+- **backend-go**: `internal/`, `pkg/`, shared `shared-lib`
 - **mobile-ios**: the app's Swift package sources (e.g. `Packages/Sources/`)
 
 **For frontend repos**, classify each found component by atomic level. If the repo profile has `component_organization:` set, honor the declared directory conventions. Otherwise, infer from these heuristics:
@@ -99,7 +99,7 @@ Backend tickets: skip the atomic classification; report reusable modules by role
 ### D. API surface
 - Grep `$WORKSPACE_ROOT/.claude/api-reference/*.json` for every keyword
 - For frontend-ui tickets: also check `api-bff/src/routes/` for matching BFF routes
-- For backend-bff tickets: also check `backend-services/lambdas/` for matching upstream handlers
+- For backend-bff tickets: also check `backend/lambdas/` for matching upstream handlers
 Report for each endpoint: exists y/n, fields, any mismatch between ticket claim and actual shape.
 
 ### E. Interactive UI patterns (frontend only)
