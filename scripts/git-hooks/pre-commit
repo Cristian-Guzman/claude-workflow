@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# pre-commit — refuse a commit whose identity is not the maintainer's.
+#
+# Why: a machine whose GLOBAL git config is a company identity will stamp that name and
+# email on every commit in this public repo unless the repo pins its own. This hook makes
+# the pin mandatory instead of remembered. Configure once with scripts/setup-maintainer.sh.
+set -u
+want_email="$(git config --get maintainer.email || true)"
+want_name="$(git config --get maintainer.name || true)"
+if [ -z "$want_email" ]; then
+  echo "pre-commit: maintainer.email is not set — run scripts/setup-maintainer.sh first" >&2
+  exit 1
+fi
+email="$(git config --get user.email || true)"
+name="$(git config --get user.name || true)"
+bad=0
+if [ "$email" != "$want_email" ]; then
+  echo "pre-commit: user.email is '$email', expected '$want_email' (company identity leaking into a public repo?)" >&2; bad=1
+fi
+if [ -n "$want_name" ] && [ "$name" != "$want_name" ]; then
+  echo "pre-commit: user.name is '$name', expected '$want_name'" >&2; bad=1
+fi
+if [ "$bad" = 1 ]; then
+  echo "        fix: scripts/setup-maintainer.sh  (sets the repo-local identity; never touches your global config)" >&2
+  exit 1
+fi
+exit 0

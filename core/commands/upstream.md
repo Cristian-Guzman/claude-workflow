@@ -205,7 +205,9 @@ instructions.
    $T show                                  # prove the previous values are back
    ```
    `restore` runs in every exit path once `set` has run: push rejected, `gh pr create` failed, user
-   aborted. Never leave the swapped identity on disk. The PR body is the merged `CONTRIBUTION.md` list
+   aborted. Never leave the swapped identity on disk.
+   On a clone set up with `scripts/setup-maintainer.sh` the swap is a no-op (identity and pusher are
+   already pinned) and the `pre-commit` / `pre-push` hooks enforce it. The PR body is the merged `CONTRIBUTION.md` list
    with the harvest ids — no aliases, no companies.
 8. After merge (the user merges; this command does not): `gh issue close` each consumed inbox issue
    with the PR URL, and `$TOOL log --id <ids> --event intake --dest <pr-url>` in the inbox clone if one

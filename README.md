@@ -117,4 +117,18 @@ hit or credential. The bundle goes, as an issue, to a **private inbox repo** you
 merges a month of bundles into **one** PR here under a scoped personal git identity. `scripts/harvest-profile.py` emits an aggregates-only
 profile ([core/docs/profile.schema.md](core/docs/profile.schema.md)) to compare a mature install against the public defaults without moving a single file.
 
+## Maintainer setup — commit and push as yourself, whatever the machine says
+
+A machine whose global git config or active `gh` login is a company identity will stamp that identity
+on commits and pushes to this public repo. Pin the repo instead of remembering to switch:
+
+```bash
+scripts/setup-maintainer.sh --name "Your Name" --email "<id>+<login>@users.noreply.github.com" --gh-user <login> [--no-sign]
+```
+
+Repo-local config only (never `~/.gitconfig`): the commit identity, the GitHub account git authenticates
+as (`credential.https://github.com.username` — gh's credential helper serves that account's token even while
+another account is active), and `core.hooksPath=scripts/git-hooks`. The `pre-commit` hook refuses any other
+identity; `pre-push` refuses a push that would authenticate as another account or carry commits by another author.
+
 [docs/lessons.md](docs/lessons.md) collects the field-tested judgment calls that shaped these commands.
