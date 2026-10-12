@@ -2,6 +2,10 @@
 # state-index-upsert.sh — Upsert one state-file entry into .claude/state/index.json
 #
 # Called by the PostToolUse hook when a file at **/.claude/{tickets,debug,builds,refactors,e2e}/*.md is written.
+# Kind resolution (state-file-schema.md "Kinds"): declared `kind:` frontmatter in the enum wins,
+# then filename suffix rules (-review / -clarify / -test-plan), then the directory.
+# Ticket-less sidecars (`tickets/<kind>--<slug>.md`, kind cover|triage) key on the slug, so the
+# entry id is <repo>:<kind>:<slug> and survives /log writing `ticket: KEY` into the frontmatter.
 #
 # Usage: state-index-upsert.sh <absolute-or-relative-path-to-state-file>
 
@@ -46,7 +50,11 @@ case "$kind" in
 esac
 
 key=$(basename "$abs" .md)
-id="${repo}:${kind_singular}:${key}"
+
+# Closed kind enum — mirror of the `kind-enum` line in state-file-schema.md.
+KIND_ENUM="ticket debug build refactor e2e review blueprint cover triage test-plan"
+in_enum() { case " $KIND_ENUM " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+DRIFT_LOG="$WORKSPACE/.claude/state/schema-drift.log"
 
 # Parse YAML frontmatter into shell variables (simple key: value only)
 # Frontmatter is between the first two --- lines
@@ -68,39 +76,60 @@ tag_confidence=$(get_field "tag_confidence")
 # Ticket ID: frontmatter `ticket:` wins; else derive from the filename key (PROJ-6499-clarify -> PROJ-6499).
 # This is the citation key /clarify Step 1.5b prior-art uses — without it every hit shows `ticket: None`.
 ticket=$(get_field "ticket")
+# YAML null spellings mean "no ticket yet" (sidecars before /log keys them).
+case "$ticket" in null|Null|NULL|"~") ticket="" ;; esac
 # PROJ is your ticket project key — replace with your own (e.g. ABC-[0-9]+).
 if [ -z "$ticket" ] && [[ "$key" =~ (PROJ-[0-9]+) ]]; then
   ticket="${BASH_REMATCH[1]}"
 fi
 
-# A file's own `kind:` frontmatter overrides the directory-derived kind. Review logs
-# (`kind: review`, written by /review-pr into tickets/) carry a `verdict:`, not a
-# lifecycle `status:` — index them as kind=review (terminal, archived, kept for
-# /learn correlation) instead of letting them become ticket/status:unknown zombies.
+# A file's own `kind:` frontmatter overrides the directory-derived kind when it is in the
+# enum. A declared kind outside the enum is ignored (directory kind stays) and logged.
 file_kind=$(get_field "kind")
 archived="false"
 archived_reason=""
-if [ "$file_kind" = "review" ] || [[ "$key" == *-review || "$key" == *-review-* ]]; then
-  kind_singular="review"
-  id="${repo}:${kind_singular}:${key}"
-  [ -z "$status" ] && status="reviewed"
-  archived="true"
-  archived_reason="kind: review"
+if [ -n "$file_kind" ]; then
+  if in_enum "$file_kind"; then
+    kind_singular="$file_kind"
+  else
+    echo "$(date -u +%Y-%m-%d) non-schema kind '$file_kind' in $abs" >> "$DRIFT_LOG"
+  fi
 fi
 
-# Blueprints: /clarify persists `PROJ-XXXX-clarify.md` into tickets/ — these are investigation
-# artifacts (prior-art sources), not lifecycle entries. Without this rule they index as
-# kind=ticket / status=unknown zombies (16 of the 18 "unknown" entries traced to this).
-if [ "$file_kind" = "blueprint" ] || [[ "$key" == *-clarify || "$key" == *-clarify-* ]]; then
-  kind_singular="blueprint"
-  id="${repo}:${kind_singular}:${key}"
-  [ -z "$status" ] && status="blueprint"
-  archived="true"
-  archived_reason="kind: blueprint"
+# Filename suffix rules for sidecars that predate `kind:` frontmatter.
+if [ -z "$file_kind" ]; then
+  case "$key" in
+    *-review|*-review-*)       kind_singular="review" ;;
+    *-clarify|*-clarify-*)     kind_singular="blueprint" ;;
+    *-test-plan|*-test-plan-*) kind_singular="test-plan" ;;
+  esac
 fi
 
-# Fallbacks
-[ -z "$status" ] && status="unknown"
+# Per-kind defaults. Review logs (/review-pr) carry a `verdict:`, blueprints (/clarify) and
+# legacy test plans are investigation artifacts — all terminal and archived, kept for
+# /learn correlation and prior-art, never lifecycle entries.
+case "$kind_singular" in
+  review)
+    [ -z "$status" ] && status="reviewed"
+    archived="true"; archived_reason="kind: review" ;;
+  blueprint|test-plan)
+    [ -z "$status" ] && status="blueprint"
+    archived="true"; archived_reason="kind: $kind_singular" ;;
+  cover|triage)
+    # Ticket-less sidecars key on the slug: `cover--orders-v2.md` -> orders-v2. Frontmatter
+    # `slug:` wins; the id must not change when /log later writes `ticket: KEY`.
+    slug=$(get_field "slug")
+    [ -z "$slug" ] && slug="${key#${kind_singular}--}"
+    key="$slug" ;;
+esac
+id="${repo}:${kind_singular}:${key}"
+
+# Fallbacks. A file with NO status at all is schema drift — index it as `unknown` so it is
+# visible, and log it so it gets fixed instead of silently starving /learn and /status.
+if [ -z "$status" ]; then
+  status="unknown"
+  echo "$(date -u +%Y-%m-%d) missing status in $abs" >> "$DRIFT_LOG"
+fi
 [ -z "$updated" ] && updated="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 # Closed status vocabulary (state-file-schema.md). A free-text status makes the
@@ -108,9 +137,8 @@ fi
 # the drift so it surfaces instead of silently starving the learning loop.
 case "$status" in
   planning|in-progress|ready-for-pr|pr-generated|delivered|learned|\
-  investigating|root-cause-found|fixed|reviewed|blueprint|abandoned|unknown) ;;
-  *) echo "$(date -u +%Y-%m-%d) non-schema status '$status' in $abs" \
-       >> "$WORKSPACE/.claude/state/schema-drift.log" ;;
+  investigating|root-cause-found|fixed|reviewed|blueprint|abandoned|env-blocked|unknown) ;;
+  *) echo "$(date -u +%Y-%m-%d) non-schema status '$status' in $abs" >> "$DRIFT_LOG" ;;
 esac
 
 # Terminal statuses auto-archive at upsert time (scan --bootstrap also does this as a

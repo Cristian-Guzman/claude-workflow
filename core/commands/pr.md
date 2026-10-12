@@ -1,9 +1,9 @@
 ---
 name: pr
-version: 0.7.0
+version: 0.8.0
 model: "opus[1m]"
-description: Generate PR deliverables (commit message + PR description) from current changes.
-argument-hint: "[PROJ-XXXX]"
+description: Generate PR deliverables (commit message + PR description) from current changes. Resolves the branch's state file via the index for any kind (ticket, build, cover, triage).
+argument-hint: "[PROJ-XXXX] — optional; ticket-less branches (test/<slug>) resolve their state file by branch"
 allowed-tools:
   - Read
   - Bash
@@ -61,9 +61,10 @@ If on `main` or `develop` (i.e., no feature branch created yet), suggest a branc
 | Bug fix | `fix/PROJ-XXXX-short-description` | `fix/PROJ-5501-drawer-crash-on-empty` |
 | Refactor | `refactor/PROJ-XXXX-short-description` | `refactor/PROJ-5490-extract-review-hook` |
 | Chore | `chore/PROJ-XXXX-short-description` | `chore/PROJ-5510-update-dependencies` |
+| Test coverage (ticket-less) | `test/<slug>` | `test/orders-v2-checkout` |
 
 Rules:
-- Always include the ticket number
+- Always include the ticket number — except `test/<slug>`, which is `/cover` / `/triage` work that has no ticket until `/log` keys one (`commit-drafter` already handles no-ticket scope and the `test` type)
 - Use kebab-case for the description (lowercase, hyphens)
 - Keep description to 3-5 words max
 - Derive type from ticket type (Story → feature, Bug → fix, Task → chore)
@@ -137,7 +138,15 @@ git -C {REPO_ROOT} log {BASE_BRANCH}..HEAD --oneline
 git -C {REPO_ROOT} diff {BASE_BRANCH}...HEAD --stat
 ```
 
-If $ARGUMENTS contains a ticket number, check for `{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md` for ACs and implementation details.
+**Resolve the branch's state file (any kind) via the index.** The join key is `branch:`, not the ticket, so ticket-less `cover`/`triage` sidecars resolve exactly like tickets and builds:
+```bash
+INDEX=$WORKSPACE_ROOT/.claude/state/index.json
+MATCH=$(jq -c --arg r "$REPO_NAME" --arg b "$BRANCH" \
+  '[.entries[] | select(.repo==$r and .branch==$b and .archived!=true)] | sort_by(.updated) | last // empty' "$INDEX" 2>/dev/null)
+STATE_FILE=$(echo "$MATCH" | jq -r '.path // empty'); STATE_KIND=$(echo "$MATCH" | jq -r '.kind // empty')
+TICKET=$(echo "$MATCH" | jq -r '.ticket // empty')      # empty for ticket-less work
+```
+Fallback when the index is missing or nothing matched: `$ARGUMENTS` carries a ticket key → `{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md`; else grep `{REPO_ROOT}/.claude/builds/*.md` and `{REPO_ROOT}/.claude/tickets/*--*.md` for `branch: $BRANCH`. Read `$STATE_FILE` for ACs (tickets) or the scenario/cluster table (cover/triage) and implementation details. No file → continue; every state-file step below is conditional on `$STATE_FILE`.
 
 ## 3. Generate Commit Message (via commit-drafter agent)
 
@@ -150,7 +159,7 @@ Task(
   prompt: "Draft a conventional commit for the current branch.
     repo_root: {REPO_ROOT}
     base_branch: {BASE_BRANCH}
-    ticket_id: PROJ-XXXX
+    ticket_id: {TICKET, or "none" for ticket-less cover/triage branches}
     ticket_type: {Story|Bug|Task|...}
     ticket_summary: {summary}
     diff_scope: branch
@@ -231,10 +240,16 @@ Before running CI, run four sub-checks. Only (d) blocks.
 
 **a) `/verify` ran — check the event log, not a phase marker** (the old grep looked for a "Verification phase DONE" marker `/verify` doesn't always write; the event-log entry is what it always writes):
 ```bash
-grep -nE '^\- \[[0-9:]{4,5}\] .*(\[verify\]|/verify|Verified)' {REPO_ROOT}/.claude/tickets/PROJ-XXXX.md 2>/dev/null | tail -1
+grep -nE '^\- \[[0-9:]{4,5}\] .*(\[verify\]|/verify|Verified)' "${STATE_FILE:-{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md}" 2>/dev/null | tail -1
 ```
 If no verify event exists, warn (pipeline rule [[feedback_verify_before_pr]]):
 > "⚠️ `/verify` was not run for this ticket. ACs have not been formally verified against code. Run `/verify` now? (yes/skip)"
+
+For a `kind: cover|triage` state file the verification evidence is the role command's own gate event instead of `/verify` — same warn-not-block semantics:
+```bash
+grep -nE '^\- \[[0-9:]{4,5}\] (/cover: gate score=[0-9]+|/triage: )' "$STATE_FILE" 2>/dev/null | tail -1
+```
+Missing → "⚠️ No `/cover` gate (or `/triage` outcome) is recorded for this branch. Run it now? (yes/skip)". Sub-check (b) applies when the event carries `sha=`.
 
 **b) Stale verification.** If the verify event recorded a commit (`sha=<short_sha>`), compare against HEAD:
 ```bash
@@ -334,7 +349,7 @@ If both succeed, offer to switch the remote and retry: `git -C {REPO_ROOT} remot
 
 ## 8. Update Ticket State
 
-If `{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md` exists, update:
+If a state file matched in §2 (`$STATE_FILE` — ticket, build, cover or triage alike; sidecars are never renamed), update it:
 - Delivery phase → DONE
 - status → **`pr-generated`** (NOT `delivered` — `/ci-check` transitions to `delivered` after the PR actually merges; setting it here would overwrite `/ci-check`'s event-log entry)
 - **Write the PR number into the frontmatter** (schema requirement — this is the join key `/ci-check` uses to close the ticket after merge and the `ticket_cycle_time` metric joins on; every `pr-generated` zombie in the index traces to this field being skipped):
@@ -362,9 +377,11 @@ If `{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md` exists, update:
   ```
   Every field is countable from data already on disk; if a field can't be derived, write `unrecorded` — never estimate.
 
-**Also check `.claude/builds/`** — if a build state file matches this branch (grep its `branch:` frontmatter, or slug ≈ branch description), update it too: `status: pr-generated` + the PR URL in its Obsidian Links. Build-sourced PRs deserve the same audit trail as ticket-sourced ones.
+**Also check `.claude/builds/`** (only when §2 had no index entry) — if a build state file matches this branch (grep its `branch:` frontmatter, or slug ≈ branch description), update it too: `status: pr-generated` + the PR URL in its Obsidian Links. Build-sourced PRs deserve the same audit trail as ticket-sourced ones.
 
 ## 8.5 Transition Jira Ticket to "Code Review"
+
+**No ticket → no-op.** If the matched state file has `ticket: null` (ticket-less `cover`/`triage` work) or the repo profile says `tracker_system: none`, skip this whole step with one line — `⏭ No tracker ticket for this branch — /log keys it to one later` — and continue to §9.
 
 Once the PR is created (or the user confirms it is), transition the Jira ticket from its current status to **Code Review**. This keeps the board accurate and matches the user's workflow convention that open PR = Code Review.
 
@@ -443,10 +460,11 @@ If no, remind them: "No problem. Run `/learn` anytime — it'll pick up all deli
 - [ ] Bypass-marker gate (§5.5d) passed — no QA-BYPASS / DO-NOT-COMMIT / TODO-REVERT markers in the diff
 - [ ] Ticket state updated to `pr-generated` (if exists) — NOT `delivered`; `/ci-check` sets `delivered` after merge
 - [ ] `pr_number` + `pr_url` written into the ticket state frontmatter (and matching build state file, if any)
+- [ ] State file resolved by `branch:` via `state/index.json` for any kind (§2); for `cover`/`triage` the gate event stood in for `/verify` (§5.5a) and the tracker transition was skipped on `ticket: null` (§8.5)
 
 ## Related Commands
 - Before: /verify (verify ACs first)
 - After merge: /learn (extract patterns)
-- Source: /ticket | /build
+- Source: /ticket | /build | /cover | /triage (ticket-less sidecars, keyed by branch)
 - Patterns: codebase-patterns.md | ticket-checklist.md
 </success_criteria>

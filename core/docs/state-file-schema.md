@@ -1,9 +1,59 @@
 # Ticket State-File Schema Contract
 
-**Applies to:** `{repo}/.claude/tickets/PROJ-XXXX.md`
-**Read/write by:** `/ticket`, `/verify`, `/pr`, `/ci-check`, `/learn`, `/resume-ticket`, `/review-comments`, `/status`
+**Applies to:** `{repo}/.claude/tickets/PROJ-XXXX.md` and every other state file the index knows about (see Kinds)
+**Read/write by:** `/ticket`, `/verify`, `/pr`, `/ci-check`, `/learn`, `/resume-ticket`, `/review-comments`, `/status`, and the role commands that write sidecars (`/cover`, `/triage`, `/log`)
 
 Every ticket state file follows this contract. Commands that violate it silently corrupt downstream consumers. If you add a new field, document it here first.
+
+## Kinds (closed enum)
+
+`state-index-upsert.sh` and `/status`'s no-index fallback read the two comment lines below — keep them on one line each and in sync with the table.
+
+<!-- kind-enum: ticket debug build refactor e2e review blueprint cover triage test-plan -->
+<!-- kind-dirs: tickets debug builds refactors e2e -->
+
+| kind | Directory | Filename | Status vocabulary | Notes |
+|------|-----------|----------|-------------------|-------|
+| `ticket` | `tickets/` | `PROJ-XXXX.md` | Status Lifecycle below | the primary lifecycle entry |
+| `debug` | `debug/` | `<slug>.md` | `investigating` → `root-cause-found` → `fixed` | written by `/project-debug` |
+| `build` | `builds/` | `<slug>.md` | Status Lifecycle below | written by `/build`; ticket-less |
+| `refactor` | `refactors/` | `<slug>.md` | Status Lifecycle below | written by `/refactor` |
+| `e2e` | `e2e/` | `<slug>.md` | Status Lifecycle below | legacy directory, kept for old installs |
+| `review` | `tickets/` | `PROJ-XXXX-review[-N].md` | `reviewed` (terminal) | `/review-pr` log; archived at upsert |
+| `blueprint` | `tickets/` | `PROJ-XXXX-clarify[-N].md` | `blueprint` (terminal) | `/clarify` investigation artifact; archived at upsert |
+| `cover` | `tickets/` | `cover--<slug>.md` | Status Lifecycle below + `env-blocked` | ticket-less sidecar, keyed by branch — see Sidecars |
+| `triage` | `tickets/` | `triage--<slug>.md` | Status Lifecycle below + `env-blocked` | ticket-less sidecar, keyed by branch — see Sidecars |
+| `test-plan` | `tickets/` | `PROJ-XXXX-test-plan.md` | `blueprint` (terminal) | legacy sidecar of the retired `/test-plan`; archived at upsert; never written by a current command |
+
+**Kind resolution order in the index:** a declared `kind:` frontmatter value that is in the enum wins; else the filename suffix rules (`-review`, `-clarify`, `-test-plan`) apply; else the kind is derived from the directory. A declared `kind:` outside the enum is ignored (directory kind wins) and logged to `state/schema-drift.log`.
+
+### Sidecars (`cover`, `triage`)
+
+Role commands that start work without a ticket write a sidecar into `tickets/` named `tickets/<kind>--<slug>.md`. Frontmatter:
+
+```yaml
+---
+kind: cover                    # cover | triage — REQUIRED, this is what the index keys on
+slug: orders-v2-checkout       # kebab-case; the index key and the id's last segment
+ticket: null                   # null until /log creates or links a tracker issue, then the KEY (e.g. PROJ-1234)
+branch: test/orders-v2-checkout
+status: in-progress            # ticket vocabulary (Status Lifecycle) + env-blocked
+created: 2026-04-21T10:00:00Z
+updated: 2026-04-21T15:30:00Z
+pr_number: null                # set by /pr §8 — the same join key /ci-check uses for tickets
+---
+```
+
+Rules:
+- **Index id = `<repo>:<kind>:<slug>`, immutable.** The ticket is NOT part of the id, so `/log` can key the work to a tracker issue later by writing `ticket: PROJ-1234` into the frontmatter **without renaming the file** — the PostToolUse upsert re-derives `ticket` (frontmatter first) and the entry keeps its id.
+- `ticket: null`, `~`, or an absent field all mean "no ticket" and index as `ticket: null`.
+- `branch` is the join key `/pr` and `/ci-check` use to find the sidecar for the current branch (any kind, `archived != true`). Keep it current.
+- `env-blocked` = the work is sound but the target environment is not (deploy not landed, data missing, auth down). Resolves back onto the lifecycle line; it is not terminal.
+- Body sections follow the ticket contract where they apply (`## Files Modified`, `## Event Log`, `## Retrospective`); `/cover` adds a scenario table with one break-to-validate receipt per test, `/triage` adds a cluster table. `/resume-ticket` reads those tables to find the resume point.
+
+### Legacy `-test-plan` sidecar
+
+`PROJ-XXXX-test-plan.md` files were written by the retired `/test-plan` command. They index as `kind: test-plan`, `status: blueprint` when the file carries no status, `archived: true` (terminal). No current command writes or reads them beyond prior-art lookup; do not delete them.
 
 ## Frontmatter (YAML)
 
@@ -60,7 +110,9 @@ A ticket may also exit at any point to **`abandoned`** — terminal, explicitly 
 | `learned` | `/learn` Step 5 | Patterns extracted; ticket dropped from active lists (file kept on disk) |
 
 **Auxiliary (non-linear) statuses** seen in real state files — valid, set ad hoc when the happy path stalls:
-`in-review` (PR open, awaiting reviewer), `rework-pushed-awaiting-rereview` (changes pushed after review), `blocked-on-backend` (waiting on a dependency). All resolve back onto the line above.
+`in-review` (PR open, awaiting reviewer), `rework-pushed-awaiting-rereview` (changes pushed after review), `blocked-on-backend` (waiting on a dependency), `env-blocked` (sidecars: target environment unavailable — see Sidecars). All resolve back onto the line above.
+
+**Closed status vocabulary** (what `state-index-upsert.sh` accepts without logging drift): the six lifecycle statuses, `abandoned`, the debug trio (`investigating`, `root-cause-found`, `fixed`), the terminal kind markers (`reviewed`, `blueprint`), `env-blocked`, and `unknown`. A file with **no `status:` at all** indexes as `unknown` AND writes a `missing status` line to `state/schema-drift.log`; a status outside this list indexes as written AND logs `non-schema status`. Fix the file, not the log.
 
 **Critical rule:** `/pr` sets `pr-generated`, NOT `delivered`. Only `/ci-check` transitions to `delivered` after confirmed merge. If `/pr` sets `delivered` prematurely, `/ci-check`'s event-log entry gets overwritten and `/learn` can't tell whether verification happened.
 
@@ -111,6 +163,8 @@ Wiki-style `[[PROJ-YYYY]]` cross-links and topic tags. Used by `/learn` for grap
 | Missing `pr_number` after `/pr` ran | `/ci-check` can't identify the PR | `/ci-check` Step 1 |
 | Event-log entry rewritten (not appended) | Audit trail broken | `/retro` sees timeline holes |
 | `updated` timestamp not bumped | `/status` shows stale work as active | `/status` aging filter |
+| State file has no `status:` | Indexed as `unknown`; invisible to `/learn` and `/status` buckets | `state/schema-drift.log` (`missing status`) |
+| Sidecar renamed after `/log` keyed it | Index id changes; history splits across two entries | never rename — write `ticket:` into the frontmatter |
 
 ## Migration
 
