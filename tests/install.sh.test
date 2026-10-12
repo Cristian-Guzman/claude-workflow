@@ -1,0 +1,400 @@
+#!/usr/bin/env bash
+# tests/install.sh.test — scratch-dir suite for install.sh (roles, manifests, capture, seeds).
+#
+# Usage:  bash tests/install.sh.test            (from the repo root or anywhere)
+#         KEEP=1 bash tests/install.sh.test     keep the scratch dir for inspection
+#
+# Every case installs into a fresh directory under $TMPDIR and prints PASS/FAIL.
+# Expectations are computed from the repo tree (core/ + roles/<r>/), so the suite
+# stays valid as roles gain or lose files. Exit code is non-zero on any FAIL.
+set -uo pipefail
+
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+S="$(mktemp -d "${TMPDIR:-/tmp}/install-sh-test.XXXXXX")"
+INSTALL="$REPO/install.sh"
+TODAY="$(date -u +%Y-%m-%d)"
+pass=0; fail=0; case_fail=0
+
+cleanup() { [ "${KEEP:-0}" = 1 ] && echo "scratch kept at $S" || rm -rf "$S"; }
+trap cleanup EXIT
+
+# ---------------------------------------------------------------- harness
+begin() { case_fail=0; CASE="$1"; }
+end()   { if [ "$case_fail" = 0 ]; then echo "PASS  $CASE"; pass=$((pass + 1)); else echo "FAIL  $CASE"; fail=$((fail + 1)); fi; }
+ok()    { :; }
+bad()   { echo "    x $*"; case_fail=1; }
+assert()        { local msg="$1"; shift; if "$@" >/dev/null 2>&1; then ok; else bad "$msg"; fi; }
+assert_not()    { local msg="$1"; shift; if "$@" >/dev/null 2>&1; then bad "$msg"; else ok; fi; }
+assert_eq()     { [ "$2" = "$3" ] && ok || bad "$1: expected [$3] got [$2]"; }
+assert_grep()   { grep -q -- "$2" "$3" 2>/dev/null && ok || bad "$1: '$2' not found in $(basename "$3")"; }
+assert_nogrep() { grep -q -- "$2" "$3" 2>/dev/null && bad "$1: '$2' unexpectedly found in $(basename "$3")" || ok; }
+fresh()  { local d="$S/$1"; rm -rf "$d"; mkdir -p "$d"; echo "$d"; }
+run()    { "$INSTALL" "$@" >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"; }
+rc()     { cat "$S/rc"; }
+
+expected_cmds() { # $@ = roles -> sorted basenames core/commands + roles/<r>/commands
+  { ls "$REPO"/core/commands/*.md; for r in "$@"; do ls "$REPO/roles/$r"/commands/*.md 2>/dev/null; done; } \
+    | xargs -n1 basename | sort -u
+}
+installed_cmds() { ls "$1/.claude/commands"/*.md 2>/dev/null | xargs -n1 basename | sort; }
+manifest_roles() { sed -n 's/.*"roles": *\[\([^]]*\)\].*/\1/p' "$1/.claude/workflow-manifest.json" | tr -d '" '; }
+seed_sha() { # project-owned files that must never change on re-run
+  (cd "$1" && shasum -a 256 .claude/settings.json .claude/codebase-patterns.md .claude/testing-patterns.md \
+      .claude/ticket-checklist.md .claude/pr-template.md CLAUDE.md .claude/upstream.json \
+      .claude/repo-profiles/_schema.yaml 2>/dev/null)
+}
+seeds_unchanged() { # $1 = workspace, $2 = earlier seed_sha output; re-hash only the files listed there
+  (cd "$1" && awk '{print $NF}' "$2" | xargs shasum -a 256) | diff "$2" -
+}
+copy_repo() { # editable copy of the checkout (working tree, not HEAD) without .git
+  local d="$S/$1"; rm -rf "$d"; mkdir -p "$d"
+  (cd "$REPO" && tar --exclude=.git --exclude=./tests -cf - .) | (cd "$d" && tar -xf -)
+  echo "$d"
+}
+DEV_ROLE_CMDS="$(ls "$REPO"/roles/dev/commands/*.md | xargs -n1 basename)"
+CORE_DOCS="$(ls "$REPO"/core/docs/*.md | xargs -n1 basename)"
+
+echo "install.sh suite — scratch $S"
+echo ""
+
+# ---------------------------------------------------------------- 1. fresh dev
+begin "1  fresh --role dev"
+W="$(fresh c1)"; run "$W" --role dev
+assert_eq "exit" "$(rc)" 0
+assert_eq "commands = core + dev" "$(installed_cmds "$W")" "$(expected_cmds dev)"
+assert_eq "manifest roles" "$(manifest_roles "$W")" "dev"
+assert_grep "upstream manifest carries roles" '"roles": \["dev"\]' "$W/.claude/.upstream-manifest.json"
+assert "baseline mirrors commands" diff -r "$W/.claude/.upstream-base/commands" "$W/.claude/commands"
+assert "baseline mirrors agents" diff -r "$W/.claude/.upstream-base/agents" "$W/.claude/agents"
+assert "baseline mirrors scripts" diff -r "$W/.claude/.upstream-base/scripts" "$W/.claude/scripts"
+for d in $CORE_DOCS; do assert "doc $d at .claude root" test -f "$W/.claude/$d"; assert "doc $d in baseline" cmp -s "$W/.claude/$d" "$W/.claude/.upstream-base/docs/$d"; done
+assert "learn-targets/dev.yaml installed" cmp -s "$REPO/roles/dev/learn-targets.yaml" "$W/.claude/learn-targets/dev.yaml"
+assert "no prior capture on a fresh install" test ! -e "$W/.claude/.upstream-prior"
+assert "no archive on a fresh install" test ! -e "$W/.claude/_archived-commands"
+assert_grep "Done line prints roles" "Done. roles: dev |" "$S/out.log"
+assert_grep "checklist names dev start-here" "/ticket (or /build without a tracker) -> /pr -> /learn" "$S/out.log"
+assert_grep "checklist names sdet start-here" "/cover -> /pr -> /learn" "$S/out.log"
+assert_grep "checklist names cold start" "mine-history.sh" "$S/out.log"
+assert_grep "checklist names --role" "\-\-role" "$S/out.log"
+assert_grep "gitignore has manifest-free local state" "^.claude/.upstream-prior/$" "$W/.gitignore"
+assert_nogrep "workflow-manifest.json is tracked (not ignored)" "workflow-manifest.json" "$W/.gitignore"
+assert "drift clean" sh -c "python3 '$REPO/core/scripts/upstream.py' --root '$W/.claude' drift | grep -q 'no local edits'"
+end
+
+# ---------------------------------------------------------------- 2. fresh sdet
+begin "2  fresh --role sdet"
+W="$(fresh c2)"; run "$W" --role sdet
+assert_eq "exit" "$(rc)" 0
+assert_eq "commands = core + sdet" "$(installed_cmds "$W")" "$(expected_cmds sdet)"
+for c in $DEV_ROLE_CMDS; do assert "dev command $c absent" test ! -f "$W/.claude/commands/$c"; done
+assert_eq "agents = core agents" "$(ls "$W/.claude/agents" | wc -l | tr -d ' ')" "$(ls "$REPO"/core/agents/*.md | wc -l | tr -d ' ')"
+assert_eq "manifest roles" "$(manifest_roles "$W")" "sdet"
+assert "no dev learn-targets" test ! -e "$W/.claude/learn-targets/dev.yaml"
+assert "baseline mirrors commands" diff -r "$W/.claude/.upstream-base/commands" "$W/.claude/commands"
+end
+
+# ---------------------------------------------------------------- 3. combine, three spellings
+begin "3  combine dev+sdet (three spellings)"
+A="$(fresh c3a)"; run "$A" --role dev --role sdet; assert_eq "exit a" "$(rc)" 0
+B="$(fresh c3b)"; run "$B" --roles dev,sdet;      assert_eq "exit b" "$(rc)" 0
+C="$(fresh c3c)"; run --roles=sdet,dev "$C";      assert_eq "exit c (flags before target)" "$(rc)" 0
+assert_eq "commands = core + dev + sdet" "$(installed_cmds "$A")" "$(expected_cmds dev sdet)"
+assert_eq "manifest a" "$(manifest_roles "$A")" "dev,sdet"
+assert_eq "manifest c (sorted)" "$(manifest_roles "$C")" "dev,sdet"
+assert "a == b" diff -r -x .upstream-manifest.json "$A" "$B"
+assert "a == c" diff -r -x .upstream-manifest.json "$A" "$C"
+end
+
+# ---------------------------------------------------------------- 4. idempotency with edited seeds
+begin "4  re-run keeps edited seeds; touches only upstream-owned paths"
+W="$(fresh c4)"; run "$W" --role dev
+echo "## Local pattern" >>"$W/.claude/codebase-patterns.md"
+echo "## Local testing note" >>"$W/.claude/testing-patterns.md"
+echo "Local CLAUDE.md edit" >>"$W/CLAUDE.md"
+jq '.env.LOCAL_EDIT = "1"' "$W/.claude/settings.json" >"$S/tmp.json" && mv "$S/tmp.json" "$W/.claude/settings.json"
+seed_sha "$W" >"$S/before"
+touch "$S/marker"; sleep 1
+run "$W"
+assert_eq "exit" "$(rc)" 0
+assert_eq "roles from manifest" "$(manifest_roles "$W")" "dev"
+assert_grep "role source is the manifest" "roles    dev (.claude/workflow-manifest.json)" "$S/out.log"
+seed_sha "$W" >"$S/after"
+assert "seed hashes unchanged" diff "$S/before" "$S/after"
+assert_grep "local settings edit survived" "LOCAL_EDIT" "$W/.claude/settings.json"
+newer="$(cd "$W" && find .claude CLAUDE.md .gitignore -newer "$S/marker" -type f | sort)"
+bad_paths=""
+while IFS= read -r p; do
+  [ -n "$p" ] || continue
+  case "$p" in
+    .claude/commands/*|.claude/agents/*|.claude/scripts/*|.claude/learn-targets/*|.claude/.upstream-base/*|.claude/.upstream-manifest.json|.claude/workflow-manifest.json) ;;
+    *) b="$(basename "$p")"; echo "$CORE_DOCS" | grep -qx "$b" && [ "$p" = ".claude/$b" ] || bad_paths="$bad_paths $p" ;;
+  esac
+done <<EOF
+$newer
+EOF
+assert_eq "only upstream-owned paths rewritten" "$bad_paths" ""
+assert "something was refreshed" test -n "$newer"
+end
+
+# ---------------------------------------------------------------- 5. switch roles and back
+begin "5  switch dev -> sdet -> dev archives, never deletes"
+W="$(fresh c5)"; run "$W" --role dev
+echo "## Local pattern" >>"$W/.claude/codebase-patterns.md"
+seed_sha "$W" >"$S/before"
+run "$W" --role sdet
+assert_eq "exit" "$(rc)" 0
+assert_eq "manifest roles" "$(manifest_roles "$W")" "sdet"
+assert_eq "commands = core + sdet" "$(installed_cmds "$W")" "$(expected_cmds sdet)"
+for c in $DEV_ROLE_CMDS; do assert "$c archived" test -f "$W/.claude/_archived-commands/$c"; done
+assert "dev learn-targets archived" test -f "$W/.claude/_archived-commands/learn-targets/dev.yaml"
+assert "dev learn-targets removed from live dir" test ! -e "$W/.claude/learn-targets/dev.yaml"
+seed_sha "$W" >"$S/after"; assert "seeds untouched by the switch" diff "$S/before" "$S/after"
+assert_grep "archive is reported" "archived commands/verify.md" "$S/out.log"
+run "$W" --role dev
+assert_eq "exit back" "$(rc)" 0
+assert_eq "manifest back to dev" "$(manifest_roles "$W")" "dev"
+assert_eq "commands = core + dev again" "$(installed_cmds "$W")" "$(expected_cmds dev)"
+for c in $DEV_ROLE_CMDS; do assert "archive of $c still present" test -f "$W/.claude/_archived-commands/$c"; done
+assert "no archive-dir entries deleted" test "$(ls "$W/.claude/_archived-commands" | wc -l)" -ge "$(echo "$DEV_ROLE_CMDS" | wc -l)"
+run "$W" --role sdet; run "$W" --role dev; run "$W" --role sdet
+assert "second archive of the same file gets a timestamp suffix" sh -c "ls '$W/.claude/_archived-commands' | grep -q '^verify\.md\.[0-9]\{8\}T[0-9]\{6\}Z$'"
+end
+
+# ---------------------------------------------------------------- 6. --repo-only per role
+begin "6  --repo-only seeds only; role from flag, then from the workspace manifest"
+W="$(fresh c6)"; run "$W" --role dev
+mkdir -p "$W/repo-a" "$W/repo-b"
+run "$W/repo-a" --repo-only --role sdet
+assert_eq "exit" "$(rc)" 0
+assert_grep "role from flag" "roles    sdet (--role)" "$S/out.log"
+assert "seeds present" test -f "$W/repo-a/.claude/codebase-patterns.md"
+assert "CLAUDE.md seeded" test -f "$W/repo-a/CLAUDE.md"
+assert "no manifest in repo" test ! -e "$W/repo-a/.claude/workflow-manifest.json"
+assert "no baseline in repo" test ! -e "$W/repo-a/.claude/.upstream-base"
+assert "no commands in repo" test ! -e "$W/repo-a/.claude/commands"
+assert "no settings.json in repo" test ! -e "$W/repo-a/.claude/settings.json"
+assert_grep "gitignore block" "claude-workflow local state" "$W/repo-a/.gitignore"
+assert_nogrep "no checklist in repo-only" "Next steps to specialize" "$S/out.log"
+run "$W/repo-b" --repo-only
+assert_grep "role inherited from workspace manifest" "roles    dev (workspace manifest)" "$S/out.log"
+touch "$S/marker6"; sleep 1
+run "$W/repo-a" --repo-only --role sdet
+assert_eq "re-run writes nothing" "$(find "$W/repo-a" -newer "$S/marker6" -type f | wc -l | tr -d ' ')" "0"
+L="$(fresh c6-lone)"; run "$L" --repo-only
+assert_grep "no workspace -> dev default" "roles    dev (default)" "$S/out.log"
+end
+
+# ---------------------------------------------------------------- 7. legacy upgrades
+begin "7  legacy upgrade from a 0.6.0 install (no baseline) and from a 0.7.0 install (baseline)"
+# 0.6.0 = the parent of the commit that introduced the upstream baseline in install.sh
+V6="$(git -C "$REPO" log --format=%h -S write_upstream_baseline -- install.sh | tail -1)"
+if [ -n "$V6" ] && git -C "$REPO" rev-parse --verify -q "$V6^" >/dev/null; then
+  LEG="$S/legacy-060"; mkdir -p "$LEG"; git -C "$REPO" archive "$V6^" | tar -x -C "$LEG"
+  W="$(fresh c7)"
+  bash "$LEG/install.sh" "$W" >/dev/null 2>&1
+  assert "0.6.0 install has test-plan.md" test -f "$W/.claude/commands/test-plan.md"
+  assert "0.6.0 install has no manifest" test ! -e "$W/.claude/workflow-manifest.json"
+  assert "0.6.0 install has no baseline" test ! -e "$W/.claude/.upstream-base"
+  echo "## Local pattern" >>"$W/.claude/codebase-patterns.md"
+  echo "<!-- local edit -->" >>"$W/.claude/commands/pr.md"
+  seed_sha "$W" >"$S/before"
+  run "$W"
+  assert_eq "exit" "$(rc)" 0
+  assert_grep "roles inferred" "roles    dev (inferred from installed commands)" "$S/out.log"
+  assert_eq "manifest written as dev" "$(manifest_roles "$W")" "dev"
+  assert_eq "commands = core + dev (+ the orphan 0.6.0 left)" "$(installed_cmds "$W" | grep -vx test-plan.md)" "$(expected_cmds dev)"
+  assert "orphan kept: no baseline proves test-plan.md was upstream's" test -f "$W/.claude/commands/test-plan.md"
+  assert "nothing archived" test ! -e "$W/.claude/_archived-commands"
+  assert "baseline created" test -d "$W/.claude/.upstream-base/commands"
+  assert "seeds untouched" seeds_unchanged "$W" "$S/before"
+  assert "0.6.0 had no upstream.json; now seeded" test -f "$W/.claude/upstream.json"
+  P="$W/.claude/.upstream-prior/$TODAY"
+  assert "prior capture dir" test -d "$P"
+  assert "prior capture has the edited pr.md" grep -q "local edit" "$P/commands/pr.md"
+  assert "prior capture has MANIFEST.md" test -f "$P/MANIFEST.md"
+  assert "prior capture SHA256SUMS verifies" sh -c "cd '$P' && shasum -a 256 -c SHA256SUMS >/dev/null"
+  assert "prior capture has docs" test -f "$P/docs/workflow-version.md"
+  assert_grep "diff hint printed" "diff -r .claude/.upstream-prior/$TODAY/commands .claude/commands" "$S/out.log"
+  assert "refreshed pr.md lost the local edit (the capture is where it lives now)" sh -c "! grep -q 'local edit' '$W/.claude/commands/pr.md'"
+  mv "$W/.claude/commands/test-plan.md" "$S/"
+  run "$W"
+  assert_eq "still dev after manual removal" "$(manifest_roles "$W")" "dev"
+  assert_eq "still exactly one capture" "$(ls "$W/.claude/.upstream-prior" | wc -l | tr -d ' ')" "1"
+else
+  bad "could not locate the 0.6.0 commit"
+fi
+# 0.7.0 = main (baseline that still lists test-plan.md -> retired upstream, archived)
+LEG7="$S/legacy-070"; mkdir -p "$LEG7"
+if git -C "$REPO" archive main 2>/dev/null | tar -x -C "$LEG7" && grep -q write_upstream_baseline "$LEG7/install.sh"; then
+  W="$(fresh c7b)"
+  bash "$LEG7/install.sh" "$W" >/dev/null 2>&1
+  assert "0.7.0 wrote a baseline" test -f "$W/.claude/.upstream-base/commands/test-plan.md"
+  echo "<!-- local edit -->" >>"$W/.claude/commands/upstream.md"
+  run "$W"
+  assert_eq "exit" "$(rc)" 0
+  assert_grep "roles inferred" "roles    dev (inferred from installed commands)" "$S/out.log"
+  assert "no prior capture when a baseline exists" test ! -e "$W/.claude/.upstream-prior"
+  assert "retired test-plan.md archived" test -f "$W/.claude/_archived-commands/test-plan.md"
+  assert "retired test-plan.md gone from commands" test ! -e "$W/.claude/commands/test-plan.md"
+  assert_grep "retirement reported" "retired upstream" "$S/out.log"
+  assert_eq "commands = core + dev" "$(installed_cmds "$W")" "$(expected_cmds dev)"
+  assert "manifest from legacy baseline has roles" grep -q '"roles"' "$W/.claude/.upstream-manifest.json"
+  cp "$LEG7/core/commands/test-plan.md" "$W/.claude/commands/test-plan.md"; echo "edited" >>"$W/.claude/commands/test-plan.md"
+  cp "$LEG7/core/commands/test-plan.md" "$W/.claude/.upstream-base/commands/"
+  run "$W"
+  assert "locally modified retired file is kept" test -f "$W/.claude/commands/test-plan.md"
+  assert_grep "kept + explained" "locally modified" "$S/out.log"
+else
+  bad "main is not a 0.7.0-shaped checkout"
+fi
+end
+
+# ---------------------------------------------------------------- 8. unknown role / bad flags
+begin "8  unknown role and bad flags exit 1 with zero writes"
+W="$(fresh c8)"; run "$W" --role qa
+assert_eq "exit 1" "$(rc)" 1
+assert_grep "lists available roles" "unknown role 'qa' (available: dev sdet" "$S/err.log"
+assert_eq "zero writes" "$(find "$W" -mindepth 1 | wc -l | tr -d ' ')" "0"
+run "$W" --bogus;             assert_eq "unknown flag exit 1" "$(rc)" 1; assert_grep "names the flag" "unknown flag --bogus" "$S/err.log"
+run "$W" extra-arg;           assert_eq "extra positional exit 1" "$(rc)" 1
+run "$W" --role;              assert_eq "missing value exit 1" "$(rc)" 1
+run "$W" --role '../etc';     assert_eq "path-shaped role exit 1" "$(rc)" 1
+run;                          assert_eq "no target exit 1" "$(rc)" 1
+run "$S/does-not-exist";      assert_eq "missing target exit 1" "$(rc)" 1
+assert_eq "still zero writes" "$(find "$W" -mindepth 1 | wc -l | tr -d ' ')" "0"
+end
+
+# ---------------------------------------------------------------- 9. collision fixture
+begin "9  name collision across core + role exits 1 before any write"
+D="$(copy_repo dup9)"; mkdir -p "$D/roles/sdet/commands"; cp "$D/core/commands/learn.md" "$D/roles/sdet/commands/learn.md"
+W="$(fresh c9)"
+"$D/install.sh" "$W" --role sdet >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert_eq "exit 1" "$(rc)" 1
+assert_grep "names the key" "commands/learn.md is provided by more than one source" "$S/err.log"
+assert_grep "names core" "core" "$S/err.log"
+assert_grep "names the role" "roles/sdet" "$S/err.log"
+assert_eq "zero writes" "$(find "$W" -mindepth 1 | wc -l | tr -d ' ')" "0"
+"$D/install.sh" "$W" --role dev >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert_eq "unselected role's duplicate is not a collision" "$(rc)" 0
+mkdir -p "$D/roles/dev/templates/repo"; cp "$D/templates/repo/pr-template.md" "$D/roles/dev/templates/repo/pr-template.md"
+W2="$(fresh c9b)"
+"$D/install.sh" "$W2" --role dev >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert_eq "template collision exit 1" "$(rc)" 1
+assert_grep "template key named" "templates/pr-template.md" "$S/err.log"
+end
+
+# ---------------------------------------------------------------- 10. drift with roles
+begin "10 upstream.py drift sees role commands"
+W="$(fresh c10)"; run "$W" --role dev
+python3 "$REPO/core/scripts/upstream.py" --root "$W/.claude" drift >"$S/drift0.log" 2>&1
+assert_grep "fresh install: no drift" "no local edits" "$S/drift0.log"
+echo "" >>"$W/.claude/commands/clarify.md"; echo "<!-- project tweak -->" >>"$W/.claude/commands/clarify.md"
+python3 "$REPO/core/scripts/upstream.py" --root "$W/.claude" drift >"$S/drift1.log" 2>&1
+assert_grep "role command reported modified" "modified commands/clarify.md" "$S/drift1.log"
+assert_eq "exactly one file drifted" "$(grep -c 'modified\|missing' "$S/drift1.log")" "1"
+end
+
+# ---------------------------------------------------------------- 11. hooks
+begin "11 hook scripts executable; seeded hook has no inline path regex"
+W="$(fresh c11)"; run "$W" --role dev
+assert "guard-base-branch.sh executable" test -x "$W/.claude/scripts/guard-base-branch.sh"
+assert "state-index-upsert.sh executable" test -x "$W/.claude/scripts/state-index-upsert.sh"
+assert "settings.json is valid JSON" jq -e . "$W/.claude/settings.json"
+assert "PostToolUse calls the upsert script" sh -c "jq -r '.hooks.PostToolUse[].hooks[].command' '$W/.claude/settings.json' | grep -q state-index-upsert.sh"
+assert "no inline kind regex in the hook" sh -c "! jq -r '.hooks.PostToolUse[].hooks[].command' '$W/.claude/settings.json' | grep -q 'tickets|debug|builds'"
+assert "upsert script still filters by its own regex" grep -q 'tickets|debug|builds|refactors|e2e' "$W/.claude/scripts/state-index-upsert.sh"
+end
+
+# ---------------------------------------------------------------- 12. pre-install capture once
+begin "12 pre-install capture happens exactly once"
+W="$(fresh c12)"; mkdir -p "$W/.claude/commands" "$W/.claude/hooks" "$W/.claude/agents"
+echo "# custom" >"$W/.claude/commands/custom.md"; echo "# old verify" >"$W/.claude/commands/verify.md"
+echo "echo hi" >"$W/.claude/hooks/pre.sh"; echo "# my agent" >"$W/.claude/agents/mine.md"
+run "$W" --role dev
+assert_eq "exit" "$(rc)" 0
+P="$W/.claude/.upstream-prior/$TODAY"
+assert "capture dir" test -d "$P"
+assert "captured custom command" cmp -s "$P/commands/custom.md" "$W/.claude/commands/custom.md"
+assert "captured old verify.md" grep -q "old verify" "$P/commands/verify.md"
+assert "captured hooks/" test -f "$P/hooks/pre.sh"
+assert "captured agents/" test -f "$P/agents/mine.md"
+assert "MANIFEST.md" grep -q "Pre-install capture" "$P/MANIFEST.md"
+assert "SHA256SUMS verifies" sh -c "cd '$P' && shasum -a 256 -c SHA256SUMS >/dev/null"
+assert "project command left in place" test -f "$W/.claude/commands/custom.md"
+assert "verify.md refreshed" sh -c "! grep -q 'old verify' '$W/.claude/commands/verify.md'"
+assert_grep "capture reported" "captured .* files to .claude/.upstream-prior/$TODAY/" "$S/out.log"
+echo "# another" >"$W/.claude/commands/another.md"
+run "$W"
+assert_eq "exactly one capture dir after re-run" "$(ls "$W/.claude/.upstream-prior" | wc -l | tr -d ' ')" "1"
+assert "second run did not capture the new file" test ! -e "$P/commands/another.md"
+assert_nogrep "no capture message on re-run" "captured" "$S/out.log"
+end
+
+# ---------------------------------------------------------------- 13. settings fragment merge
+begin "13 role settings fragment merges on first seed, prints instructions afterwards"
+D="$(copy_repo dup13)"; mkdir -p "$D/roles/sdet/templates/workspace"
+cat >"$D/roles/sdet/templates/workspace/settings.sdet.fragment.json" <<'EOF'
+{
+  "permissions": { "allow": ["Bash(npx playwright:*)", "Bash(git diff:*)"] },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit|Write|MultiEdit", "hooks": [ { "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/scripts/guard-test-integrity.sh", "timeout": 10 } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "echo done" } ] }
+    ]
+  }
+}
+EOF
+W="$(fresh c13)"
+"$D/install.sh" "$W" --role sdet >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert_eq "exit" "$(rc)" 0
+assert_grep "merge reported" "merged  roles/sdet/templates/workspace/settings.sdet.fragment.json -> settings.json" "$S/out.log"
+SJ="$W/.claude/settings.json"
+assert "valid JSON" jq -e . "$SJ"
+assert_eq "PreToolUse concatenated (2 core + 1 fragment)" "$(jq '.hooks.PreToolUse | length' "$SJ")" "3"
+assert_eq "PostToolUse kept" "$(jq '.hooks.PostToolUse | length' "$SJ")" "1"
+assert_eq "new event added" "$(jq '.hooks.Stop | length' "$SJ")" "1"
+assert_eq "allow unioned without duplicates" "$(jq '[.permissions.allow[] | select(. == "Bash(git diff:*)")] | length' "$SJ")" "1"
+assert "allow gained the fragment entry" sh -c "jq -r '.permissions.allow[]' '$SJ' | grep -qx 'Bash(npx playwright:\*)'"
+assert_eq "env kept from the core template" "$(jq -r '.env.WORKFLOW_LAYOUT' "$SJ")" "workspace"
+assert "core guard hook still present" sh -c "jq -r '.hooks.PreToolUse[].hooks[].command' '$SJ' | grep -q guard-base-branch.sh"
+"$D/install.sh" "$W" >"$S/out.log" 2>"$S/err.log"
+assert_nogrep "already-wired fragment is silent on re-run" "NOT merged" "$S/out.log"
+W2="$(fresh c13b)"
+"$D/install.sh" "$W2" --role dev >/dev/null 2>&1
+seed_sha "$W2" >"$S/before"
+"$D/install.sh" "$W2" --roles dev,sdet >"$S/out.log" 2>"$S/err.log"
+assert_grep "existing settings.json -> instruction, not a rewrite" "settings.sdet.fragment.json NOT merged (settings.json already existed)" "$S/out.log"
+assert_grep "instruction paragraph" "copy each entry under \"hooks\"" "$S/out.log"
+seed_sha "$W2" >"$S/after"; assert "settings.json untouched" diff "$S/before" "$S/after"
+end
+
+# ---------------------------------------------------------------- 14. --stack seed packs
+begin "14 --stack appends a seed pack once; absent pack is a no-op"
+W="$(fresh c14)"; run "$W" --role dev --stack nothing-here
+assert_eq "exit with absent pack" "$(rc)" 0
+assert_grep "absent pack reported" "no seed pack nothing-here" "$S/out.log"
+D="$(copy_repo dup14)"; mkdir -p "$D/templates/seed-packs/webapp/nested"
+printf '### [Pattern]: Co-locate feature code\nKeep a feature under one folder.\n_Source: seed-pack:webapp_\n' >"$D/templates/seed-packs/webapp/codebase-patterns.seed.md"
+printf '### Mock at the boundary\n_Source: seed-pack:webapp_\n' >"$D/templates/seed-packs/webapp/testing-patterns.seed.md"
+printf '### Missing target\n' >"$D/templates/seed-packs/webapp/no-such-file.seed.md"
+printf '### Nested\n' >"$D/templates/seed-packs/webapp/nested/codebase-patterns.seed.md"
+W="$(fresh c14b)"
+"$D/install.sh" "$W" --role dev --stack webapp >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert_eq "exit" "$(rc)" 0
+assert_eq "H2 appended once to codebase-patterns" "$(grep -c '^## Seed pack: webapp$' "$W/.claude/codebase-patterns.md")" "1"
+assert_grep "body appended" "Co-locate feature code" "$W/.claude/codebase-patterns.md"
+assert_eq "H2 appended once to testing-patterns" "$(grep -c '^## Seed pack: webapp$' "$W/.claude/testing-patterns.md")" "1"
+assert_grep "missing target skipped" "no-such-file.md is not present" "$S/out.log"
+assert "missing target not created" test ! -e "$W/.claude/no-such-file.md"
+"$D/install.sh" "$W" --stack webapp >"$S/out.log" 2>"$S/err.log"
+assert_eq "re-run does not duplicate" "$(grep -c '^## Seed pack: webapp$' "$W/.claude/codebase-patterns.md")" "1"
+assert_grep "re-run reports already present" "already in codebase-patterns.md" "$S/out.log"
+"$D/install.sh" "$W" --stack webapp/nested >"$S/out.log" 2>"$S/err.log"
+assert_eq "sub-pack gets its own H2" "$(grep -c '^## Seed pack: webapp/nested$' "$W/.claude/codebase-patterns.md")" "1"
+end
+
+echo ""
+echo "install.sh suite: $pass passed, $fail failed"
+[ "$fail" = 0 ]
