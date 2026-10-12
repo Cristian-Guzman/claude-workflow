@@ -6,9 +6,11 @@ Builds a synthetic Playwright JSON report (the shape `--reporter=json` emits:
 suites -> specs -> tests -> results) and asserts:
   - 3 specs that die inside one shared helper frame collapse into ONE K1 cluster
   - a test.fail with 'BUG PROJ-123' lands in known_failures, never in a cluster
-  - a test.fail WITHOUT a key is a violation
+  - a test.fail WITHOUT a key is a violation, counted as known_failures_unkeyed and
+    never as known_failures_with_bug
   - a pass-after-fail test carries flaky_hint and is not counted as passed
-  - the four-number summary adds up and never folds known failures into passes
+  - the four-number summary adds up and never folds known failures into passes;
+    passed + failed + known-with-bug + unkeyed + skipped equals the test count
   - the markdown has the two mandatory sections
   - the newman adapter produces endpoint-keyed rows
 
@@ -88,6 +90,12 @@ def build_report():
     ], "errors": []}
 
 
+def count_tests(node):
+    """Total tests in a report (suites -> specs -> tests): the denominator the summary buckets must add up to."""
+    direct = sum(len(spec.get("tests") or []) for suite in node.get("suites") or [] for spec in suite.get("specs") or [])
+    return direct + sum(count_tests(suite) for suite in node.get("suites") or [])
+
+
 def build_newman():
     return {
         "collection": {"info": {"name": "orders-api"}},
@@ -151,12 +159,23 @@ def main():
               "flaky-only cluster hints flaky")
 
         s = out["summary"]
-        check(s == {"passed": 1, "failed": 4, "known_failures_with_bug": 2, "skipped": 1, "flaky": 1, "violations": 1},
-              "four numbers: passed=1 failed=4 known=2 skipped=1 (got %s)" % s)
-        check("passed=1 failed=4 known-failures-with-bug=2 skipped=1" in p.stdout, "stdout prints the four numbers")
+        check(s == {"passed": 1, "failed": 4, "known_failures_with_bug": 1, "known_failures_unkeyed": 1,
+                    "skipped": 1, "flaky": 1, "violations": 1},
+              "four numbers: passed=1 failed=4 known-with-bug=1 skipped=1, unkeyed=1 (got %s)" % s)
+        check(s["known_failures_with_bug"] == len([k for k in known if k["bug_key"]]),
+              "known_failures_with_bug counts only entries with a bug_key")
+        check(s["known_failures_unkeyed"] == s["violations"] == len(out["violations"]),
+              "known_failures_unkeyed equals the violations count")
+        total = count_tests(build_report())
+        buckets = s["passed"] + s["failed"] + s["known_failures_with_bug"] + s["known_failures_unkeyed"] + s["skipped"]
+        check(total == 8 and buckets == total,
+              "passed+failed+known-with-bug+unkeyed+skipped == total tests (%d, got %d)" % (total, buckets))
+        check("passed=1 failed=4 known-failures-with-bug=1 skipped=1" in p.stdout, "stdout prints the four numbers")
+        check("known-failures-unkeyed=1" in p.stdout, "stdout prints the unkeyed count next to the four numbers")
         check("## Known failures with bug (expected-fail, not passes)" in md, "md has the known-failures section")
         check("## Violations" in md and "discount applies" in md, "md lists the violation")
         check("**none**" in md, "md marks the missing bug key")
+        check("Known failures with bug: 1 · unkeyed (violations): 1" in md, "md prints keyed and unkeyed counts")
 
         newman = td / "newman.json"
         newman.write_text(json.dumps(build_newman()))
@@ -166,6 +185,8 @@ def main():
         check(n["clusters"][0]["key_level"] == "K3" and "GET /items" in n["clusters"][0]["key"],
               "newman cluster keyed by (class, endpoint, status)")
         check(n["summary"]["passed"] == 2 and n["summary"]["failed"] == 2, "newman summary from run.stats")
+        check(n["summary"]["known_failures_with_bug"] == 0 and n["summary"]["known_failures_unkeyed"] == 0,
+              "newman summary carries zero known failures, keyed and unkeyed")
 
         p3 = run([str(td / "missing.json")])
         check(p3.returncode == 1, "unreadable input exits 1")

@@ -65,6 +65,10 @@ Every `/cover` and `/triage` summary prints
 passed=A failed=B known-failures-with-bug=C skipped=D
 ```
 
+`C` counts only `test.fail` tests whose annotation carries a `BUG <KEY>-n` key; `triage-cluster.py` prints
+the unkeyed ones right after it as `known-failures-unkeyed=E` (the violations count), and they are counted
+neither as passes nor in `C`.
+
 **Why the command reports are authoritative and native reporters are not:** Playwright records a
 `test.fail(...)` test as `expectedStatus: "failed"`; when its body fails, the outcome is *expected* and
 the built-in reporters count it as a success — the suite looks greener than the product is.

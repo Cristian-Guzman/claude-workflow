@@ -17,8 +17,9 @@ What it does
   2. KNOWN FAILURES — tests declared `test.fail(...)` (expectedStatus == "failed")
      are listed SEPARATELY, never clustered and never counted as passes. Each must
      carry a bug key in its annotation (`BUG <KEY>-<n>`); one without a key is a
-     VIOLATION. A known failure whose body now passes is reported too: the bug is
-     fixed and the `test.fail` must be removed.
+     VIOLATION, counted as `known_failures_unkeyed` and never under
+     `known_failures_with_bug`. A known failure whose body now passes is reported
+     too: the bug is fixed and the `test.fail` must be removed.
   3. Normalizes error messages (ANSI, durations, hashes, timestamps, unique
      suffixes, element counts, long quoted strings) and extracts: selector, step
      frame (helper frame preferred), endpoint + HTTP status, network error and an
@@ -32,7 +33,9 @@ What it does
   5. Emits clusters.json + clusters.md sorted by size desc (representative = the
      shortest title), a "Known failures with bug (expected-fail, not passes)"
      section, a "Violations" section, and prints the four-number summary:
-     passed / failed / known-failures-with-bug / skipped.
+     passed / failed / known-failures-with-bug / skipped, followed by
+     known-failures-unkeyed (= violations), which is folded into neither passes
+     nor known-failures-with-bug.
 
 Usage
   triage-cluster.py REPORT.json [--out clusters.json] [--md clusters.md]
@@ -298,6 +301,7 @@ def newman_rows(doc):
         "passed": max(0, int(stats.get("total", 0)) - int(stats.get("failed", 0))),
         "failed": int(stats.get("failed", len(rows))),
         "known_failures_with_bug": 0,
+        "known_failures_unkeyed": 0,
         "skipped": 0,
     }
     return rows, totals
@@ -443,18 +447,21 @@ def summarize(rows, failing, known):
             skipped += 1
         elif st == "passed" and not flaky_hint(row):
             passed += 1
+    keyed = sum(1 for k in known if k["bug_key"] is not None)
     return {
         "passed": passed,
         "failed": len(failing),
-        "known_failures_with_bug": len(known),
+        "known_failures_with_bug": keyed,
+        "known_failures_unkeyed": len(known) - keyed,
         "skipped": skipped,
         "flaky": sum(1 for f in failing if f["flaky_hint"]),
     }
 
 
 def four_numbers(summary):
-    line = ("passed=%d failed=%d known-failures-with-bug=%d skipped=%d"
-            % (summary["passed"], summary["failed"], summary["known_failures_with_bug"], summary["skipped"]))
+    line = ("passed=%d failed=%d known-failures-with-bug=%d skipped=%d known-failures-unkeyed=%d"
+            % (summary["passed"], summary["failed"], summary["known_failures_with_bug"], summary["skipped"],
+               summary.get("known_failures_unkeyed", 0)))
     if summary.get("flaky"):
         line += " (of failed, flaky=%d)" % summary["flaky"]
     return line
@@ -463,7 +470,11 @@ def four_numbers(summary):
 def render_md(summary, clusters, known, violations, source):
     out = ["# Triage clusters", "", "Source: `%s`" % source, "",
            "**%s**" % four_numbers(summary), "",
-           "Known failures are expected-fail tests. They are NOT passes and are listed separately below.", ""]
+           "Known failures with bug: %d · unkeyed (violations): %d"
+           % (summary["known_failures_with_bug"], summary.get("known_failures_unkeyed", 0)), "",
+           "Known failures are expected-fail tests. They are NOT passes and are listed separately below. "
+           "An unkeyed one (`test.fail` without a `BUG <KEY>-<n>` key) is a violation and is counted "
+           "neither as a pass nor as a known failure with bug.", ""]
     out += ["## Clusters (largest first)", "",
             "| id | size | key | classes | hint | representative |",
             "|---|---|---|---|---|---|"]
