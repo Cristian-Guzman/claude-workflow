@@ -1,0 +1,50 @@
+# learn-targets.yaml — what /learn grows for the dev role.
+#
+# Installed to .claude/learn-targets/dev.yaml. /learn reads every *.yaml in that
+# directory; absent directory = built-in behaviour (identical to this file).
+#
+# Contract:
+#   kinds:    state-file kinds whose delivered/learned entries this role scans
+#   targets:  one entry per project-owned file /learn may append to
+#     file              path relative to the repo's .claude/
+#     log_section       H2 where raw observations are logged (null = no log step)
+#     lesson_section    H2 (or "by-category" = the file's own H2 taxonomy) for promoted entries
+#     promote_at        occurrences needed before a logged observation becomes an entry
+#     compile_to_check  true = a promoted lesson may also become a mechanical check
+#                       (hook, lint rule, script) proposed through command-proposals.md
+#     log_only          true = never promote; the section is a ledger
+#     signals           where observations come from:
+#       {kind, where}   a state-file kind and the section inside it
+#       {diff, add, remove}  a diff-shaped signal (files added/removed in the ticket branch)
+
+schema: 1
+role: dev
+
+kinds: [ticket, build, refactor, debug, e2e]
+
+targets:
+  - file: codebase-patterns.md
+    log_section: null
+    lesson_section: by-category
+    promote_at: 2
+    compile_to_check: true
+    log_only: false
+    signals:
+      - { kind: ticket,   where: "Event Log: Hit issue / Workaround / Following pattern from" }
+      - { kind: ticket,   where: "Review Feedback - Kept / Disagreed" }
+      - { kind: ticket,   where: "Decisions Made" }
+      - { kind: build,    where: "Event Log" }
+      - { kind: refactor, where: "Violations fixed" }
+      - { kind: debug,    where: "Root cause" }
+
+  - file: testing-patterns.md
+    log_section: "E2E drift taxonomy"
+    lesson_section: by-category
+    promote_at: 2
+    compile_to_check: false
+    log_only: false
+    signals:
+      - { kind: ticket, where: "Event Log: test-related Hit issue / Workaround" }
+      - { kind: ticket, where: "E2E Affected Specs" }
+      - { kind: e2e,    where: "Drift class" }
+      - { diff: "**/*.spec.*", add: "new spec shape", remove: "retired spec" }
