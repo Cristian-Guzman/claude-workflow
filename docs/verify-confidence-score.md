@@ -1,6 +1,8 @@
 # /verify Confidence Score — design spec
 
-Status: DRAFT (not yet applied to core/commands/verify.md)
+Status: applied in 0.6.0 — the live spec is `roles/dev/commands/verify.md` §7 ("Verification Summary with
+Confidence Score") and the scorer is `core/scripts/verify-score.py`. This document is the design rationale;
+it is not installed into projects, so when the two disagree, verify.md §7 wins.
 Replaces: low/medium/high self-reported confidence.
 
 ## Principle
@@ -61,9 +63,14 @@ score = raw, then apply caps:
   any BLOCKING gate FAIL   -> cap at 30%   ("this will break")
   any gate UNVERIFIED      -> cap at 70%   ("looks right; human confirmation pending")
   any receipt spot-check mismatch -> cap at 30% and flag the gate (claimed evidence not found)
+  any gate tagged [CAP85]     -> cap at 85%   ("quality-cap finding")
 100% is reachable ONLY when: all machine gates PASS with valid receipts
                              AND all human gates carry a recorded confirmation.
 ```
+
+`[CAP85]` is the tag `/verify` §3 puts on gate rows that come from its quality tables (visual-aware,
+E2E-drift, comment-hygiene findings). The scorer caps at 85% while any such row is `FAIL` or `UNVERIFIED`;
+a cap described only in prose does not exist — the tag is how the script sees it.
 
 ## Bands
 
