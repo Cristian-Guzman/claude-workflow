@@ -1,0 +1,38 @@
+{
+  "_comment": "Config for /upstream — the harvest of generic workflow learnings out of a confidential project. Seeded by install.sh, gitignored, project-owned. Fill the denylist BEFORE the first harvest: /upstream refuses to run on placeholders (fail-closed). Two destinations: `inbox_repo` is a PRIVATE repo you own where bundles land as issues from any machine; `public_repo` is the generic workflow, touched ONLY by `--intake` from your personal machine, one PR per month. `project_alias` is local provenance — it names the folder on this machine and never appears in anything that leaves.",
+
+  "public_repo": "<github-owner>/claude-workflow",
+  "inbox_repo": "<github-owner>/claude-workflow-inbox",
+  "publish_allowed": false,
+  "retain_bundle_content": true,
+
+  "personal_identity": {
+    "name": "<Your Name>",
+    "email": "<id>+<login>@users.noreply.github.com",
+    "signingkey": ""
+  },
+
+  "project_alias": "project-a",
+  "workspace_root": "",
+
+  "ticket_prefixes": ["<TICKET-PREFIX>"],
+  "redact_all_ticket_keys": true,
+
+  "denied_domains": ["example.com", "<company>.atlassian.net", "<company>.notion.site"],
+
+  "denylist": [
+    "<Company Name>",
+    "<Product Name>",
+    "<Internal codename>",
+    "<Teammate name>",
+    "<Customer name>"
+  ],
+
+  "repo_aliases": {
+    "<real-frontend-repo>": "web-app",
+    "<real-bff-repo>": "api-bff",
+    "<real-backend-repo>": "backend-service"
+  },
+
+  "memory_dir": ""
+}

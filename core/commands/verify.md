@@ -1,6 +1,6 @@
 ---
 name: verify
-version: 0.6.0
+version: 0.7.0
 model: "opus[1m]"
 description: Goal-backward verification that acceptance criteria are actually met in the code.
 argument-hint: "[PROJ-XXXX or paste ACs]"
@@ -483,7 +483,13 @@ If `codebase-patterns.md` was loaded, also check modified files for convention v
      | xargs grep -nE 'waitForLoadState\("networkidle"\)' 2>/dev/null
    ```
    Any hit → cap the score at 85%, reason "reintroduces discouraged `networkidle`; replace with a web-first wait."
-2. **Run the touched specs against the BRANCH, not the old deploy** (frontend repos; creds in `.env`). The config's default baseURL is DEPLOYED dev — pre-merge it still serves the code *without* this branch, so a touched spec asserting new behavior can only fail there ([[PROJ-6522]] was flagged-not-run for exactly this). Target the local dev server instead (canonical: testing-patterns "## E2E repo-awareness, blast-radius & skip contract" §2b):
+2. **Force-lint the changed specs (mechanical):** e2e dirs commonly sit OUTSIDE every CI gate — many repos ignore the spec dir in their ESLint config AND exclude it from the CI tsconfig — so dead code (e.g. `const response = await page.goto(...)` with `response` never read) rides through the CI pipeline silently. Lint the changed spec files with the repo's own config, bypassing only the ignore list:
+   ```bash
+   git diff --name-only $(git merge-base origin/develop HEAD)..HEAD -- 'e2e/**' \
+     | xargs npx eslint --no-ignore
+   ```
+   `--no-ignore` skips just the `ignores` block — the config's test-file overrides (`**/*.spec.{ts,tsx}`) still match, so unused vars surface as `@typescript-eslint/no-unused-vars` warnings without production-rule noise. Any NEW error → cap the score at 85%. Warnings on lines this diff touched (unused vars, dead assignments) → name each in the report and fix before PR — they're one-line cleanups. Pre-existing warnings in UNCHANGED specs are rot — note, don't clamp ([[feedback_e2e_rot_not_blocking]]).
+3. **Run the touched specs against the BRANCH, not the old deploy** (frontend repos; creds in `.env`). The config's default baseURL is DEPLOYED dev — pre-merge it still serves the code *without* this branch, so a touched spec asserting new behavior can only fail there ([[PROJ-6522]] was flagged-not-run for exactly this). Target the local dev server instead (canonical: testing-patterns "## E2E repo-awareness, blast-radius & skip contract" §2b):
    ```bash
    LOCAL=$(grep -A60 '^e2e:' "$PROFILE" | grep 'local_base_url:' | awk '{print $2}' | tr -d '"')   # fallback below is an example — record e2e.local_base_url in the repo profile
    curl -sk -o /dev/null -w "%{http_code}" "${LOCAL:-https://localhost:3002}" --max-time 3   # 2xx/3xx = branch is being served

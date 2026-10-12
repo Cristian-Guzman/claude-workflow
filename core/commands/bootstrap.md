@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-version: 0.6.0
+version: 0.7.0
 description: Set up a portable .claude command system in any project, OR manage the workflow version when run with --bump.
 argument-hint: "[project description] | --bump [minor|patch] | --check | --root <path> | --flavor <name>"
 allowed-tools:
@@ -56,6 +56,7 @@ Tiers are install priority; the **Gate** column is the capability expression tha
 | `review-comments` | recommended | 0.1.1 | `vcs_host != none` |
 | `ci-check` | recommended | 0.1.1 | `vcs_host != none AND ci == yes` |
 | `test-plan` | recommended | 0.6.0 | always (SDET lane: reads the ticket state file when present, pasted ACs otherwise) |
+| `upstream` | recommended | 0.7.0 | always (harvests generic learnings into a redacted bundle; refuses to run until `.claude/upstream.json` denylist is filled) |
 | `qa` | conditional | 0.1.0 | `ui_surfaces != none` |
 | `ui-fidelity` | conditional | 0.4.0 | `ui_surfaces != none` |
 | `screenshot` | conditional | 0.1.1 | `ui_surfaces != none AND (e2e == playwright OR dev_server present)` |

@@ -69,6 +69,7 @@ pointed at coverage instead of implementation. `/test-plan` → `/automate` → 
 
 | Command | Args | Description |
 |---------|------|-------------|
+| `/upstream` | `[--since DATE] [--dry-run] [--publish] \| --intake <dir\|inbox>` | The return path of `/learn`. Harvests the GENERIC learnings a confidential project produced (local edits to core commands, landed proposals, process lessons, feedback memories) into a redacted, provenance-free bundle under `.claude/upstream/`; deterministic sanitizer + leak check + always-on secrets scan (`scripts/upstream.py`). Harvest mode publishes only as an issue to a PRIVATE inbox repo; `--intake` (personal machine only) merges a month of bundles into ONE public PR under a scoped personal git identity and restores the previous identity afterwards. |
 | `/bootstrap` | `[--bump minor|patch] [--check]` | Two modes: set up the .claude system in a new project, OR manage the workflow version (propagates to all commands, updates changelog, refreshes hash ledger). |
 | `/project-context` | `[--full|--incremental]` | Map dependencies across all repos: which FE calls which BFF, which BFF calls which Go lambda, business-logic signals. Cached for speed. |
 | `/status` | `[--days N]` | Cross-repo dashboard. Active tickets, open debug sessions, unresolved PRs, blocked items. Defaults to last 7 days. |

@@ -1,6 +1,6 @@
 ---
 name: pr
-version: 0.6.0
+version: 0.7.0
 model: "opus[1m]"
 description: Generate PR deliverables (commit message + PR description) from current changes.
 argument-hint: "[PROJ-XXXX]"

@@ -1,6 +1,6 @@
 ---
 name: resume
-version: 0.6.0
+version: 0.7.0
 description: Resume an interrupted ticket or debug session from saved state.
 argument-hint: "[PROJ-XXXX or debug-slug]"
 allowed-tools:

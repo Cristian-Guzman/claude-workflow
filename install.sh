@@ -69,6 +69,25 @@ seed_repo_files() {
   [ -f "$CLAUDE_DIR/state/index.json" ] || printf '{"version":2,"generated":"","entries":[]}\n' > "$CLAUDE_DIR/state/index.json"
 }
 
+write_upstream_baseline() {
+  local base="$CLAUDE_DIR/.upstream-base" version commit remote
+  rm -rf "$base"
+  mkdir -p "$base"
+  cp -R "$HERE/core/." "$base/"
+  version="$(sed -n 's/^version: *//p' "$HERE/core/docs/workflow-version.md" | head -1)"
+  commit="$(git -C "$HERE" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  remote="$(git -C "$HERE" remote get-url origin 2>/dev/null || echo unknown)"
+  cat >"$CLAUDE_DIR/.upstream-manifest.json" <<EOF_MANIFEST
+{
+  "version": "${version:-unknown}",
+  "source_commit": "$commit",
+  "upstream_repo": "$remote",
+  "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF_MANIFEST
+  echo "  baseline $(basename "$base")/ + .upstream-manifest.json (version ${version:-unknown}, $commit)"
+}
+
 IGNORE_LINES=".claude/state/
 .claude/tickets/
 .claude/debug/
@@ -79,6 +98,10 @@ IGNORE_LINES=".claude/state/
 .claude/screenshots/
 .claude/e2e/
 .claude/demos/
+.claude/upstream/
+.claude/.upstream-base/
+.claude/.upstream-manifest.json
+.claude/upstream.json
 .claude/settings.local.json"
 
 append_gitignore() {
@@ -97,7 +120,7 @@ append_gitignore() {
   done <<EOF_LINES
 $IGNORE_LINES
 EOF_LINES
-  [ "$added" = 1 ] && echo "  updated .gitignore (new local-state exclusions)"
+  if [ "$added" = 1 ]; then echo "  updated .gitignore (new local-state exclusions)"; fi
 }
 
 echo "Installing claude-workflow into $TARGET"
@@ -113,11 +136,17 @@ else
   chmod +x "$CLAUDE_DIR/scripts/"*.sh 2>/dev/null || true
   # 2. System docs at .claude/ root — commands reference them by these exact paths
   for f in "$HERE"/core/docs/*.md;      do copy_core "$f" "$CLAUDE_DIR/$(basename "$f")"; done
+  # 2.5 Upstream baseline — a verbatim snapshot of core as installed, plus a manifest.
+  #     /upstream diffs the live core against this to find the edits a project made
+  #     to the generic commands (the strongest signal to carry back upstream).
+  write_upstream_baseline
 
   # 3. Workspace seeds — project-owned after first copy
   seed "$HERE/templates/workspace/settings.template.json" "$CLAUDE_DIR/settings.json"
   seed "$HERE/templates/workspace/repo-profiles/_schema.yaml" "$CLAUDE_DIR/repo-profiles/_schema.yaml"
   seed "$HERE/templates/workspace/repo-profiles/README.md"    "$CLAUDE_DIR/repo-profiles/README.md"
+  # Denylist + aliases for /upstream (gitignored; fill before the first harvest)
+  seed "$HERE/templates/workspace/upstream.template.json"      "$CLAUDE_DIR/upstream.json"
 
   # 4. Per-repo seeds + runtime dirs
   seed_repo_files
@@ -150,4 +179,9 @@ Next steps to specialize this project (fastest path first):
   4. Work the pipeline: /clarify -> /ticket -> /verify -> /qa -> /pr -> /ci-check -> /learn
      (no tracker? /build replaces /clarify+/ticket)
      /learn after each ticket is what makes the system project-specific over time.
+  5. Confidential project? Fill .claude/upstream.json once (denylist, domains, repo
+     aliases, your PRIVATE inbox repo, personal git identity), then run /upstream
+     monthly: it harvests the GENERIC learnings into a redacted, provenance-free
+     bundle and files it as an issue in your private inbox. /upstream --intake on
+     your own machine turns a month of bundles into one PR on the public repo.
 CHECKLIST

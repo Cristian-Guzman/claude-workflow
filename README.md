@@ -44,9 +44,9 @@ project has made its own (patterns, settings, checklists) is never overwritten.
 
 | Path in target | Contents | Owned by |
 |---|---|---|
-| `.claude/commands/` | 21 slash commands | upstream (refreshed on update) |
+| `.claude/commands/` | 22 slash commands | upstream (refreshed on update) |
 | `.claude/agents/` | 7 subagents (investigator, verifier, ui-fidelity, ...) | upstream |
-| `.claude/scripts/` | base-branch guard hook, state index, metrics, verify score | upstream |
+| `.claude/scripts/` | base-branch guard hook, state index, metrics, verify score, upstream sanitizer | upstream |
 | `.claude/routing.md`, `state-file-schema.md`, ... | system docs the commands reference | upstream |
 | `.claude/settings.json` | hooks + permissions (from template) | **your project** |
 | `.claude/codebase-patterns.md` | pattern catalog | **your project** (grown by /learn) |
@@ -97,10 +97,23 @@ is created automatically by the commands when first needed — don't seed it.
 Core pipeline: `/clarify` `/ticket` `/verify` `/qa` `/pr` `/ci-check` `/learn`
 Support: `/build` (ticketless) `/resume-ticket` `/status` `/project-debug` `/refactor`
 `/review-pr` `/review-comments` `/project-context` `/screenshot` `/ui-fidelity`
-`/demo-summary` `/memory-lint` `/bootstrap`
+`/demo-summary` `/memory-lint` `/bootstrap` `/upstream`
 SDET lane: `/test-plan` · `/automate` _(planned)_ · `/verify-coverage` _(planned)_
 
 See [core/commands/README.md](core/commands/README.md) for the full matrix.
+
+## Contributing learnings back from a confidential project
+
+`/learn` makes a project smarter; `/upstream` carries the part that was never project-specific
+back here, along a path where nothing confidential leaves the company machine and nothing public
+says where a learning came from. Inside the company workspace it diffs the installed core against
+the baseline `install.sh` recorded, collects landed proposals, process lessons and feedback
+memories, drops anything that stops making sense once the proper nouns are gone, redacts the rest
+with the denylist in `.claude/upstream.json`, and fails closed on any residual hit or credential.
+The bundle carries a neutral harvest id and goes, as an issue, to a **private inbox repo** you own.
+On your own machine, `/upstream --intake inbox` merges the month's bundles into **one** PR on this
+repo, committed under a scoped personal git identity that is restored right after. One public event
+a month, no company names, no company commit identities. Nothing is published without you saying so.
 
 Beyond the mechanics, [docs/lessons.md](docs/lessons.md) collects the field-tested
 judgment calls that shaped these commands — how to scope, verify, and communicate

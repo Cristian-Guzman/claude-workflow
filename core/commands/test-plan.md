@@ -1,6 +1,6 @@
 ---
 name: test-plan
-version: 0.6.0
+version: 0.7.0
 model: "opus[1m]"
 description: Turn a ticket's acceptance criteria into an adversarial, level-classified test coverage matrix. Picks the cheapest honest test level per AC, adds the edges the ACs don't state, checks against existing tests, and — for surfaces you can't run locally — emits the minimal manual-QA remainder. Read-only on source; writes a test-plan state file for /automate and /verify-coverage.
 argument-hint: "PROJ-XXXX [focus: unit|integration|e2e]"

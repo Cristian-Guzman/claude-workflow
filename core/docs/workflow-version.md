@@ -1,6 +1,6 @@
 ---
-version: 0.6.0
-last-updated: 2026-07-31
+version: 0.7.0
+last-updated: 2026-10-11
 maintainer: your-name@your-org.com
 ---
 
@@ -23,6 +23,16 @@ Run `/bootstrap --bump <minor|patch>` (after Phase A of the April 2026 refactor)
 4. Flags any command whose checksum drifted from the last recorded hash — so you can write accurate changelog notes.
 
 ## Changelog
+
+### 0.7.0 — 2026-10-11
+**Theme:** the return path — learnings from confidential projects flow back to the generic workflow without carrying provenance.
+
+- **`/upstream` command added** — the counterpart of `/learn`. Harvests a window (default: since the last bundle, else 30 days) of GENERIC learnings out of a company workspace: local edits to core commands (diffed against the install baseline), `ADDRESSED`/recurring proposals from `command-proposals.md`, `AUTO:PROCESS-LESSONS`, and `feedback_*` memories. Each candidate is triaged CORE-PATCH / PROPOSAL / LESSON / TEMPLATE / DROP by a literal noun-deletion test. Writes `.claude/upstream/<harvest-id>--<alias>/` (`CONTRIBUTION.md` + `patches/` + `bundle.json`) and stops for review.
+- **Two repos, two directions.** Harvest mode publishes only as an issue to a PRIVATE `inbox_repo` (visibility verified via `gh repo view`), gated on `publish_allowed` and an in-session confirmation; it never runs `git commit`. `--intake <dir|inbox>` runs on a personal machine only (refused when `env` classifies the machine as company), merges all bundles into one `harvest/YYYY-MM` branch, one squashed commit, one PR. Harvest ids are `YYYY-MM-<letter>`; the project alias names a local folder and appears in nothing that leaves — `check` treats it as a leak.
+- **Scoped git identity for the intake commit** — `upstream.py identity save|set|restore|show` records the clone's LOCAL `user.name`/`user.email`/`commit.gpgsign`/`user.signingkey`, sets `personal_identity` with signing off (or a personal key), and restores the saved values on every exit path. Global git config is never touched.
+- **`scripts/upstream.py`** — deterministic, stdlib-only: `drift`, `sanitize`, `check` (denylist + alias + always-on secrets patterns: cloud keys, GitHub/Slack tokens, private keys, JWTs, `api_key=` assignments; `--generic` for the intake side), `env` (MDM enrollment, global git email domain, GitHub Enterprise hosts → company/personal), `identity`, `log` (append-only `HARVEST-LOG.md`: what left, which denylist hash, check result, destination). Placeholder denylist/domains/prefixes are an error, not a pass.
+- **`install.sh`** — records `.claude/.upstream-base/` + `.claude/.upstream-manifest.json` on every full install; seeds `.claude/upstream.json`; new local-state ignore lines. Re-run on existing installs to get a baseline.
+- Inventory: `bootstrap.md` canonical table, both READMEs (22 commands). Frontmatter propagated: every command carries `version: 0.7.0`.
 
 ### 0.6.0 — 2026-07-31
 **Theme:** generic kernel — the system works per-project with minimal context — plus the SDET lane.
