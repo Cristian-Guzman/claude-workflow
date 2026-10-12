@@ -1,6 +1,6 @@
 ---
-version: 0.7.0
-last-updated: 2026-10-11
+version: 0.8.0
+last-updated: 2026-10-12
 maintainer: your-name@your-org.com
 ---
 
@@ -23,6 +23,42 @@ Run `/bootstrap --bump <minor|patch>` (after Phase A of the April 2026 refactor)
 4. Flags any command whose checksum drifted from the last recorded hash — so you can write accurate changelog notes.
 
 ## Changelog
+
+### 0.8.0 — 2026-10-12
+**Theme:** roles + SDET MVP + cold start. The command set splits into a core every install gets and role lanes you pick (`dev`, `sdet`); the SDET lane ships its first three commands; a fresh install can be seeded from PR history or a stack pack instead of starting empty; every product-domain example in the shipped files is replaced by a neutral one.
+
+**Restructure + installer (`core/` → `core/` + `roles/dev` + `roles/sdet`):**
+- `clarify`, `ticket`, `build`, `refactor`, `verify`, `ui-fidelity` moved to `roles/dev/commands/` (content unchanged). `core/commands/` keeps the 15 role-agnostic commands. `roles/<role>/{README.md, learn-targets.yaml, templates/repo, templates/workspace, scripts}` is the role layout; everything installs FLAT into `.claude/` (commands, agents, scripts, docs at the root) so hard-coded paths keep working. Basenames must be unique across core + selected roles — `install.sh` exits 1 before writing on a collision.
+- **`install.sh`** — `--role <name>` (repeatable) / `--roles a,b` / `--role=a`; `--stack <flavor>[/<sub>]` (repeatable) appends `templates/seed-packs/<flavor>/*` under `## Seed pack: <flavor>` once; `--repo-only [--role X]`. Role resolution: flag → `.claude/workflow-manifest.json` → legacy inference (a role is on if any of its commands is installed) → `dev`. Writes `.claude/workflow-manifest.json` (`{schema, workflow_version, roles[]}`, tracked) and adds `roles` to `.upstream-manifest.json`. **Pre-install capture:** the first run on an install with no `.upstream-base/` copies the existing core into `.claude/.upstream-prior/<date>/` (MANIFEST.md + SHA256SUMS, gitignored) before touching anything. A dropped role's commands and learn-targets go to `.claude/_archived-commands/`; a command the previous baseline shipped that nothing ships any more (retired upstream) is archived only if byte-identical to the baseline, else kept and reported. Role settings fragments (`roles/<r>/templates/workspace/settings.<r>.fragment.json`) are jq-merged only when `settings.json` is being seeded; otherwise the paste instruction is printed until the referenced scripts appear in `settings.json`. `learn-targets.yaml` → `.claude/learn-targets/<role>.yaml` (upstream-owned, refreshed, mirrored into `.upstream-base/`). The seeded PostToolUse hook no longer carries the path regex — `state-index-upsert.sh` filters by kind. `tests/install.sh.test` (14 scratch-dir cases).
+- **`/test-plan` retired.** Its four principles (mechanism-first, adversarial, regression-class guard, boundaries out loud), the tiering read, surface-testability and the existing-coverage check are folded into `/cover`. The planned `/automate` and `/verify-coverage` are dropped, not deferred — `/cover` is both. A 0.7.0 → 0.8.0 upgrade archives the baseline-identical `test-plan.md`; a 0.6.0 install keeps it as an ORPHAN that `/bootstrap --check` reports.
+
+**SDET MVP (`roles/sdet/`):**
+- **`/cover`** — tier first (smoke / feature / cross); bounded explore on the repo's own Playwright (throwaway `.cover-explore-*.spec.ts`, ≤4 routes, 20 s/route; `--mcp` opt-in ≤12 calls; static fallback); propose → pick (AskUserQuestion) → write (selector priority/bans, own your data, deterministic flag gating only); **break-to-validate mandatory per test** (mutation menu per test type, receipt `{mutation, cmd, exit, failure, reverted}`; a test that cannot fail is rejected); run `--workers 1 --retries 0 --trace on`, `eslint --no-ignore` on new specs; gate table scored by `verify-score.py` (`passes [BLOCKING]`, `b2v-fails-when-broken [BLOCKING]`, `lint-clean`, `no-skip-guard`, `known-failures-linked`, `observed-headed` UNVERIFIED). No argument → unscored list of app routes no spec visits. Writes `tickets/cover--<slug>.md` on branch `test/<slug>`.
+- **`/triage`** — single mode (one red test, cause-known gate, max 2 rounds then `/project-debug`) and batch mode (`--run` or ingest a Playwright/newman JSON report → `scripts/triage-cluster.py` → union-find clusters by helper frame → selector → (error class, endpoint, status) → (error class, file); largest first; classes broken-test / env-or-data / flaky / real-app-bug). **Real bugs stay red**; the only quarantine is `test.fail(true, 'BUG KEY-n')` (`test.fixme` for hangs). Every summary prints **four numbers** — `passed / failed / known-failures-with-bug / skipped` — and never folds known failures into passes; a known failure without a `BUG` key is a violation.
+- **`/log`** — the ticket as OUTPUT: dedupe via `jira-context-loader` → plain-language Story/Task (cover) or Bug (triage cluster) → AskUserQuestion, never auto-create → MCP → CLI → `tickets/<slug>-ticket.md` when `tracker_system: none` → `ticket: KEY` written into the state file (no rename) → offers `gh pr edit` → Code Review transition through the assignee gate.
+- **`scripts/guard-test-integrity.sh`** (PreToolUse on Edit/Write/MultiEdit, wired by `settings.sdet.fragment.json`): blocks an added `.only(` and an added `.skip( .fixme( .fail(` without `BUG <KEY>-n` / `FLAKY FL-n` or a deterministic flag read. Exempts `.cover-explore-*` / `.cover-b2v-*`. Nothing else.
+- Seeds `templates/repo/{selectors,test-data,environments,flaky-ledger}.md` (project-owned); `learn-targets.yaml` (`kinds: [cover, triage]`, flaky ledger `log_only`). Tests: `tests/b3-triage-cluster.test.py`, `tests/b3-guard-test-integrity.test.sh`.
+
+**Core patches for ticket-less, branch-keyed state:**
+- `state-file-schema.md` — `## Kinds (closed enum)` table + machine-readable `<!-- kind-enum -->` / `<!-- kind-dirs -->` lines; sidecar contract `tickets/<kind>--<slug>.md` (`kind, slug, ticket: null|KEY, branch, status`); status `env-blocked`; legacy `-test-plan` sidecar rule (kind `test-plan`, status `blueprint`, archived).
+- `state-index-upsert.sh` — generic `kind:` passthrough (enum wins over directory), `-test-plan` suffix rule, slug-keyed id `<repo>:<kind>:<slug>` immutable across `/log` re-keying, `null`/`~` ticket → null, a missing status now logs `missing status` to `schema-drift.log` (it used to pass silently as `unknown`), a declared kind outside the enum logs `non-schema kind`. `tests/b2-upsert.test.sh` (25 checks).
+- `/pr` — resolves the branch's state file via `state/index.json` for any kind; `test/<slug>` and `fix/triage-<run-id>` branch rows; §5.5a accepts `/cover gate score=NN …` / `/triage run=…` events as verification evidence; §8 writes `pr_number` into whichever file matched; §8.5 no-ops on `ticket: null`.
+- `/ci-check` — ticket-from-branch optional; §5.1 sets `delivered` by branch for any kind; §5.1b post-deploy re-check lists the specs under a cover file's `## Files Modified`; §3b routes a red e2e job to `/triage <spec>`; Jira snapshot skipped on `ticket: null`.
+- `/learn` — §0 kinds from `.claude/learn-targets/*.yaml` (workspace + repo files merged; fallback = the old grep); §2.7 is ONE parameterised routine (log → cluster by key → lesson at `promote_at`) with the `ui` and `process` targets built in (§2.7b kept as the process sub-heading so citations resolve); **`--mine`** feeds `.claude/state/mine/<date>/candidates.json` into the unchanged §3/§4/§5 path (`_Source: mined:PR#n,#m_`, one `seeded-by` marker per file, mined beats seed-pack on title match); §2.5 criterion 6 retires uncited `mined:` / `seed-pack:` entries after 90 days or 10 learned tickets; §5 marks non-ticket kinds `learned`.
+- `/resume-ticket` — cover resumes at the first scenario without a break-to-validate receipt, triage at the first unresolved cluster. `/status` — fallback kind dirs read from the schema's `kind-dirs` line.
+
+**Cold start, shared knowledge, sanitized harvest:**
+- `core/scripts/mine-history.sh` — `gh pr list` + review comments + a test survey → `candidates.json` (`[{id, title, kind, occurrences ≥ 2, evidence[], files_hint}]`, ≥2-PR groups only); degrades without `gh` or with <10 merged PRs. `tests/b4-mine-history.test.sh` (30 checks).
+- `templates/seed-packs/{frontend-web,backend-api,fullstack-monorepo,cli-tool,library}/` + sub-packs `frontend-web/nextjs`, `backend-api/express`, `testing/playwright` — extracted from the former inline prose in `bootstrap.md` §3a.1, entries-only files, `_Source: seed-pack:<flavor>_`, ≤10 entries each.
+- `core/docs/codebase-patterns-shared.md` wired at last (load lines in `/clarify`, `/ticket`, `/build`, `/refactor`; +3 H2: Dependencies & advisories, Contracts & failure handling, Feature flags); new `core/docs/testing-patterns-shared.md` (7 noun-free rules; loaded by `/ticket`, `/verify`, `/cover`); `docs/lessons.md` +10 bullets; `templates/repo/{codebase,testing}-patterns.md` point at the shared files, comment-hygiene body → one-line pointer, `## E2E drift taxonomy` + `## E2E suite health` shipped; `settings.template.json` + `Bash(gh api:*)`.
+- `core/scripts/harvest-profile.py` (decision 10) — stdlib, read-only, run on the confidential machine: emits `profile.json` + `profile.md` with **aggregates and shapes only** (pattern-file structure, selector-strategy frequencies, skip/only density, Playwright config shape without URLs, hashed CI aggregates, state-index counts, drift line counts vs `--public-core`); sanitize → `check` fail-closed (nothing written on a hit). Every field documented in `core/docs/profile.schema.md`. `tests/b4-harvest-profile.test.py` (13 tests).
+- `core/scripts/render-walkthrough.py` — state file → sanitized step table + Process Summary (derived vs recorded) + Closeout; imports the `upstream.py` rule builder and runs its check fail-closed (exit 1, no output on a hit). `docs/examples/{codebase-patterns.after-20-tickets, process-ledger.example, walkthrough-standard-ticket, walkthrough-standard-ticket.state}.md` — the README's "self-improving" claim now points at these instead of asserting the outcome. `tests/b5-render-walkthrough.test.py` (5 tests).
+
+**Hub reconciliation (this entry's own bookkeeping):**
+- README restructured (orientation paragraph, honest tracker × host compatibility table, `## Install` with roles, `## Start here` per role — dev `/ticket`|`/build` → `/pr` → `/learn`, sdet `/cover` → `/pr` → `/learn`, per-role install table, cold-start section); over-claims fixed (`/project-context` does not generate profiles — they are hand-copied from `_schema.yaml`; `/pr` does not detect the git host; `github`/`linear` are enum-only). `core/commands/README.md` gains a Role column, the SDET MVP section, the MCP → CLI → paste Jira chain, and drops the owner-deployment history. `core/agents/README.md` lists all 7 agents with callers (dead "Planned agents" table gone). `bootstrap.md`: `Tier` → `Priority` + `Role` column, `role ∈ selected roles AND gate` on §4 / §8.5 / `--check` (ORPHAN rule), `roles[]` in §3i and §8.6 from `workflow-manifest.json`, §3a.1 reads the seed packs, §12 `--flavor` order, `test-plan` row removed, `<command-specs>` marked as a stale fork. `docs/verify-confidence-score.md` status corrected (applied in 0.6.0, `[CAP85]`). `_schema.yaml` documents the optional `e2e.local_base_url` / `feature_map` / `shared_paths` / `smoke_specs` keys.
+- **Product-noun sweep:** every product-domain example in `core/**` and `roles/**` (feature name and its `-v2` variants, swagger filename, lambda group, service class, domain enums, wiki page title, the third-party attribution in `codebase-patterns-shared.md`) replaced by neutral equivalents (`orders-v2`, `GET /items`, `orders-api.json`, `ms-orders`, `OrdersService`, `ORDERS_V2 | INVENTORY | BILLING`, "the domain wiki page"); mechanisms unchanged. Only this changelog keeps the old words, as history.
+- **Moved to `docs/roadmap.md`** (deferred, with promotion evidence): `/gaps` scoring, `/stabilize`, `sdet-seed.sh`, guard sentinel + assertion-count check, quarantine expiry + `/status` bucket, `cluster-investigator`, SDET `pr-branch-reviewer` override, four-number Playwright reporter, eval harness, plugin packaging, bootstrap deep cut / `<command-specs>` reconcile, optional history rewrite.
+- Inventory: 15 core + 6 dev + 3 sdet commands (see below). Frontmatter propagated: every command file under `core/commands/` and `roles/*/commands/` carries `version: 0.8.0`. The stale 0.3.1 command inventory, the 2026-06-11 hash ledger and the v0.1.0 agent ledger that this file shipped to every install are replaced by the current inventory below.
 
 ### 0.7.0 — 2026-10-11
 **Theme:** the return path — learnings from confidential projects flow back to the generic workflow without carrying provenance.
@@ -64,7 +100,7 @@ Run `/bootstrap --bump <minor|patch>` (after Phase A of the April 2026 refactor)
 
 - **Capture moved to where work happens:** `/pr` §8 now writes a mechanical `## Process Summary` block (sessions, phases, fix_iterations, debug links, commits, days-to-PR — all derived from the Event Log + git, `unrecorded` when underivable, never estimated) into the state file at PR time. Closing a chat without /learn no longer loses telemetry.
 - **`/verify` §8.5** — non-UI note added: the rounds survey stays UI-only (design rightness isn't machine-readable); non-UI iteration cost comes from the Process Summary mechanically.
-- **`/learn` §2.7b Process Synthesis (new, PRIMARY output)** — generalizes §2.7 beyond UI: per-repo `process-ledger.md` with `AUTO:PROCESS-LOG` + clustered `AUTO:PROCESS-LESSONS` ("next time do X first" rules, ≥2-ticket recurrence bar, provenance, per-class KPI = mean fix_iterations/sessions trailing-3 vs prior-3).
+- **`/learn` §2.7 Target Synthesis — process target (§2.7b) (new, PRIMARY output)** — generalizes §2.7 beyond UI: per-repo `process-ledger.md` with `AUTO:PROCESS-LOG` + clustered `AUTO:PROCESS-LESSONS` ("next time do X first" rules, ≥2-ticket recurrence bar, provenance, per-class KPI = mean fix_iterations/sessions trailing-3 vs prior-3).
 - **`/learn` §3 recurrence gate** — pattern entries now require a SECOND occurrence (mirror of §5.6 DROP); first occurrences stay in the ticket state file. Exceptions: mechanically-checkable lessons (→ COMPILE-TO-CHECK) or explicit user ask. Directly attacks the 5,839-line accretion problem.
 - Follow-ups (not landed): `/clarify` prior-art read-path for `process-ledger.md`; per-command frontmatter propagation still owed.
 
@@ -280,71 +316,16 @@ Initial versioned workflow. Baseline captured after the April 2026 refactor.
 - Spec-driven prototype workflow (designer-provided prototypes in addin-fe): `/clarify` now has a Step 2.5 that detects prototype-branch references and surfaces interaction code as reference-only; `repo-profiles/_schema.yaml` has a new `prototype_branches:` list field; `addin-fe.yaml` lists `proto/word-addin-v2`; user memory `feedback_prototype_as_reference.md` enforces the "prototype = reference, not code" rule across sessions
 - Atomic-design awareness: `/clarify` Step 1.8 classifies the design reference (prototype / spec / none); Steps 4b, 4b.1, 4b.2 emit atomic-level pattern tables, ticket scope classification (atom-new, molecule-new, organism-new, page-assembly, mixed-layer), and atomic-first execution order. `codebase-investigator` agent classifies found components by atomic level using heuristics or the repo profile. `_schema.yaml` gains `component_organization` and `atomic_levels` fields. `addin-fe.yaml` set to `hybrid`; `web-app.yaml` set to `flat`. `/learn` extends pattern category tags with atomic level (`[Atom]`, `[Molecule]`, …) so future `/clarify` runs surface the right reuse candidates. User memory `feedback_atomic_design.md` enforces atomic thinking across all UI tickets (including those without design input — "abstract as you go")
 
-## Command inventory at this version
+## Current inventory (0.8.0)
 
-Count: **23 commands** at v0.3.1. No commands added or removed since 0.2.0; the inventory table below is unchanged. All 23 per-command frontmatter `version:` fields are now aligned to 0.3.1 and the Hash Ledger was regenerated from current contents (2026-06-11) — header, frontmatter, and ledger are consistent.
+| Role | Count | Commands |
+|---|---|---|
+| core (every install) | 15 | `bootstrap` `ci-check` `demo-summary` `learn` `memory-lint` `pr` `project-context` `project-debug` `qa` `resume-ticket` `review-comments` `review-pr` `screenshot` `status` `upstream` |
+| dev | 6 | `build` `clarify` `refactor` `ticket` `ui-fidelity` `verify` |
+| sdet | 3 | `cover` `log` `triage` |
 
-| Command | Version | Role |
-|---------|---------|------|
-| `/do` | 0.3.1 | entry-point router |
-| `/clarify` | 0.3.1 | pre-ticket investigation (incl. former /related) |
-| `/ticket` | 0.3.1 | start a Jira ticket |
-| `/resume` | 0.3.1 | resume interrupted session |
-| `/verify` | 0.3.1 | goal-backward AC verification (+ security quick-scan, was `/security`) |
-| `/pr` | 0.3.1 | PR deliverables + branch-base detection |
-| `/review-comments` | 0.3.1 | triage feedback on YOUR PRs |
-| `/review-pr` | 0.3.1 | review someone else's PR |
-| `/learn` | 0.3.1 | extract patterns from delivered tickets (+ `--session` mode) |
-| `/build` | 0.3.1 | implement without a ticket |
-| `/refactor` | 0.3.1 | pattern violation scan + fix |
-| `/e2e` | 0.3.1 | Playwright E2E test generation |
-| `/project-debug` | 0.3.1 | systematic debug session |
-| `/qa` | 0.3.1 | manual QA guide |
-| `/screenshot` | 0.3.1 | page screenshot |
-| `/docs` | 0.3.1 | Confluence search/create/update |
-| `/queue` | 0.3.1 | off-peak automated implementation |
-| `/bootstrap` | 0.3.1 | workflow release manager (portable + version-aware upgrades) |
-| `/project-context` | 0.3.1 | cross-repo connection map |
-| `/status` | 0.3.1 | cross-repo work dashboard |
-| `/retro` | 0.3.1 | team retrospective |
-| `/ci-check` | 0.3.1 | post-PR CI watcher |
-| `/memory-lint` | 0.3.1 | auto-memory drift audit (new in 0.2.0) |
+Agents (7, every role): `codebase-investigator` `commit-drafter` `contract-verifier` `jira-context-loader` `pr-branch-reviewer` `ui-fidelity` `verifier`.
 
 ## Hash Ledger (auto-managed — do not edit by hand)
 
-Generated 2026-06-11 at version 0.3.1.
-<!-- Format: filename SHA256 first-8-chars -->
-
-- bootstrap.md           6b33cecb
-- build.md               da61457d
-- ci-check.md            a1120fb3
-- clarify.md              121d0a1b
-- do.md                  2fd47c57
-- docs.md                1387bc7a
-- e2e.md                 fd974d45
-- learn.md               4cf22cf3
-- memory-lint.md         9b00cd70
-- pr.md                  47abacce
-- project-context.md     f7676838
-- project-debug.md       99904f7a
-- qa.md                  42499dd8
-- queue.md               1cf6e19a
-- refactor.md            1f8b8637
-- resume-ticket.md       d422e035
-- retro.md               479114b5
-- review-comments.md     7c4eeda5
-- review-pr.md           1ad3b110
-- screenshot.md          924c0869
-- status.md              6b4113f6
-- ticket.md               fcff0d93
-- verify.md              ebff1b45
-
-## Agent Ledger
-
-- codebase-investigator v0.1.0 (workspace)
-- jira-context-loader v0.1.0 (workspace)
-- commit-drafter v0.1.0 (workspace)
-- contract-verifier v0.1.0 (workspace)
-- verifier v0.1.0 (workspace fallback — promoted from addin-fe 2026-05-12; repo override at `{REPO_ROOT}/.claude/agents/verifier.md` wins when present)
-- pr-branch-reviewer v0.1.0 (workspace fallback — promoted from addin-fe 2026-05-12; repo override at `{REPO_ROOT}/.claude/agents/pr-branch-reviewer.md` wins when present)
-- ui-fidelity v0.1.0 (workspace — now reads `{REPO}/.claude/ui-fidelity-ledger.md` `AUTO:META-LESSONS` at Process step 0; meta-lessons synthesized by `/learn` §2.7 from `/verify` §8.5 captures)
+Regenerated by `/bootstrap --bump` from the installed `commands/*.md`; none recorded for 0.8.0 (the 2026-06-11 ledger listed commands that no longer ship and was removed rather than left misleading). Format: `- <filename>  <SHA256 first 8 chars>`.

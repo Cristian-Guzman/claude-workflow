@@ -38,7 +38,7 @@ Computes an evidence-backed confidence score (0–100%) for every verification r
 Load repo config:
 - Read `{REPO_ROOT}/CLAUDE.md` for conventions and commands
 - Check for `{REPO_ROOT}/.claude/codebase-patterns.md` → if a `codebase-patterns-index.md` exists, read only the "Always Load" core rules section (~250 lines) instead of the full file as the baseline.
-  **Then, after Step 2 identifies the modified files, do a second TARGETED pull:** resolve the pattern file's in-file `## Index` and read every entry whose title/anchor matches the modified files' surfaces (path segments, component names, domain terms — e.g. `word-addin`, `api-client`, `playbooks-v2`), plus the 10 newest `## Lessons Learned` entries (tail of the file). The newest lessons are the most likely to be load-bearing for in-flight work, and /learn appends them at the END of the file — a fixed core-rules slice never sees them (this exact blind spot let a documented bug class recur twice in 7 days).
+  **Then, after Step 2 identifies the modified files, do a second TARGETED pull:** resolve the pattern file's in-file `## Index` and read every entry whose title/anchor matches the modified files' surfaces (path segments, component names, domain terms — e.g. `word-addin`, `api-client`, `orders-v2`), plus the 10 newest `## Lessons Learned` entries (tail of the file). The newest lessons are the most likely to be load-bearing for in-flight work, and /learn appends them at the END of the file — a fixed core-rules slice never sees them (this exact blind spot let a documented bug class recur twice in 7 days).
 - Check for `{REPO_ROOT}/.claude/agents/verifier.md` → use if exists
 - Check for `{REPO_ROOT}/.claude/scripts/capture-screenshot.js` → use for visual verification
 
@@ -109,6 +109,8 @@ Only true WRONG_BASE is a blocker:
 Behind-but-correctly-based is a soft warning, never a blocker.
 
 ## 2.1 Tests-For-Every-Source Enforcement
+
+If `$WORKSPACE_ROOT/.claude/testing-patterns-shared.md` exists, load it first (shared rules); then the repo's `testing-patterns.md`.
 
 For every modified source file, check that a corresponding test file exists:
 
@@ -502,7 +504,7 @@ If `codebase-patterns.md` was loaded, also check modified files for convention v
 
 §3.2b only fires when the diff touches the spec dir itself. But the worse failure mode is the reverse: an **app-side** change (a route rename, a copy string, a `data-testid`, a GET→SSE migration) that no spec file in the diff reveals, yet silently breaks specs that assert the old surface. Those breaks never gate a PR (E2E runs nightly against deployed dev), so they ship as drift and surface as red the next morning — or worse, get masked by a `test.skip` / `isVisible().catch(()=>false)` guard and never go red at all (false-green). This step catches that drift at verify time.
 
-**Step 1 — Gate on repo e2e-awareness (skip silently if absent).** Resolve `e2e.enabled` exactly as defined in the canonical reference — addin-fe testing-patterns **"## E2E repo-awareness, blast-radius & skip contract"** (read the repo profile's `e2e:` block; if the profile is silent, auto-detect a `playwright.config(.ts|.js)` + a `test:e2e` script + a spec dir). If not e2e-enabled → **skip this entire step with no output** (no friction for web-app/api-bff, backend-service repos, iOS, legacy-editor, infra repos, etc.). Always read `spec_dir`, `run_command`, `config`, and `sideload_only` from the resolved profile — **never hardcode `e2e/`** (GDocs uses `test/e2e/`).
+**Step 1 — Gate on repo e2e-awareness (skip silently if absent).** Resolve `e2e.enabled` exactly as defined in the canonical reference — the repo's testing-patterns **"## E2E repo-awareness, blast-radius & skip contract"** (read the repo profile's `e2e:` block; if the profile is silent, auto-detect a `playwright.config(.ts|.js)` + a `test:e2e` script + a spec dir). If not e2e-enabled → **skip this entire step with no output** (no friction for web-app/api-bff, backend-service repos, iOS, legacy-editor, infra repos, etc.). Always read `spec_dir`, `run_command`, `config`, and `sideload_only` from the resolved profile — **never hardcode `e2e/`** (GDocs uses `test/e2e/`).
 
 ```bash
 REPO_NAME=$(basename {REPO_ROOT})
@@ -519,7 +521,7 @@ SIDELOAD=$(grep -A6 '^e2e:' "$PROFILE" 2>/dev/null | grep 'sideload_only:' | awk
 RUN_CMD=$(grep -A6 '^e2e:' "$PROFILE" 2>/dev/null | grep 'run_command:' | sed -E 's/.*run_command:\s*//' | tr -d '"')
 ```
 
-**Step 2 — Fire only when the diff changes APP surfaces (not just specs).** If the diff is spec-only, §3.2b already covers it — skip here. Otherwise apply the **blast-radius idiom** from the canonical section (do NOT re-derive it): extract changed surfaces from the diff and grep `{SPEC_DIR}` for each — (1) ROUTE literals + `*Path`/`*Base`/`*_URL` consts; (2) user-visible COPY strings (especially REMOVED copy a spec still asserts = guaranteed break); (3) `data-testid` values; (4) API/SSE endpoint paths (`page.route("**/...")`). Emit `affected_specs` as `file:line + matched token`. The drift this prevents is real and recurring — `/word-addin/analyze`→`/v1/analyze` versioning, `"Ask about your document"`→`"Document Assistant"`, GET-poll→SSE, header class-selectors→semantic markup, `"Create Playbook"`→`"Add Playbook"` (live un-caught drift at `playbooks-v2-move-positions.spec.ts:58`).
+**Step 2 — Fire only when the diff changes APP surfaces (not just specs).** If the diff is spec-only, §3.2b already covers it — skip here. Otherwise apply the **blast-radius idiom** from the canonical section (do NOT re-derive it): extract changed surfaces from the diff and grep `{SPEC_DIR}` for each — (1) ROUTE literals + `*Path`/`*Base`/`*_URL` consts; (2) user-visible COPY strings (especially REMOVED copy a spec still asserts = guaranteed break); (3) `data-testid` values; (4) API/SSE endpoint paths (`page.route("**/...")`). Emit `affected_specs` as `file:line + matched token`. The drift this prevents is real and recurring — `/word-addin/analyze`→`/v1/analyze` versioning, `"Ask about your document"`→`"Document Assistant"`, GET-poll→SSE, header class-selectors→semantic markup, `"Create item"`→`"Add item"` (live un-caught drift at `e2e/<area>/<flow>.spec.ts:NN`).
 
 **Then UNION Tier 0 — the profile's `feature_map` (canonical §2b "Related-spec selection & execution target").** The token grep is Tier 1 (precision); it is blind to behavior changes that break a spec without renaming any token — which is why every §3.2c firing before 2026-07-10 ended `NO_AFFECTED`/`FLAGGED` while the nightly still caught scoped breaks. For each changed file, prefix-match against `e2e.feature_map` entries (`"app-prefix => spec-path"`; every matching entry contributes) and add those spec paths to `affected_specs` tagged `feature-map:{prefix}`. A changed file matching `e2e.shared_paths` adds `e2e.smoke_specs` (bounded canary) — NEVER the whole suite; full regression is the nightly's job. Profile lacks the §2b keys → Tier-1-only (status quo), note it in the report.
 
@@ -543,8 +545,8 @@ RUN_CMD=$(grep -A6 '^e2e:' "$PROFILE" 2>/dev/null | grep 'run_command:' | sed -E
 ```markdown
 ## E2E Affected Specs (post-deploy re-check)
 <!-- written by /verify §3.2c; consumed by /ci-check §5.1b -->
-- e2e/playbooks/playbooks-v2-position-detail.spec.ts   (token: "position-guidance")
-- e2e/playbooks/                                        (feature-map: app/_lib/playbooks/)
+- e2e/orders/orders-v2-item-detail.spec.ts             (token: "item-guidance")
+- e2e/orders/                                           (feature-map: app/_lib/orders/)
 - e2e/home.spec.ts                                      (smoke: app/_common/ touched)
 run: {RUN_CMD} {spec paths} --workers=1 --reporter=line   # default baseURL (deployed dev) — AFTER deploy lands
 ```
@@ -889,7 +891,7 @@ Quality-cap findings from the Visual-Aware / E2E-Drift / Comment-Hygiene tables 
 | `DRIFT_RUN_FAIL` (an affected spec ran and failed) | cap 85%, name the failing test | "Affected e2e spec {file} failed against the changed surface — real finding, NOT an auto-block ([[feedback_e2e_rot_not_blocking]]); update the spec or the change before merge." |
 | `OK` / `NO_AFFECTED` / not e2e-enabled | no change | (none) |
 
-Per [[feedback_e2e_rot_not_blocking]], NONE of these flip the verdict to a hard block on their own — they cap the score and name the finding. The cap targets the false-green this session is built to prevent (162 skipped specs = 21% hiding drift; live un-caught drift at `playbooks-v2-move-positions.spec.ts:58`).
+Per [[feedback_e2e_rot_not_blocking]], NONE of these flip the verdict to a hard block on their own — they cap the score and name the finding. The cap targets the false-green this session is built to prevent (162 skipped specs = 21% hiding drift; live un-caught drift at `e2e/<area>/<flow>.spec.ts:NN`).
 
 **Comment Hygiene Gate (3.4):** if any noise comments remain unaddressed at summary time → verdict is **ISSUES FOUND** (not READY-FOR-PR), and cap the score at 85%. These are trivial to remove — fix and re-run; never ship garbage comments to keep a high score.
 

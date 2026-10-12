@@ -236,6 +236,8 @@ Complex:
   - Load all agents
 ```
 
+If `$WORKSPACE_ROOT/.claude/codebase-patterns-shared.md` / `testing-patterns-shared.md` exist, load each first (shared rules), then the repo file — Bugfix tier and up; Trivial skips both.
+
 **For tickets in a domain that has both v1 and v2 API surfaces** (any tier), prioritize the v2 reference JSON (e.g., `{domain}-v2-api.json` over `{domain}-api.json`):
 ```bash
 grep -i "{keyword}" $WORKSPACE_ROOT/.claude/api-reference/{domain}-v2-api.json 2>/dev/null | head -10
@@ -615,7 +617,7 @@ State files are **never deleted** — they remain on disk after `learned` for re
 
 ## Related Commands
 - Next: /verify → /pr → /learn
-- Testing: /test-plan (SDET lane; e2e steps run inside /ticket §5.1a)
+- Testing: /cover (SDET role; e2e steps run inside /ticket §5.1a)
 - Context: /qa (related-ticket lookup is built into /clarify Step 1.5)
 - If interrupted: /resume-ticket
 - Building without ticket: /build

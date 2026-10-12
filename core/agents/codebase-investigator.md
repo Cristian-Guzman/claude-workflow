@@ -17,7 +17,7 @@ Your caller will pass you:
 
 - `repo_root` — absolute path to the repo (e.g. `$WORKSPACE_ROOT/addin-fe`)
 - `repo_type` — one of: `frontend-ui`, `backend-bff`, `backend-go`, `backend-service`, `mobile-ios`, `google-workspace-addin`
-- `feature_keywords` — list of terms describing the feature (e.g. `["playbook archive", "position v2"]`)
+- `feature_keywords` — list of terms describing the feature (e.g. `["order archive", "inventory v2"]`)
 - `ticket_claims` — optional list of specific UI/behavior/data/API claims from a ticket
 - `focus` — one of: `file-placement`, `reuse`, `api-surface`, `permissions`, `all` (default `all`)
 
@@ -58,7 +58,7 @@ Search the repo's shared-code directories:
 |-------|-----------|
 | **Atom** | Renders no custom children components; no branching data logic; accepts primitive/enum props only (Button, Icon, Badge, Chip, Input, Text, Avatar, Divider). File usually <100 lines. |
 | **Molecule** | Composes 2–4 atoms; owns local state only (FormField, SearchBox, EditableTitle, Breadcrumb). File usually 100–200 lines. |
-| **Organism** | Composes multiple molecules/atoms; often touches API/state/routing (KebabMenu with actions, PlaybookFilters, PositionCard, ReviewList). File 200+ lines or composed of 3+ molecules. |
+| **Organism** | Composes multiple molecules/atoms; often touches API/state/routing (KebabMenu with actions, OrderFilters, ItemCard, ReviewList). File 200+ lines or composed of 3+ molecules. |
 | **Template** | Layout-only; defines regions/slots; no business data (DetailPageLayout, SidebarLayout, `layout.tsx` in App Router). |
 | **Page** | Route-level composition (`page.tsx` in App Router, or top-level routed components). |
 
@@ -138,7 +138,7 @@ Ticket FILE MAP mismatches (if any): ...
 ## D. API Surface
 | Endpoint | Exists? | Source | Fields | Gap? |
 |----------|---------|--------|--------|------|
-| `GET /positions` | yes | playbook-v2-api.json | id, topic, status | none |
+| `GET /items` | yes | orders-api.json | id, topic, status | none |
 
 ## E. Interactive Patterns (if applicable)
 | Ticket Claim | Existing Pattern | Reference File |

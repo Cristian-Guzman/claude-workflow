@@ -70,7 +70,7 @@ the ceremony, never start heavy "to be safe"). First matching row wins:
 Log `- [HH:MM] /cover: tier={tier} mode={mode}` in the state file (§0.5). Re-tier out loud if the
 work turns out bigger; never silently.
 
-**0.4 Role context (load per tier).** Always: `{REPO_ROOT}/.claude/testing-patterns.md` (the level
+**0.4 Role context (load per tier).** Always: `$WORKSPACE_ROOT/.claude/testing-patterns-shared.md` if it exists (shared rules, first), then `{REPO_ROOT}/.claude/testing-patterns.md` (the level
 policy — what `@smoke` / `@integration` / `@e2e` mean HERE), `selectors.md` (`## Conventions` first),
 `test-data.md`, `environments.md`, `flaky-ledger.md` (skip silently when a file is absent — the
 templates are seeded by the role install and may be empty). Feature + cross: the nearest specs and the

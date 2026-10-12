@@ -107,8 +107,8 @@ Load repo config (cheap — always):
 - `{REPO_ROOT}/.claude/testing-patterns.md` if present
 
 **Defer the heavy context loads until AFTER Step 1.2 classifies the tier** (see `$WORKSPACE_ROOT/.claude/routing.md`). Do NOT read these yet — for a **Trivial** ticket (Dependabot, config, copy change) they are never loaded at all, and loading them just adds noise that degrades focus:
-- `{REPO_ROOT}/.claude/codebase-patterns.md` (**FULL file**) — load at Step 1.2 for Bugfix (only if the area matches), Standard, and Complex. New patterns from `/learn` live here; if its `<!-- last-updated: YYYY-MM-DD -->` marker is >45 days old, warn "patterns may be stale — consider running `/learn` first".
-- `stack-connections.md` — load only if `REPO_TYPE` is backend (`backend-bff`/`backend-go`), OR the ticket mentions a backend domain term (e.g. playbook, position, redline, version-pin, override, lambda, dynamo, BFF, two-tier, ms-{domain} — adapt this list to your stack's domain vocabulary), OR (`frontend-ui`) the ticket implies a backend API change. Walk its §"Domain quick-pick" → 3-layer map; the per-domain "Adding a new operation" recipe IS the plan template, and §"Type-drift hazards" guards multi-layer field assumptions.
+- `{REPO_ROOT}/.claude/codebase-patterns.md` (**FULL file**) — load at Step 1.2 for Bugfix (only if the area matches), Standard, and Complex. If `$WORKSPACE_ROOT/.claude/codebase-patterns-shared.md` exists, load it first (shared rules); then the repo file. New patterns from `/learn` live here; if its `<!-- last-updated: YYYY-MM-DD -->` marker is >45 days old, warn "patterns may be stale — consider running `/learn` first".
+- `stack-connections.md` — load only if `REPO_TYPE` is backend (`backend-bff`/`backend-go`), OR the ticket mentions a backend domain term (e.g. order, item, invoice, version-pin, override, lambda, dynamo, BFF, ms-{domain} — adapt this list to your stack's domain vocabulary), OR (`frontend-ui`) the ticket implies a backend API change. Walk its §"Domain quick-pick" → 3-layer map; the per-domain "Adding a new operation" recipe IS the plan template, and §"Type-drift hazards" guards multi-layer field assumptions.
 - `command-proposals.md` (grep for the ticket's domain) — **Standard/Complex only**:
   ```bash
   grep -B 1 -A 5 -i "{REPO_NAME}\|$(echo $TICKET_SUMMARY | tr ' ' '\n' | head -5)" $WORKSPACE_ROOT/.claude/command-proposals.md 2>/dev/null
@@ -244,7 +244,7 @@ For each related ticket with a local state file, read its `## Files Modified` se
 ### Related Tickets
 | Ticket | Relation | Status | Local State | Overlap? |
 |--------|----------|--------|-------------|----------|
-| PROJ-YYYY | blocks | In Progress | addin-fe (implementing) | shares app/_lib/playbooks-v2/ |
+| PROJ-YYYY | blocks | In Progress | addin-fe (implementing) | shares app/_lib/orders-v2/ |
 | PROJ-ZZZZ | epic sibling | Done | — | no |
 
 **Blockers:** {list with status — highlight any NOT done}
@@ -310,8 +310,8 @@ Fold into the Step 7 blueprint AFTER the Step 1.5a "Related Tickets" table and B
 
 | Ticket | Repo | Tags | Retro takeaway | Dive deeper |
 |--------|------|------|----------------|-------------|
-| [[PROJ-5834]] | addin-fe | layer=ui, kind=feature, area=playbook-v2 | Used existing DetailPageLayout instead of rebuilding | `cat $WORKSPACE_ROOT/addin-fe/.claude/tickets/[[PROJ-5834]].md` |
-| [[PROJ-5878]] | addin-fe | layer=ui, surface=detail-view, area=playbook-v2 | Defensive gating prop pattern for AC-specific visibility | `cat .../[[PROJ-5878]].md` |
+| [[PROJ-5834]] | addin-fe | layer=ui, kind=feature, area=orders-v2 | Used existing DetailPageLayout instead of rebuilding | `cat $WORKSPACE_ROOT/addin-fe/.claude/tickets/[[PROJ-5834]].md` |
+| [[PROJ-5878]] | addin-fe | layer=ui, surface=detail-view, area=orders-v2 | Defensive gating prop pattern for AC-specific visibility | `cat .../[[PROJ-5878]].md` |
 | [[PROJ-6027]] | gdocs-addin | layer=ui, kind=feature | Google Apps Script sidebar can't be browser-previewed | `cat .../[[PROJ-6027]].md` |
 ```
 
@@ -414,9 +414,9 @@ If no prototype reference found, skip to Step 3.
    | "Drawer expands on card click" | `app/_lib/compliant/components/Drawer.tsx` | slide-in 300ms, overlay click closes, ESC closes |
 
    **Rebuild plan:**
-   - Real API: swap hardcoded `mock/playbook.json` for `useGetPlaybook` hook
-   - Real auth: wrap the route in `<RequireScope scope="playbook:read">`
-   - Real types: replace `any` props with types from `app/_lib/position-v2/types.ts`
+   - Real API: swap hardcoded `mock/order.json` for `useGetOrder` hook
+   - Real auth: wrap the route in `<RequireScope scope="orders:read">`
+   - Real types: replace `any` props with types from `app/_lib/items-v2/types.ts`
    - Tests: the prototype has none — explicit test plan below
 
    **⚠ Load-bearing assumption:** PM, design, and eng have confirmed this prototype is reference, not code. If unconfirmed, STOP and confirm — this workflow breaks if anyone tries to merge the prototype directly.
@@ -695,11 +695,11 @@ Based on existing structure and conventions, recommend exact file paths:
 
 | File | Path | Reason |
 |------|------|--------|
-| Page component | `app/(web)/library/positions/[id]/page.tsx` | Matches existing detail page pattern at `app/(web)/playbooks-v2/[playbookId]/` |
-| Feature components | `app/_lib/position-v2/components/` | Domain follows existing `app/_lib/playbooks-v2/` structure |
-| Query hooks | `app/_api/position-v2/` | Matches existing `app/_api/playbooks-v2/` |
-| Types | `app/_lib/position-v2/types.ts` | Standard location per codebase patterns |
-| Tests | `__tests__/lib/position-v2/components/` | Mirrors source structure |
+| Page component | `app/(web)/library/items/[id]/page.tsx` | Matches existing detail page pattern at `app/(web)/orders-v2/[orderId]/` |
+| Feature components | `app/_lib/items-v2/components/` | Domain follows existing `app/_lib/orders-v2/` structure |
+| Query hooks | `app/_api/items-v2/` | Matches existing `app/_api/orders-v2/` |
+| Types | `app/_lib/items-v2/types.ts` | Standard location per codebase patterns |
+| Tests | `__tests__/lib/items-v2/components/` | Mirrors source structure |
 
 **If the ticket has a FILE MAP:** Compare the ticket's proposed paths against your recommendation. Flag any disagreements:
 > "Ticket suggests `app/(web)/positions/page.tsx` but the codebase convention is `app/(web)/library/positions/page.tsx` (positions are under the library route group). Recommend using the library path."
@@ -741,8 +741,8 @@ For each UI element or behavior the ticket describes, state which existing patte
 | Molecule | "Editable title row" | EditableTitle | `app/_common/EditableTitle/index.tsx` | reuse |
 | Molecule | "Form field with error" | FormField | `app/_common/FormField.tsx` | reuse |
 | Organism | "Kebab menu" | KebabMenu | `app/_common/KebabMenu/index.tsx` | reuse |
-| Organism | "Filter bar" | PlaybookFilters | `app/_lib/playbooks-v2/components/PlaybookFilters.tsx` | generalize to `_common` |
-| Template | "Detail page layout" | 2-col sidebar layout | `app/(web)/playbooks-v2/[playbookId]/layout.tsx` | reuse |
+| Organism | "Filter bar" | OrderFilters | `app/_lib/orders-v2/components/OrderFilters.tsx` | generalize to `_common` |
+| Template | "Detail page layout" | 2-col sidebar layout | `app/(web)/orders-v2/[orderId]/layout.tsx` | reuse |
 | ⭐ NEW Atom | "Priority chip" | — | to create: `app/_common/PriorityChip.tsx` | create in its own ticket (reusable beyond this feature) |
 | ⭐ NEW Organism | "Compliant drawer" | — | to create: `app/_lib/compliant/components/CompliantDrawer.tsx` | composes: Drawer atom + Badge atom + FormField molecule |
 ```
@@ -802,10 +802,10 @@ For each endpoint the ticket references:
 
 | Endpoint | Exists? | Source | Fields Available | Frontend Needs | Gap? |
 |----------|---------|--------|------------------|---------------|------|
-| GET /positions | Yes | playbook-v2-api.json | id, topic, status, isPublic, tags | All covered | None |
-| GET /positions/:id/versions/:vid | Yes | playbook-v2-api.json | ifFoundAction (object), ifMissingAction (object) | ifFoundAction as string | ⚠️ Type mismatch — needs normalizer |
-| GET /positions/:id/distribution | Yes | playbook-v2-api.json | playbook count per version | Matches | None |
-| POST /positions | Yes | playbook-v2-api.json | — | — | ⚠️ DynamoDB — need optimistic update |
+| GET /items | Yes | orders-api.json | id, topic, status, isPublic, tags | All covered | None |
+| GET /items/:id/versions/:vid | Yes | orders-api.json | onFound (object), onMissing (object) | onFound as string | ⚠️ Type mismatch — needs normalizer |
+| GET /items/:id/distribution | Yes | orders-api.json | order count per version | Matches | None |
+| POST /items | Yes | orders-api.json | — | — | ⚠️ DynamoDB — need optimistic update |
 ```
 
 ### 4d. Dependency Check
@@ -816,9 +816,9 @@ For each endpoint the ticket references:
 | Dependency | Status | Impact |
 |-----------|--------|--------|
 | PROJ-YYYY (linked ticket) | Done / In Progress / To Do | Blocking / Not blocking — reason |
-| BFF route for /positions | Exists at api-bff/src/routes/positions-v2.ts | Ready |
+| BFF route for /items | Exists at api-bff/src/routes/items-v2.ts | Ready |
 | Go backend endpoint | Exists, deployed to dev | Ready |
-| Shared component X | Doesn't exist yet — needs extraction from playbooks-v2 | Blocking if we want to reuse, not blocking if we duplicate |
+| Shared component X | Doesn't exist yet — needs extraction from orders-v2 | Blocking if we want to reuse, not blocking if we duplicate |
 ```
 
 ### 4e. Type Duplication Scan
@@ -840,7 +840,7 @@ Run this **BEFORE locking the implementation blueprint.** Catches the most commo
 3. Classify each match:
    - **Match in `app/_entities/`** → CANONICAL TYPE EXISTS. Three valid responses, present as options:
      - **Reuse**: `import type { {Name} } from "@/app/_entities/{path}"` and consume directly
-     - **Map**: write a mapper at `app/_api/{service}/api-mappers.ts` (reference: `app/_api/playbooks-v2/api-mappers.ts`) — use this when the wire shape genuinely differs from the canonical
+     - **Map**: write a mapper at `app/_api/{service}/api-mappers.ts` (reference: `app/_api/orders-v2/api-mappers.ts`) — use this when the wire shape genuinely differs from the canonical
      - **Project**: type the response as `Pick<{Name}, "field1" | "field2">` for callers that consume only a subset
    - **Match in `app/_api/{other-service}/`** → SIBLING-SERVICE DUPLICATE. Almost always a sign one or both should consolidate at the entity layer. Surface as a question.
    - **No match** → clean, proceed.
@@ -852,7 +852,7 @@ Run this **BEFORE locking the implementation blueprint.** Catches the most commo
 
 | Proposed type | Match found | Recommended action |
 |---------------|-------------|--------------------|
-| `Playbook` | `app/_entities/playbook-v2/playbook-v2.ts:117` (`PlaybookV2`) + `:141` (`PlaybookV2Full`) | Reuse `PlaybookV2Full` OR project via `Pick<PlaybookV2Full, "id" \| "name">` |
+| `Order` | `app/_entities/orders-v2/order.ts:117` (`OrderV2`) + `:141` (`OrderV2Full`) | Reuse `OrderV2Full` OR project via `Pick<OrderV2Full, "id" \| "name">` |
 | `MetricCounts` | none | Proceed |
 ```
 
@@ -860,9 +860,9 @@ Run this **BEFORE locking the implementation blueprint.** Catches the most commo
    > "Found canonical `{Name}` at `_entities/{path}:{line}`. Reuse, map at `api-mappers.ts`, or project? (Picking 'redefine' requires explicit user override; document the reason in Decisions.)"
 
 **Reference implementation of the dedupe pattern (post-[[PROJ-6082]]):**
-- `app/_entities/playbook-v2/` — canonical layer for playbook types
-- `app/_api/playbooks-v2/api-mappers.ts` — canonical mapping layer (wire shape → canonical)
-- `app/_api/two-tier/api-types.ts` — what NOT to do; shadow types were removed in commit `c2e9a265`
+- `app/_entities/orders-v2/` — canonical layer for order types
+- `app/_api/orders-v2/api-mappers.ts` — canonical mapping layer (wire shape → canonical)
+- `app/_api/<other-service>/api-types.ts` — what NOT to do; shadow types were removed in a follow-up commit
 
 ### 4f. Phase Plan
 
@@ -943,7 +943,7 @@ Compute, at plan time, **which existing e2e specs cover the surfaces this ticket
 **When both gates pass:**
 
 1. Read `e2e.spec_dir` from the profile — **never hardcode `e2e/`** (`addin-fe` = `e2e/`; `gdocs-addin` = `test/e2e/`).
-2. Run the blast-radius idiom defined canonically in `addin-fe/.claude/testing-patterns.md` → **"## E2E repo-awareness, blast-radius & skip contract"**. Do NOT re-derive the grep recipe here — that section owns the four surface classes (route literals + `*Path`/`*Base`/`*_URL` consts; user-visible COPY, especially REMOVED copy a spec still asserts; `data-testid` values; API/SSE endpoint paths in `page.route("**/...")`). For /clarify the "diff" is the *planned* change set: the File Placement rows (4a), proposed route/copy/testid/endpoint changes from the Step 2 claims, and any rename or removal the ticket implies.
+2. Run the blast-radius idiom defined canonically in the repo's `testing-patterns.md` → **"## E2E repo-awareness, blast-radius & skip contract"**. Do NOT re-derive the grep recipe here — that section owns the four surface classes (route literals + `*Path`/`*Base`/`*_URL` consts; user-visible COPY, especially REMOVED copy a spec still asserts; `data-testid` values; API/SSE endpoint paths in `page.route("**/...")`). For /clarify the "diff" is the *planned* change set: the File Placement rows (4a), proposed route/copy/testid/endpoint changes from the Step 2 claims, and any rename or removal the ticket implies.
 3. Grep `{spec_dir}` for each planned surface and emit `affected_specs` with `file:line` + the matched token.
 
 Surface in the Step 7 blueprint:

@@ -44,6 +44,11 @@ e2e:
   run_command: ""                      # script that runs the e2e suite (e.g. "yarn test:e2e")
   config: ""                           # playwright config file (e.g. "playwright.config.ts")
   sideload_only: false                 # true when the suite needs a sideloaded add-in or live creds → /verify FLAGS instead of auto-running
+  # Optional — read by /verify §3.2c and /cover when present; both degrade without them.
+  local_base_url: ""                   # dev server serving THIS branch (pre-merge runs target it, not deployed dev)
+  feature_map: {}                      # "app/_lib/orders" => "e2e/orders/" — app prefix → spec path(s), Tier-0 affected-spec selection
+  shared_paths: []                     # app prefixes whose change triggers the smoke canary below
+  smoke_specs: []                      # bounded canary run when a shared path changes — never the whole suite
 
 # Backend deploy awareness — consumed by /qa §3-B (backend runtime QA guide).
 # Only backend repos need this. If absent, /qa infers: aws-argo/apps/{name} exists → k8s-argo;
@@ -61,7 +66,7 @@ confluence_space: ""                   # e.g. "MVP"
 # transitions from HERE (never from settings.json or command docs).
 # tracker_system: none → the pipeline degrades to the no-tracker lane: /build replaces
 # /clarify+/ticket and every ticket-transition step silently no-ops.
-tracker_system: jira                   # jira | github | linear | none
+tracker_system: jira                   # jira | none implemented; github | linear are accepted values, NOT implemented — they degrade to pasting the acceptance criteria
 jira_project: "PROJ"                   # your ticket project key (ids look like PROJ-1234)
 # Numeric transition ids — look up ONCE per Jira instance and record here:
 #   jira CLI:  jira issue move <KEY-1> --debug     (prints available transitions)

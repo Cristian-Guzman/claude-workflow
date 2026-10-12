@@ -1,6 +1,6 @@
 ---
 name: project-context
-version: 0.7.0
+version: 0.8.0
 description: Map dependencies across all repos — which FE calls which BFF, which BFF calls which Go lambda, plus business-logic signals. Also runs a sprint ticket-activity pass that writes team-ticket dossiers (teammates' work you didn't touch) for cross-team learning. Incremental cache after first run.
 argument-hint: "[--full | --incremental | --stale] [--weeks N | --month | --days N] [--no-activity]"
 allowed-tools:
@@ -143,14 +143,14 @@ After all per-repo scans, cross-reference:
 
 ### Edges: FE → BFF
 For every `/bff/api/{path}` call in a frontend, find the matching route in api-bff. Flag unmatched:
-> "FE calls `/bff/api/playbooks/:id/duplicate` but no such route found in api-bff. Stale call? Pending BFF work? Wrong URL?"
+> "FE calls `/bff/api/orders/:id/duplicate` but no such route found in api-bff. Stale call? Pending BFF work? Wrong URL?"
 
 ### Edges: BFF → Go
 For every upstream URL the BFF calls, find the matching Go handler. Flag unmatched:
-> "BFF proxies to `https://services.internal/positions/:id/versions` but no backend-services handler matches. Deleted? Renamed? Missing service?"
+> "BFF proxies to `https://services.internal/items/:id/versions` but no backend-services handler matches. Deleted? Renamed? Missing service?"
 
 ### Edges: cross-domain type drift
-For shared concepts (Playbook, Position, Document), compare type definitions:
+For shared concepts (Order, Item, Document), compare type definitions:
 - TS interface in addin-fe
 - Zod schema in api-bff
 - Go struct in backend-services
@@ -179,13 +179,13 @@ workflow_version: {current from workflow-version.md}
 HEAD: abc1234  |  Last scan: 2026-04-17T10:00Z  |  Files: 1234
 Calls: api-bff (237 endpoints), Confluence links (42)
 Routes owned: n/a (frontend)
-Top domain terms: playbook, position, document, review, contract
+Top domain terms: order, item, document, review, contract
 
 ### api-bff (backend-bff)
 HEAD: def5678  |  Last scan: 2026-04-17T10:00Z  |  Files: 567
 Exposes: 89 routes
 Depends on: backend-services (54 upstream calls)
-Top domain terms: playbook-v2, position, version, pin, document
+Top domain terms: orders-v2, item, version, pin, document
 
 ...
 
@@ -198,14 +198,14 @@ api-bff ──────────────────(8 calls)───
 ## Loose Ends
 
 ### FE calls with no BFF route (potential stale calls)
-- addin-fe: `/bff/api/playbooks/:id/duplicate` — no match in api-bff
+- addin-fe: `/bff/api/orders/:id/duplicate` — no match in api-bff
 
 ### BFF upstream calls with no Go handler
-- api-bff → `https://services.internal/positions/:id/versions` — no match
+- api-bff → `https://services.internal/items/:id/versions` — no match
 
 ### Type drift across repos
-- `Playbook.isPublic` (FE) vs `Playbook.is_public` (BFF) vs `Playbook.IsPublic` (Go) — casing drift
-- `Position.ifFoundAction` — string in FE, object in Go — needs normalizer
+- `Order.isPublic` (FE) vs `Order.is_public` (BFF) vs `Order.IsPublic` (Go) — casing drift
+- `Item.onMissing` — string in FE, object in Go — needs normalizer
 
 ### Duplicated utilities
 - `formatDate` implementations in addin-fe, api-bff, billing-service — consider extracting to a shared utility library
@@ -213,18 +213,18 @@ api-bff ──────────────────(8 calls)───
 ## New Since Last Scan (incremental mode only)
 
 ### api-bff (2026-04-15 → 2026-04-17)
-+ src/routes/positions-v2/delete.ts
-~ src/schemas/playbook.ts (added `archivedAt` field)
++ src/routes/items-v2/delete.ts
+~ src/schemas/order.ts (added `archivedAt` field)
 
 ### backend-services (2026-04-16 → 2026-04-17)
-+ lambdas/ms-playbook-v2/playbook/archive-playbook/main.go
++ lambdas/ms-orders/order/archive-order/main.go
 
 ## Business-Logic Snapshot
 
-### Playbook V2 domain
+### Orders V2 domain
 Present in: addin-fe, api-bff, backend-services
-Key concepts: playbook, position, version, pin, ifFoundAction, ifMissingAction
-Confluence reference: MVP space, "Playbook V2" page
+Key concepts: order, item, version, pin, onFound, onMissing
+Confluence reference: the domain wiki page
 Open questions (from command-proposals.md): snake_case vs camelCase attribute bug
 
 ### Billing domain
@@ -244,38 +244,34 @@ The file has marked auto-regenerated regions. Everything between `<!-- AUTO:* ST
 ### 5b.1 Domain registry
 
 The marker IDs follow this convention: `AUTO:<DOMAIN>_<KIND>` where:
-- `<DOMAIN>` ∈ `PLAYBOOK_V2 | POSITION_V2 | ANALYSIS_V2 | REDLINE | PLAYBOOK_BUILDER | DOCUMENTS | PAYMENT_AUTOMATIONS | COMMON` (example registry — use your own domain names)
+- `<DOMAIN>` ∈ `ORDERS_V2 | INVENTORY | BILLING | DOCUMENTS | COMMON` (example registry — use your own domain names)
 - `<KIND>` ∈ `ENDPOINTS` (the BFF Service.method → Go lambda table) or `ORPHANS` (Go lambdas without BFF caller, plus optional BFF methods without Go lambda)
 
-Currently marked domains in `stack-connections.md`: `PLAYBOOK_V2`, `POSITION_V2`, `ANALYSIS_V2`, `REDLINE`. To add a new domain, mark its endpoint table with `<!-- AUTO:<NEW_DOMAIN>_ENDPOINTS START -->` / `END` first, then run this step.
+Example marked domains in `stack-connections.md`: `ORDERS_V2`, `INVENTORY`, `BILLING`. To add a new domain, mark its endpoint table with `<!-- AUTO:<NEW_DOMAIN>_ENDPOINTS START -->` / `END` first, then run this step.
 
 ### 5b.2 Per-domain refresh algorithm
 
 For each marked domain, regenerate the endpoint table from live code:
 
-**Playbook V2 (`PLAYBOOK_V2`)**
-- BFF Service: `api-bff/src/rest-v2/services/PlaybookV2Service.ts`
-- Go lambda group: `backend-services/lambdas/ms-playbook-v2/playbook/`
+**Orders V2 (`ORDERS_V2`)**
+- BFF Service: `api-bff/src/rest-v2/services/OrdersService.ts`
+- Go lambda group: `backend-services/lambdas/ms-orders/order/`
 - Method extraction: parse the Service file for `public async <name>(...): Promise<...>` declarations. For each method:
-  - URL template = the literal passed to `this.get/post/patch/put/del({ url: ... })`; the base is `${this.apiV5}` = `/playbook/v5`
+  - URL template = the literal passed to `this.get/post/patch/put/del({ url: ... })`; the base is `${this.apiV1}` = `/orders/v1`
   - HTTP verb = the Service base method called (`get`/`post`/`patch`/`put`/`del`)
-- Lambda matching: for each Service method's URL path, walk the lambda group dir and match by URL suffix → lambda folder name. Convention: kebab-case operation. Examples: `/playbooks` POST → `create-playbook`, `/playbooks/:id` PATCH → `update-playbook`. If no obvious match, mark `**NO lambda — orphan**` (human review).
+- Lambda matching: for each Service method's URL path, walk the lambda group dir and match by URL suffix → lambda folder name. Convention: kebab-case operation. Examples: `/orders` POST → `create-order`, `/orders/:id` PATCH → `update-order`. If no obvious match, mark `**NO lambda — orphan**` (human review).
 - Composite/private methods that don't map to a single lambda: include with a parenthetical note (see the `presignAndUpload` row pattern).
-- Orphan detection: list all sub-lambdas under the Go group dir; any that didn't match a Service method goes into `AUTO:PLAYBOOK_V2_ORPHANS`.
+- Orphan detection: list all sub-lambdas under the Go group dir; any that didn't match a Service method goes into `AUTO:ORDERS_V2_ORPHANS`.
 
-**Position V2 (`POSITION_V2`)**
-- BFF Service: `api-bff/src/rest-v2/services/PositionV2Service.ts`
-- Go lambda group: `backend-services/lambdas/ms-playbook-v2/position/`
+**Inventory (`INVENTORY`)**
+- BFF Service: `api-bff/src/rest-v2/services/InventoryService.ts`
+- Go lambda group: `backend-services/lambdas/ms-orders/inventory/`
 - Same algorithm.
 
-**Analysis V2 (`ANALYSIS_V2`)**
-- BFF Service: `api-bff/src/rest-v2/services/AnalysisV2Service.ts`
-- Go lambda group: `backend-services/lambdas/ms-playbook-v2/analysis/`
-
-**Redline (`REDLINE`)**
-- BFF Service: `api-bff/src/rest-v2/two-tier/services/RedlineService.ts` + `S3PresignService.ts`
-- Go lambda group: `backend-services/lambdas/redline/`
-- Plus `S3PresignService` → `common/create-presigned-url` (cross-group; preserve manually if encountered).
+**Billing (`BILLING`)**
+- BFF Service: `api-bff/src/rest-v2/services/BillingService.ts` + `PresignService.ts`
+- Go lambda group: `backend-services/lambdas/billing/`
+- Plus `PresignService` → `common/create-presigned-url` (cross-group; preserve manually if encountered).
 
 ### 5b.3 Replace between markers (atomic write)
 
@@ -294,10 +290,10 @@ In practice: read `stack-connections.md`, locate the start+end markers, splice t
 
 After refresh, compute the deltas vs. the prior table content (you can diff against the stored last-scan output or git-blame the table block):
 
-- **New lambda in Go that has no BFF Service method** → "🆕 Go lambda `ms-playbook-v2/playbook/<verb>-playbook` exists but no BFF method calls it. Add to `PlaybookV2Service.ts` or document as direct-invoke / iOS-only / legacy."
-- **New BFF Service method with no Go lambda** → "🆕 BFF `PlaybookV2Service.<method>` calls `/playbook/v5/<path>` but no matching lambda exists. Add the lambda or fix the URL."
+- **New lambda in Go that has no BFF Service method** → "🆕 Go lambda `ms-orders/order/<verb>-order` exists but no BFF method calls it. Add to `OrdersService.ts` or document as direct-invoke / mobile-only / legacy."
+- **New BFF Service method with no Go lambda** → "🆕 BFF `OrdersService.<method>` calls `/orders/v1/<path>` but no matching lambda exists. Add the lambda or fix the URL."
 - **Renamed lambda or BFF method** → "🔁 `<old>` → `<new>` detected; verify type-drift notes downstream."
-- **HTTP verb change on existing endpoint** → "⚠ `PlaybookV2Service.createOverride` changed from POST to PUT. Confirm Go lambda was updated too."
+- **HTTP verb change on existing endpoint** → "⚠ `OrdersService.createOverride` changed from POST to PUT. Confirm Go lambda was updated too."
 
 Surface these as a "## Stack-connection deltas" section in the user-facing summary (Step 8), separately from the regular cross-repo edges.
 
@@ -315,7 +311,7 @@ The workspace `.claude/` folder IS an Obsidian vault. When this command writes A
 - **Ticket IDs**: every `PROJ-XXXX` reference must be wrapped as `[[PROJ-XXXX]]`. Applies in tables, prose, summary blocks, and the "## Stack-connection deltas" section. The retrofit pass already covered the historical files; from now on, any new write uses this format.
 - **Cross-references to other vault files** (`project-map.md`, `stack-connections.md`, `business-context.md`, etc.): when referencing them in prose, prefer `[[filename.md]]` over absolute paths. Absolute paths are fine for tool-execution context (`Read` operations), but in narrative prose use wiki-links.
 - **Don't touch wiki-links inside fenced code blocks** — Obsidian doesn't render them there, and they clutter copy-paste. The retrofit script left them as-is.
-- **Don't wrap repo-internal file paths with line numbers** (e.g. `lambdas/redline/start-redline/main.go:21-40`) — those are code-navigation references for the IDE, not graph nodes.
+- **Don't wrap repo-internal file paths with line numbers** (e.g. `lambdas/ms-orders/order/create-order/main.go:21-40`) — those are code-navigation references for the IDE, not graph nodes.
 
 The negative-lookahead/lookbehind regex used in the retrofit (`(?<!\[\[)PROJ-\d+(?!\]\])`) is the canonical wrap pattern — apply it idempotently on every write.
 

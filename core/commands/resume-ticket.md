@@ -42,8 +42,8 @@ Parse the frontmatter of each file to check status. The `tickets/` glob also ret
 | # | Repo | Type | ID | Status | Current Focus |
 |---|------|------|----|--------|---------------|
 | 1 | addin-fe | Ticket | [[PROJ-1234]] | implementing | Working on AC2 |
-| 2 | addin-fe | Build | playbooks-v2-ui | implementing | Fixing InlineEditField |
-| 3 | addin-fe | Refactor | playbooks-v2 | planning | 12 violations found |
+| 2 | addin-fe | Build | orders-v2-ui | implementing | Fixing InlineEditField |
+| 3 | addin-fe | Refactor | orders-v2 | planning | 12 violations found |
 | 4 | api-bff | Debug | api-null-error | investigating | Testing hypothesis 3 |
 | 5 | web-app | Cover | orders-v2-checkout | in-progress | Scenario 3 of 5 — no break-to-validate receipt yet |
 | 6 | web-app | Triage | nightly-2026-04-21 | env-blocked | Cluster 2 of 3 unresolved (env-or-data) |

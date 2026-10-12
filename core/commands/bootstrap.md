@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-version: 0.7.0
+version: 0.8.0
 description: Set up a portable .claude command system in any project, OR manage the workflow version when run with --bump.
 argument-hint: "[project description] | --bump [minor|patch] | --check | --root <path> | --flavor <name>"
 allowed-tools:
@@ -30,7 +30,7 @@ This file is portable. Every path is derived from `WORKSPACE_ROOT` (resolved in 
 - **`/bootstrap`** (this command) — the adapter and release manager, run AFTER `install.sh`: probes capabilities (§3i), prunes gate-false commands to `_archived-commands/`, writes `capability-manifest.md`, and owns versioning (`--bump` / `--check`).
 - **Self-sufficient fallback** — dropped into a project as a single file with no repo clone, `/bootstrap` can still generate a minimal system from its inlined specs. That is the fallback path, not the primary one.
 
-**Fallback coverage gaps (single-file mode).** The inlined specs below do NOT cover everything the canonical inventory requires. Single-file `/bootstrap` cannot generate: the `test-plan` command (no inlined spec); the full 7-agent set — §9 templates only three (`verifier`, `codebase-investigator`, `jira-context-loader`), and there is no `ui-fidelity` agent template at all; or `scripts/guard-base-branch.sh` and its PreToolUse hook wiring (§10). Those require the `install.sh` path. In single-file mode, list each gap in the §14 summary as "not installed — requires install.sh".
+**Fallback coverage gaps (single-file mode).** The inlined specs below do NOT cover everything the canonical inventory requires. Single-file `/bootstrap` cannot generate: any role-lane command beyond the dev specs below (the SDET commands `/cover`, `/triage`, `/log` have no inlined spec — role lanes require the `install.sh` path); the full 7-agent set — §9 templates only three (`verifier`, `codebase-investigator`, `jira-context-loader`), and there is no `ui-fidelity` agent template at all; or `scripts/guard-base-branch.sh` and its PreToolUse hook wiring (§10). Those require the `install.sh` path. In single-file mode, list each gap in the §14 summary as "not installed — requires install.sh".
 
 ## Canonical inventory (single source of truth)
 
@@ -38,32 +38,34 @@ The tables below define what a complete install at the current workflow version 
 
 ### Commands (capability-gated — this table IS the capability→command matrix)
 
-Tiers are install priority; the **Gate** column is the capability expression that must hold for the command to be installed AND, on re-run, KEPT. When a gate that was true becomes false, the command is **pruned to `_archived-commands/`** (§4), never deleted. Capabilities come from the §3i probe and are recorded in `capability-manifest.md` (§8.6). `always` = stack/host-agnostic — installed everywhere. Reconcile this table with the real command set on every `--bump`; a row with no matching `commands/*.md` (or vice-versa) is drift the `--check` flow must flag.
+**Priority** is install order (`core` first); it is NOT a role. **Role** is where the file ships from — `core/commands/` or `roles/<role>/commands/` — and the selected roles are declared, not probed: read `roles[]` from `.claude/workflow-manifest.json` (fallback: a role is on if any of its commands is installed; then `dev`). Install/keep (§4), prune (§8.5) and `--check` all evaluate **`role ∈ selected roles AND gate`**; "never prune an `always` command" means *for the selected roles* — a dev command on an sdet-only install is simply not in the plan, never regenerated, and if present it is an ORPHAN that `install.sh` (not this command) archives. The **Gate** column is the capability expression that must hold for the command to be installed AND, on re-run, KEPT. When a gate that was true becomes false, the command is **pruned to `_archived-commands/`** (§4), never deleted. Capabilities come from the §3i probe and are recorded in `capability-manifest.md` (§8.6). `always` = stack/host-agnostic — installed everywhere. Reconcile this table with the real command set on every `--bump`; a row with no matching `commands/*.md` (or vice-versa) is drift the `--check` flow must flag.
 
-| Command | Tier | Since | Gate (install/keep if…) |
-|---|---|---|---|
-| `bootstrap` | core | 0.1.0 | always |
-| `verify` | core | 0.1.0 | always (stack-agnostic AC verification) |
-| `build` | core | 0.1.0 | always (ad-hoc dev needs no ticket) |
-| `project-debug` | core | 0.1.0 | always (debugging is universal) |
-| `resume-ticket` | core | 0.1.0 | always (state-resume is universal) |
-| `refactor` | core | 0.1.0 | always (every project gets pattern files) |
-| `learn` | core | 0.1.0 | always (learns from conversation even without a ticket system) |
-| `clarify` | core | 0.1.0 | `ticket_system != none` |
-| `ticket` | core | 0.1.0 | `ticket_system != none` |
-| `pr` | core | 0.1.0 | `vcs_host != none` |
-| `review-pr` | recommended | 0.1.1 | `vcs_host != none` |
-| `review-comments` | recommended | 0.1.1 | `vcs_host != none` |
-| `ci-check` | recommended | 0.1.1 | `vcs_host != none AND ci == yes` |
-| `test-plan` | recommended | 0.6.0 | always (SDET lane: reads the ticket state file when present, pasted ACs otherwise) |
-| `upstream` | recommended | 0.7.0 | always (harvests generic learnings into a redacted bundle; refuses to run until `.claude/upstream.json` denylist is filled) |
-| `qa` | conditional | 0.1.0 | `ui_surfaces != none` |
-| `ui-fidelity` | conditional | 0.4.0 | `ui_surfaces != none` |
-| `screenshot` | conditional | 0.1.1 | `ui_surfaces != none AND (e2e == playwright OR dev_server present)` |
-| `project-context` | multi-repo | 0.2.0 | `repo_count >= 2` |
-| `status` | multi-repo | 0.2.0 | `repo_count >= 2 OR ticket_system != none` |
-| `demo-summary` | optional | 0.4.0 | `ticket_system != none AND team == true` (install only when there's a demo audience) |
-| `memory-lint` | optional | 0.4.0 | `memory_system == yes` (the host assistant exposes a persistent-memory directory — e.g. Claude Code auto-memory; probe for it, never assume) |
+| Command | Role | Priority | Since | Gate (install/keep if…) |
+|---|---|---|---|---|
+| `bootstrap` | core | core | 0.1.0 | always |
+| `verify` | dev | core | 0.1.0 | always (stack-agnostic AC verification) |
+| `build` | dev | core | 0.1.0 | always (ad-hoc dev needs no ticket) |
+| `project-debug` | core | core | 0.1.0 | always (debugging is universal) |
+| `resume-ticket` | core | core | 0.1.0 | always (state-resume is universal) |
+| `refactor` | dev | core | 0.1.0 | always (every project gets pattern files) |
+| `learn` | core | core | 0.1.0 | always (learns from conversation even without a ticket system; `--mine` ingests `mine-history.sh` candidates for a cold start) |
+| `clarify` | dev | core | 0.1.0 | `ticket_system != none` |
+| `ticket` | dev | core | 0.1.0 | `ticket_system != none` |
+| `pr` | core | core | 0.1.0 | `vcs_host != none` |
+| `review-pr` | core | recommended | 0.1.1 | `vcs_host != none` |
+| `review-comments` | core | recommended | 0.1.1 | `vcs_host != none` |
+| `ci-check` | core | recommended | 0.1.1 | `vcs_host != none AND ci == yes` |
+| `cover` | sdet | core | 0.8.0 | `e2e != none OR api_collection present` (an in-repo Playwright suite or a request collection to drive) |
+| `triage` | sdet | core | 0.8.0 | `e2e != none OR api_collection present` |
+| `log` | sdet | recommended | 0.8.0 | always (writes a local ticket file when `tracker_system == none`) |
+| `upstream` | core | recommended | 0.7.0 | always (harvests generic learnings into a redacted bundle; refuses to run until `.claude/upstream.json` denylist is filled) |
+| `qa` | core | conditional | 0.1.0 | `ui_surfaces != none` |
+| `ui-fidelity` | dev | conditional | 0.4.0 | `ui_surfaces != none` |
+| `screenshot` | core | conditional | 0.1.1 | `ui_surfaces != none AND (e2e == playwright OR dev_server present)` |
+| `project-context` | core | multi-repo | 0.2.0 | `repo_count >= 2` |
+| `status` | core | multi-repo | 0.2.0 | `repo_count >= 2 OR ticket_system != none` |
+| `demo-summary` | core | optional | 0.4.0 | `ticket_system != none AND team == true` (install only when there's a demo audience) |
+| `memory-lint` | core | optional | 0.4.0 | `memory_system == yes` (the host assistant exposes a persistent-memory directory — e.g. Claude Code auto-memory; probe for it, never assume) |
 
 **Archived designs (NOT shipped):** `/do`, `/queue`, `/retro`, `/docs`, `/e2e` were pruned from the shipped set in 0.5.0; their designs live in the original deployment's `_archived-commands/` and, once `/learn` runs, in `command-proposals.md`. Reintroducing one requires BOTH a row here AND a shipped `commands/*.md` — a row without a file (or a file without a row) is drift the `--check` flow must flag.
 
@@ -166,14 +168,24 @@ Then reconcile the canonical `### Commands` table against the shipped files, **b
 ```bash
 echo ""
 echo "Row↔file drift check:"
-rows=$(awk -F'|' '/^\| `/{gsub(/[` ]/,"",$2); if ($2 !~ /[\/.]/) print $2}' \
-  "$WORKSPACE_ROOT/.claude/commands/bootstrap.md")
+BS="$WORKSPACE_ROOT/.claude/commands/bootstrap.md"
+ROLES=$(jq -r '.roles[]?' "$WORKSPACE_ROOT/.claude/workflow-manifest.json" 2>/dev/null | tr '\n' ' ')
+if [ -z "$ROLES" ]; then   # no manifest (pre-0.8.0 install): a role is on if any of its commands is installed; else dev
+  for r in dev sdet; do
+    for c in $(awk -F'|' -v r="$r" '/^\| `/{c=$2; x=$3; gsub(/[` ]/,"",c); gsub(/ /,"",x); if (x==r) print c}' "$BS"); do
+      [ -f "$WORKSPACE_ROOT/.claude/commands/$c.md" ] && { ROLES="$ROLES$r "; break; }
+    done
+  done
+  [ -n "$ROLES" ] || ROLES="dev "
+fi
+# rows of core + the selected roles only — an absent command of an UNSELECTED role is not drift
+rows=$(awk -F'|' -v roles=" core $ROLES" '/^\| `/{c=$2; x=$3; gsub(/[` ]/,"",c); gsub(/ /,"",x); if (c !~ /[\/.]/ && index(roles, " " x " ")) print c}' "$BS")
 files=$(ls "$WORKSPACE_ROOT"/.claude/commands/*.md 2>/dev/null | xargs -n1 basename | sed 's/\.md$//' | grep -vx 'README')
 for r in $rows;  do echo "$files" | grep -qx "$r" || echo "  DRIFT  row '$r' has no commands/$r.md (gate-pruned? check _archived-commands/ + capability-manifest.md)"; done
-for f in $files; do echo "$rows"  | grep -qx "$f" || echo "  DRIFT  commands/$f.md has no row in the canonical table"; done
+for f in $files; do echo "$rows"  | grep -qx "$f" || echo "  ORPHAN commands/$f.md is not shipped by core or roles [$ROLES] — archive by hand or re-run install.sh (a retired command, e.g. a 0.6.0 test-plan.md, lands here)"; done
 ```
 
-A missing file can be a legitimate gate-prune — report it with the manifest reason, don't auto-fix.
+A missing file can be a legitimate gate-prune — report it with the manifest reason, don't auto-fix. An ORPHAN is `install.sh`'s to archive (it owns role removal and retirement); never regenerate or delete it here.
 
 ### `--bump minor` — adds/deletes/reshapes commands
 
@@ -359,45 +371,9 @@ Store as `STACK_FLAVOR`. The flavor gates these downstream choices:
 | `/verify` simplify-check checklist | FE checklist | BE checklist | both | CLI checklist | LIB checklist |
 | `screenshot` install gate | yes if Playwright | no | yes if Playwright | no | no |
 
-### Stack-flavored seed rules for `codebase-patterns.md`
+### Stack-flavored seed entries (`codebase-patterns.md`, `testing-patterns.md`, `ticket-checklist.md` DoD)
 
-Write 3–5 starter rules into `codebase-patterns.md` based on STACK_FLAVOR. These are placeholders to seed the file — `/learn` will replace and grow them with real lessons.
-
-**frontend-web seed:**
-- No hardcoded color hexes — use design tokens / CSS variables. _source: convention_
-- Components don't fetch their own data; data lives in the route/page or a hook. _source: convention_
-- New components ship with at least one render test. _source: convention_
-
-**backend-api seed:**
-- No string-concat SQL — parameterized queries only. _source: security_
-- Every handler accepts `context.Context` (Go) / `Context` (equiv) and respects cancellation. _source: convention_
-- Errors include the operation name; never bare `errors.New("failed")`. _source: convention_
-- New endpoints update the OpenAPI spec in the same PR. _source: contract_
-- DB transactions have explicit commit/rollback paths; no implicit rollback-on-defer-only. _source: correctness_
-
-**fullstack-monorepo seed:** both `frontend-web` and `backend-api` rules, plus:
-- API contract is the source of truth — TS types regenerate from OpenAPI, not the other way. _source: contract_
-- New endpoints land with both backend handler test AND frontend contract test. _source: convention_
-
-**cli-tool seed:**
-- Errors print to stderr, results to stdout — never mixed. _source: convention_
-- Every flag has a help string and a long-form (`--flag`) plus short (`-f`) when frequently typed. _source: convention_
-- Exit codes are documented; non-zero on any non-success path. _source: convention_
-
-**library seed:**
-- Public API changes require a changelog entry and a semver bump. _source: contract_
-- No process-level state; nothing that mutates global env, signal handlers, or stdout in import-time. _source: convention_
-- Every public function has a doc comment with at least one usage example. _source: convention_
-
-### Stack-flavored DoD additions for `ticket-checklist.md`
-
-Append flavor-specific items to the Definition of Done:
-
-- **frontend-web:** "No console errors on the changed routes (verified manually or via `/qa`)."
-- **backend-api:** "OpenAPI spec updated for any new/changed endpoint." + "Migration tested against a fresh DB and an existing-data DB."
-- **fullstack-monorepo:** both of the above.
-- **cli-tool:** "Help output (`--help`) reflects the new flags and exit codes."
-- **library:** "CHANGELOG entry written. Semver bump applied (patch/minor/major) per the change."
+Seed entries live in `templates/seed-packs/<flavor>/{codebase-patterns.seed.md,testing-patterns.seed.md,ticket-checklist.dod.md}` (sub-packs `frontend-web/nextjs`, `backend-api/express`, `testing/playwright`), one `/learn`-shaped entry each, `_Source: seed-pack:<flavor>_`. Append them with the convention in `templates/seed-packs/README.md` (`## Seed pack: <flavor>` + marker, only if absent; `fullstack-monorepo` composes `frontend-web` + `backend-api` first; DoD lines append behind a `<!-- seed-pack: <flavor> DoD -->` marker). `install.sh --stack <flavor>` does the same mechanically — prefer it; this command only fills in when the pack was not applied at install. Seeds are placeholders: `/learn` §2.5 criterion 6 retires any entry nothing cites.
 
 ### Stack-flavored simplify checklist for `/verify` step 3.3
 
@@ -540,21 +516,27 @@ authors=$(git -C "$PLACEMENT_DIR" log --format='%ae' -200 2>/dev/null | sort -u 
 [ "${authors:-1}" -gt 1 ] && TEAM=true || TEAM=false
 ```
 
+```bash
+# roles[] — DECLARED, not probed: the roles install.sh installed (fallback: legacy inference — a role is on if
+#   any of its commands is installed; then dev). Same resolution as the --check snippet above.
+ROLES=$(jq -r '.roles[]?' "$PLACEMENT_DIR/.claude/workflow-manifest.json" 2>/dev/null | tr '\n' ' ')
+```
+
 Resolved vector (carried into §4 and §8.6):
 ```
-{ vcs_host, ci, ticket_system, wiki, e2e, dev_server, ui_surfaces[], repo_count, memory_system, team }
+{ roles[], vcs_host, ci, ticket_system, wiki, e2e, dev_server, ui_surfaces[], repo_count, memory_system, team }
 ```
 When a capability can't be resolved confidently (UI present but surface unclear, ticket system ambiguous, host unknown), ASK the user one targeted question per unknown rather than defaulting — a wrong default silently installs/prunes the wrong commands.
 
 ## 4. Compute the install plan
 
-Evaluate each `### Commands` entry's **Gate** against the §3i capability vector, then decide one of FOUR actions:
-- **Install** — gate TRUE AND (file missing OR `since-version > ACTUAL_VERSION`).
+Consider only `### Commands` rows whose **Role** is `core` or ∈ `roles[]` (§3i) — rows of unselected roles are not in the plan at all (never installed, never regenerated; a present file of an unselected role is an ORPHAN for `install.sh`, see `--check`). For each considered row evaluate the **Gate** against the §3i capability vector, then decide one of FOUR actions:
+- **Install** — role selected AND gate TRUE AND (file missing OR `since-version > ACTUAL_VERSION`).
 - **Skip** — gate TRUE AND file exists AND `since-version <= ACTUAL_VERSION` (already current).
 - **Upgrade** — gate TRUE AND file exists AND content drifted from the inline template. Ask before overwriting a user-modified file.
 - **Prune** — gate FALSE AND the command file EXISTS. It applied once (or an older generic bootstrap installed it) but no longer fits this project — e.g. `/qa` in a backend-only repo, `/memory-lint` with no auto-memory dir, `/demo-summary` on a solo project. **Move it to `<PLACEMENT_DIR>/.claude/_archived-commands/<cmd>.md` — NEVER `rm`** — and log the reason. This is the "se deshaga de comandos" behavior that makes the installed set match the project.
 
-Build four lists: `WILL_INSTALL`, `WILL_UPGRADE`, `WILL_SKIP`, `WILL_PRUNE`. To keep re-runs quiet, diff the computed gates against the prior `capability-manifest.md` (§8.6) when present — only prune/install what actually FLIPPED since last run. **Never prune a `core` command whose gate is `always`.** Pruning always requires explicit approval in §5 (it's a removal, even though reversible from `_archived-commands/`).
+Build four lists: `WILL_INSTALL`, `WILL_UPGRADE`, `WILL_SKIP`, `WILL_PRUNE`. To keep re-runs quiet, diff the computed gates against the prior `capability-manifest.md` (§8.6) when present — only prune/install what actually FLIPPED since last run. **Never prune an `always`-gated command of a selected role** (the `core` priority label is not a role). Pruning always requires explicit approval in §5 (it's a removal, even though reversible from `_archived-commands/`).
 
 ## 5. Present the plan and wait for approval
 
@@ -650,7 +632,7 @@ For each file:
 
 ## 8. Write commands
 
-For each entry in `WILL_INSTALL` of tier `core`/`recommended`/`multi-repo`/`optional`, generate `$PLACEMENT_DIR/.claude/commands/{cmd}.md` from the spec in `<command-specs>` below. Substitute:
+For each entry in `WILL_INSTALL` (any priority), generate `$PLACEMENT_DIR/.claude/commands/{cmd}.md` from the spec in `<command-specs>` below. Substitute:
 - `{TICKET_CLI}`, `{TICKET_ID_PATTERN}`, `{TICKET_SYSTEM}`
 - `{CI_COMMAND}`, `{TEST_COMMAND}`, `{LINT_COMMAND}`, `{BUILD_COMMAND}`
 - `{PR_HOST}` (github.com / dev.azure.com / etc.)
@@ -669,7 +651,7 @@ mkdir -p "$ARCH"
 mv "$PLACEMENT_DIR/.claude/commands/$cmd.md" "$ARCH/$cmd.md"   # never rm — reversible
 ```
 
-Record one line per prune in the manifest (§8.6) with the reason (`gate=<expr> → false because <capability>=<value>`). A later re-run whose probe flips the gate back to TRUE restores the command from `_archived-commands/` instead of regenerating it (preserves any local edits). Never prune a `core`/`always` command. If `_archived-commands/` ends up empty, remove it.
+Record one line per prune in the manifest (§8.6) with the reason (`gate=<expr> → false because <capability>=<value>`). A later re-run whose probe flips the gate back to TRUE restores the command from `_archived-commands/` instead of regenerating it (preserves any local edits). Never prune an `always`-gated command of a selected role (`role ∈ roles AND gate` is the keep rule here as in §4). If `_archived-commands/` ends up empty, remove it.
 
 ## 8.6 Write the capability manifest (the auditable map — acme-corp's skill-manifest lesson)
 
@@ -683,6 +665,7 @@ Generated: {date} · bootstrap {TARGET_VERSION} · STACK_FLAVOR: {flavor}
 ## Capability vector
 | capability | value |
 |---|---|
+| roles | dev, sdet (declared by install.sh — `workflow-manifest.json`) |
 | vcs_host | github |
 | ci | yes |
 | ticket_system | jira |
@@ -863,9 +846,9 @@ If `.claude/` itself is gitignored at workspace level, do nothing.
 
 ## 12. Apply flavor pack (optional)
 
-If `--flavor <name>` was passed, look for `$PLACEMENT_DIR/.claude/flavors/<name>/`. If found, overlay each file in that directory on top of what was just written (append if file exists, write if new). Flavor packs are how teams add domain-specific lenses (atomic-design, prototype-branch handling, custom AC patterns) without forking bootstrap.md itself.
+If `--flavor <name>` was passed, resolve in this order: `$PLACEMENT_DIR/.claude/flavors/<name>/` (project-local overlay) first, then `templates/seed-packs/<name>/` from the claude-workflow checkout (upstream stack pack, applied with the §3a.1 append convention). One overlay mechanism, two sources. If found, overlay each file in that directory on top of what was just written (append if file exists, write if new). Flavor packs are how teams add domain-specific lenses (atomic-design, prototype-branch handling, custom AC patterns) without forking bootstrap.md itself.
 
-If `<name>` is `none` or omitted, skip this step. If specified but not found, error: "flavor `<name>` not found at $PLACEMENT_DIR/.claude/flavors/<name>/. Create it first or run without --flavor."
+If `<name>` is `none` or omitted, skip this step. If specified but found in neither place, error: "flavor `<name>` not found at $PLACEMENT_DIR/.claude/flavors/<name>/ or templates/seed-packs/<name>/. Create it first or run without --flavor."
 
 ## 13. Stamp the version
 
@@ -1523,7 +1506,9 @@ Tracks the slash-command workflow in `{relative-path-to-commands}`. Every comman
 
 <command-specs>
 
-Each spec below is the kernel of a command — a brief detailed enough for Claude to render a full command file. The generated file MUST include frontmatter (`name`, `version: {TARGET_VERSION}`, `description`, `argument-hint`, `allowed-tools`) plus the structural sections the spec lists. **Spec depth = command quality.** Load-bearing commands (verify, ticket, pr, clarify, learn, review-pr) are spec'd deeply; lighter commands get briefer specs because they're simpler. Not every shipped command has a spec here — `test-plan` in particular requires the `install.sh` path; see "Fallback coverage gaps" near the top of this file.
+> **Stale fork — reconcile or delete in a later cut (see `docs/roadmap.md`).** These inlined specs predate 0.4.0 and have drifted from the shipped command files: they spec `security` (folded into `/verify` at 0.2.0), `debug` and `resume` (shipped as `/project-debug`, `/resume-ticket`), carry no SDET specs (`/cover`, `/triage`, `/log`), and the GitLab `glab mr create` fallback under `### pr` exists only here, not in the shipped `pr.md`. They are the single-file fallback only; the `install.sh` path copies the real files. 0.8.0 marks the fork without attempting the cut.
+
+Each spec below is the kernel of a command — a brief detailed enough for Claude to render a full command file. The generated file MUST include frontmatter (`name`, `version: {TARGET_VERSION}`, `description`, `argument-hint`, `allowed-tools`) plus the structural sections the spec lists. **Spec depth = command quality.** Load-bearing commands (verify, ticket, pr, clarify, learn, review-pr) are spec'd deeply; lighter commands get briefer specs because they're simpler. Not every shipped command has a spec here — the SDET role commands in particular require the `install.sh` path; see "Fallback coverage gaps" near the top of this file.
 
 ### ticket
 End-to-end ticket implementation. Five phases. Stops at PR generation — does NOT push, commit, or open PRs (that's `/pr`'s job, so the project's PR template is honored).

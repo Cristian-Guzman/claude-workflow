@@ -64,7 +64,7 @@ paths_to_surface() {
   # Rank-ordered: whichever hits first wins
   if echo "$paths" | grep -qE 'auth|login|session'; then echo "auth-flow"; return; fi
   if echo "$paths" | grep -qE '\[.*\]/|/detail|/edit'; then echo "detail-view"; return; fi
-  if echo "$paths" | grep -qE '/list|/playbooks/|/positions/|/documents/'; then echo "list-view"; return; fi
+  if echo "$paths" | grep -qE '/list|/orders/|/items/|/documents/'; then echo "list-view"; return; fi
   if echo "$paths" | grep -qE 'Modal|Drawer|Dialog'; then echo "modal-form"; return; fi
   if echo "$paths" | grep -qE 'Sidebar|Nav|Header|Layout'; then echo "nav-shell"; return; fi
   if echo "$paths" | grep -qE 'Editor|Slate'; then echo "editor"; return; fi
@@ -79,7 +79,7 @@ paths_to_surface() {
 infer_feature_area() {
   local branch="$1" paths="$2" repo="$3"
   local areas=""
-  echo "$branch $paths" | grep -qiE 'playbook|position|section' && areas+="playbook-v2\n"
+  echo "$branch $paths" | grep -qiE 'order|item|catalog' && areas+="orders-v2\n"
   echo "$branch $paths" | grep -qiE 'word-addin|Word-Addin' && areas+="word-addin\n"
   echo "$branch $paths" | grep -qiE 'gdocs|google-docs|apps.script' && areas+="gdocs-addin\n"
   echo "$branch $paths" | grep -qiE 'buy.credit|buy.experience|credits-section|trial' && areas+="buy-credits\n"
