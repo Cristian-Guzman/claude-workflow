@@ -1,0 +1,2 @@
+- [ ] CHANGELOG entry written; semver bump applied per the change
+- [ ] Documented examples compile / run in the test suite
