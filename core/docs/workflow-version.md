@@ -1,5 +1,5 @@
 ---
-version: 0.8.0
+version: 0.9.0
 last-updated: 2026-10-12
 maintainer: your-name@your-org.com
 ---
@@ -16,13 +16,27 @@ This file tracks the version of the slash-command workflow living in `$WORKSPACE
 
 ## How to bump
 
-Run `/bootstrap --bump <minor|patch>` (after Phase A of the April 2026 refactor). It:
-1. Updates the `version:` and `last-updated:` fields above.
-2. Appends a changelog entry below.
-3. Propagates the new version into every command's frontmatter.
-4. Flags any command whose checksum drifted from the last recorded hash — so you can write accurate changelog notes.
+Maintainer side, in this repo: `python3 scripts/release.py bump <minor|patch> --theme "..."` prints the diff;
+`--apply` writes it. It bumps `version:`/`last-updated:` above, propagates the version into every command's
+frontmatter under `core/` and `roles/*/`, and prepends a changelog scaffold drafted from `git log` since the
+last release. `python3 scripts/release.py check` must be clean before and after (frontmatter versions,
+`core/docs/inventory.yaml` ↔ shipped files per role, no install-time placeholders).
+Installed side: `/update` shows the entries below that are newer than the installed version and re-installs
+with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.9.0 — 2026-10-12
+**Theme:** the bootstrap split — one installer, one adapter, one release tool, one updater.
+
+- **`/bootstrap` is now a ~120-line adapter** (was 1,947 lines). It runs `scripts/capability-probe.sh`, evaluates `core/docs/inventory.yaml` gates with `scripts/adapt-plan.py`, shows KEEP / PRUNE / UN-ARCHIVE / MISSING / ORPHAN, and after approval moves files between `commands/` and `_archived-commands/` and writes `capability-manifest.md`. It never writes command files (install.sh owns every file) and never manages versions. The inline `<templates>`, `<command-specs>` (a stale fork of the real commands) and `<agent-specs>` blocks are gone; the release-manager mode is gone.
+- **`core/docs/inventory.yaml`** replaces the markdown inventory tables: one row per command/agent with `role`, `priority`, `since`, `gate`. The role directory listing stays the installer's truth for which files exist; `scripts/release.py check` asserts the two agree. New capability `api_collection` (postman | playwright-request | none) — the 0.8.0 table gated `/cover` and `/triage` on it but nothing probed it.
+- **`core/scripts/capability-probe.sh`** emits the capability vector as JSON (`?` for anything it will not guess; exit 3 so the command asks). Profiles win over heuristics; a workspace root that is not itself a git repo aggregates its child repos; placeholder lines in a seeded CLAUDE.md are not evidence.
+- **`core/scripts/adapt-plan.py`** turns vector + inventory + file states into the decision table. Fail-safe: a gate that does not parse → KEEP; `priority: core` + `always` is never pruned; usage evidence (a `state/index.json` entry or a non-empty artifact dir) beats a false gate → KEEP(in-use) with a "fix the profile/probe" reason. File age is deliberately not evidence: on a fresh install everything is new, and the first run is when pruning matters.
+- **`scripts/release.py`** (maintainer tool, not installed): `check` (frontmatter versions, inventory ↔ files per role both ways, install-time placeholders) and `bump minor|patch` (propagation across `core/` and `roles/*/`, changelog scaffold from `git log`, `--apply` to write). The hash ledger is deleted — per-install drift is `scripts/upstream.py drift` against the install baseline.
+- **`/update` command added** (installed side of versioning): changelog entries newer than the installed version, local core edits surfaced BEFORE any copy (harvest via `/upstream` or keep via `git apply --3way` against `.upstream-base/`), new template keys listed for hand-merge, then `install.sh` + `/bootstrap`.
+- `install.sh` copies `core/docs/*.yaml` alongside the `.md` system docs (so `inventory.yaml` lands at `.claude/inventory.yaml`) and names `/bootstrap` + `/update` in the next-steps. References updated across both READMEs, `learn.md`, `demo-summary.md`, `upstream.md`, `clarify.md`, `ticket.md`, `docs/roadmap.md`.
+- Tests: `tests/bootstrap-split.test.sh` (38 cases across the three scripts) alongside `tests/install.sh.test`.
 
 ### 0.8.0 — 2026-10-12
 **Theme:** roles + SDET MVP + cold start. The command set splits into a core every install gets and role lanes you pick (`dev`, `sdet`); the SDET lane ships its first three commands; a fresh install can be seeded from PR history or a stack pack instead of starting empty; every product-domain example in the shipped files is replaced by a neutral one.
@@ -316,16 +330,12 @@ Initial versioned workflow. Baseline captured after the April 2026 refactor.
 - Spec-driven prototype workflow (designer-provided prototypes in addin-fe): `/clarify` now has a Step 2.5 that detects prototype-branch references and surfaces interaction code as reference-only; `repo-profiles/_schema.yaml` has a new `prototype_branches:` list field; `addin-fe.yaml` lists `proto/word-addin-v2`; user memory `feedback_prototype_as_reference.md` enforces the "prototype = reference, not code" rule across sessions
 - Atomic-design awareness: `/clarify` Step 1.8 classifies the design reference (prototype / spec / none); Steps 4b, 4b.1, 4b.2 emit atomic-level pattern tables, ticket scope classification (atom-new, molecule-new, organism-new, page-assembly, mixed-layer), and atomic-first execution order. `codebase-investigator` agent classifies found components by atomic level using heuristics or the repo profile. `_schema.yaml` gains `component_organization` and `atomic_levels` fields. `addin-fe.yaml` set to `hybrid`; `web-app.yaml` set to `flat`. `/learn` extends pattern category tags with atomic level (`[Atom]`, `[Molecule]`, …) so future `/clarify` runs surface the right reuse candidates. User memory `feedback_atomic_design.md` enforces atomic thinking across all UI tickets (including those without design input — "abstract as you go")
 
-## Current inventory (0.8.0)
+## Current inventory (0.9.0)
 
 | Role | Count | Commands |
 |---|---|---|
-| core (every install) | 15 | `bootstrap` `ci-check` `demo-summary` `learn` `memory-lint` `pr` `project-context` `project-debug` `qa` `resume-ticket` `review-comments` `review-pr` `screenshot` `status` `upstream` |
+| core (every install) | 16 | `bootstrap` `ci-check` `demo-summary` `learn` `memory-lint` `pr` `project-context` `project-debug` `qa` `resume-ticket` `review-comments` `review-pr` `screenshot` `status` `update` `upstream` |
 | dev | 6 | `build` `clarify` `refactor` `ticket` `ui-fidelity` `verify` |
 | sdet | 3 | `cover` `log` `triage` |
 
 Agents (7, every role): `codebase-investigator` `commit-drafter` `contract-verifier` `jira-context-loader` `pr-branch-reviewer` `ui-fidelity` `verifier`.
-
-## Hash Ledger (auto-managed — do not edit by hand)
-
-Regenerated by `/bootstrap --bump` from the installed `commands/*.md`; none recorded for 0.8.0 (the 2026-06-11 ledger listed commands that no longer ship and was removed rather than left misleading). Format: `- <filename>  <SHA256 first 8 chars>`.

@@ -1,6 +1,6 @@
 ---
 name: pr
-version: 0.8.0
+version: 0.9.0
 model: "opus[1m]"
 description: Generate PR deliverables (commit message + PR description) from current changes. Resolves the branch's state file via the index for any kind (ticket, build, cover, triage).
 argument-hint: "[PROJ-XXXX] — optional; ticket-less branches (test/<slug>) resolve their state file by branch"

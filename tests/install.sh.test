@@ -52,7 +52,7 @@ copy_repo() { # editable copy of the checkout (working tree, not HEAD) without .
   echo "$d"
 }
 DEV_ROLE_CMDS="$(ls "$REPO"/roles/dev/commands/*.md | xargs -n1 basename)"
-CORE_DOCS="$(ls "$REPO"/core/docs/*.md | xargs -n1 basename)"
+CORE_DOCS="$(ls "$REPO"/core/docs/*.md "$REPO"/core/docs/*.yaml 2>/dev/null | xargs -n1 basename)"
 
 echo "install.sh suite — scratch $S"
 echo ""

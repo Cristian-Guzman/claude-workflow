@@ -1,0 +1,71 @@
+# inventory.yaml — the single inventory of what a complete install looks like.
+#
+# Read by: /bootstrap (adapter: evaluate `gate` against the capability vector from
+# scripts/capability-probe.sh → keep / prune / un-archive), scripts/release.py check
+# (row ↔ shipped file, both directions, per role), and /update (adopt/skip per item).
+# The role directory listing (core/commands, roles/<r>/commands) stays the installer's
+# truth for WHICH files exist; this file carries gates and priority, and `release.py
+# check` asserts the two agree.
+#
+# Row format is one flow mapping per line (parsed by a regex, no YAML library needed):
+#   - {name: <cmd>, role: core|dev|sdet, priority: core|recommended|conditional|multi-repo|optional, since: X.Y.Z, gate: "<expr>"}
+# Gate grammar: always | <cap> == <v> | <cap> != <v> | <cap> >= <n> | A AND B | A OR B | ( … )
+# Capabilities (all emitted by scripts/capability-probe.sh): vcs_host ci ticket_system wiki e2e api_collection
+#   dev_server ui_surfaces repo_count memory_system team. Values are literal: dev_server is yes|none,
+#   api_collection is postman|playwright-request|none — write `dev_server == yes`, never "present".
+
+commands:
+  # core — installed for every role
+  - {name: bootstrap,       role: core, priority: core,        since: 0.1.0, gate: always}
+  - {name: learn,           role: core, priority: core,        since: 0.1.0, gate: always}
+  - {name: project-debug,   role: core, priority: core,        since: 0.1.0, gate: always}
+  - {name: resume-ticket,   role: core, priority: core,        since: 0.1.0, gate: always}
+  - {name: pr,              role: core, priority: core,        since: 0.1.0, gate: "vcs_host != none"}
+  - {name: review-pr,       role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none"}
+  - {name: review-comments, role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none"}
+  - {name: ci-check,        role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none AND ci == yes"}
+  - {name: upstream,        role: core, priority: recommended, since: 0.7.0, gate: always}
+  - {name: qa,              role: core, priority: conditional, since: 0.1.0, gate: "ui_surfaces != none"}
+  - {name: screenshot,      role: core, priority: conditional, since: 0.1.1, gate: "ui_surfaces != none AND (e2e == playwright OR dev_server == yes)"}
+  - {name: project-context, role: core, priority: multi-repo,  since: 0.2.0, gate: "repo_count >= 2"}
+  - {name: status,          role: core, priority: multi-repo,  since: 0.2.0, gate: "repo_count >= 2 OR ticket_system != none"}
+  - {name: demo-summary,    role: core, priority: optional,    since: 0.4.0, gate: "ticket_system != none AND team == true"}
+  - {name: memory-lint,     role: core, priority: optional,    since: 0.4.0, gate: "memory_system == yes"}
+  - {name: update,          role: core, priority: recommended, since: 0.9.0, gate: always}
+  # dev — the implementation lane (roles/dev/commands)
+  - {name: clarify,         role: dev,  priority: core,        since: 0.1.0, gate: "ticket_system != none"}
+  - {name: ticket,          role: dev,  priority: core,        since: 0.1.0, gate: "ticket_system != none"}
+  - {name: build,           role: dev,  priority: core,        since: 0.1.0, gate: always}
+  - {name: verify,          role: dev,  priority: core,        since: 0.1.0, gate: always}
+  - {name: refactor,        role: dev,  priority: core,        since: 0.1.0, gate: always}
+  - {name: ui-fidelity,     role: dev,  priority: conditional, since: 0.4.0, gate: "ui_surfaces != none"}
+  # sdet — the coverage lane (roles/sdet/commands), MVP per the 0.8.0 plan
+  - {name: cover,           role: sdet, priority: core,        since: 0.8.0, gate: "e2e != none OR api_collection != none"}
+  - {name: triage,          role: sdet, priority: core,        since: 0.8.0, gate: "e2e != none OR api_collection != none"}
+  - {name: log,             role: sdet, priority: recommended, since: 0.8.0, gate: always}
+
+agents:
+  - {name: codebase-investigator, since: 0.1.1, gate: always}
+  - {name: verifier,              since: 0.1.0, gate: always}
+  - {name: commit-drafter,        since: 0.5.0, gate: "vcs_host != none"}
+  - {name: pr-branch-reviewer,    since: 0.5.0, gate: "vcs_host != none"}
+  - {name: jira-context-loader,   since: 0.1.1, gate: "ticket_system == jira"}
+  - {name: contract-verifier,     since: 0.5.0, gate: always}
+  - {name: ui-fidelity,           since: 0.5.0, gate: "ui_surfaces != none"}
+
+structural:
+  - {path: .claude/workflow-version.md,       since: 0.1.0, owner: upstream}
+  - {path: .claude/routing.md,                since: 0.4.0, owner: upstream}
+  - {path: .claude/state-file-schema.md,      since: 0.1.1, owner: upstream}
+  - {path: .claude/inventory.yaml,            since: 0.9.0, owner: upstream}
+  - {path: .claude/codebase-patterns.md,      since: 0.1.0, owner: project}
+  - {path: .claude/testing-patterns.md,       since: 0.1.0, owner: project}
+  - {path: .claude/ticket-checklist.md,       since: 0.1.0, owner: project}
+  - {path: .claude/pr-template.md,            since: 0.1.0, owner: project}
+  - {path: .claude/settings.json,             since: 0.1.0, owner: project}
+  - {path: .claude/upstream.json,             since: 0.7.0, owner: project}
+  - {path: .claude/repo-profiles/_schema.yaml, since: 0.1.1, owner: upstream}
+  - {path: .claude/capability-manifest.md,    since: 0.4.0, owner: bootstrap}
+  - {path: .claude/workflow-manifest.json,    since: 0.8.0, owner: installer}
+  - {path: .claude/.upstream-manifest.json,   since: 0.7.0, owner: installer}
+  - {path: CLAUDE.md,                         since: 0.6.0, owner: project}

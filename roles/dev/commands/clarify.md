@@ -1,6 +1,6 @@
 ---
 name: clarify
-version: 0.8.0
+version: 0.9.0
 model: "opus[1m]"
 description: Analyze a ticket — investigate the codebase, recommend file placement and patterns, plan execution phases when complexity warrants, persist the blueprint for downstream commands, and surface only the questions you can't answer yourself.
 argument-hint: "PROJ-XXXX [--phase N] [--no-prior-art] [--cross-repo] [--full-history]"
@@ -80,7 +80,7 @@ fi
 
 **Rules:**
 - Never interrupt ticket analysis to set up missing pieces. Surface the findings as a "Setup recommendations" section at the very end of Step 7's output, with **one-liner suggestions** like:
-  > "⓵ Create CLAUDE.md for this repo — run `/bootstrap`"
+  > "⓵ Create CLAUDE.md for this repo — `install.sh` seeds a skeleton; `/init` fills it"
   > "⓶ No repo profile — create `.claude/repo-profiles/{REPO_NAME}.yaml` from `_schema.yaml`"
   > "⓷ `codebase-patterns.md` has no last-updated marker — will get one on next `/learn`"
 - If CLAUDE.md is missing AND no repo-profile exists AND this is the first time we've hit this repo, **ask once** whether to bootstrap the repo before continuing. Otherwise proceed with defaults and show the recommendations at the end.

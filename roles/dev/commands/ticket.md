@@ -1,6 +1,6 @@
 ---
 name: ticket
-version: 0.8.0
+version: 0.9.0
 model: "opus[1m]"
 description: Start implementing a Jira ticket. Reads the persisted clarify blueprint (if present), seeds phase-based progress, and iterates phases with checkpoints so each chunk stays small enough for Claude Code to ship reliably.
 argument-hint: "PROJ-XXXX [paste acceptance criteria]"
@@ -45,7 +45,7 @@ Once identified, store context:
 - `{REPO_ROOT}/CLAUDE.md` — conventions, commands, architecture (ALWAYS needed)
 
 **If `{REPO_ROOT}/CLAUDE.md` does NOT exist**, warn the user immediately:
-> "This repo ({REPO_NAME}) doesn't have a CLAUDE.md. Consider creating one or running `/bootstrap`."
+> "This repo ({REPO_NAME}) doesn't have a CLAUDE.md. `install.sh` seeds a skeleton; `/init` fills it."
 
 **DO NOT load pattern files, agents, or architecture docs yet.** Wait until Step 1.1 (Classify Ticket Type) to decide what else to load. This saves tokens on simple tickets.
 
