@@ -1,6 +1,6 @@
 ---
 name: learn
-version: 0.8.0
+version: 0.9.0
 description: Extract lessons from delivered work (tickets and role sidecars) AND the current conversation, synthesize per-target lessons (log → cluster → lesson at ≥2), and update repo pattern files; --mine seeds a fresh repo from mined PR history.
 argument-hint: "[repo-name] or blank for all repos (--session = conversation-only; --mine = also ingest .claude/state/mine/<date>/candidates.json; neither required)"
 allowed-tools:
@@ -736,7 +736,6 @@ This prevents the same "/pr should check base branch" idea from being filed thre
 - Every proposal must carry a `**Target:**` naming an EXISTING command file + section, and describe a SPECIFIC modification — never "make X better", never a new command
 - Don't propose changes that contradict existing command logic without noting the conflict
 - Command files may be modified ONLY via APPLY-NOW (here) or LAND-NOW (§0.3), and ONLY after the user approves the shown diff — never silently
-- After any APPLY-NOW / LAND-NOW edit, refresh the edited file's line in workflow-version.md's Hash Ledger (`shasum -a 256 <file> | cut -c1-8`) — otherwise the ledger silently drifts until the next /bootstrap --bump
 - **WIP cap: if OPEN count ≥ 20, new BATCH-ASSIGN entries are one-in-one-out** — the run must KILL or LAND an existing OPEN proposal (via §0.3 verdicts) before appending. Above the cap, capture pressure becomes landing pressure instead of queue growth.
 - Every new proposal must include `**Status:** OPEN` — a missing status line isn't fatal (§0.3 Step A treats statusless blocks as aged-OPEN and sweeps them) but it delays triage by up to 21 days, so always write it
 

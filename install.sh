@@ -168,7 +168,7 @@ check_collisions() { # kind/basename must be unique across core + selected roles
     for f in "$s"/commands/*.md;  do [ -f "$f" ] || continue; emit commands  "$f" "$label"; done
     for f in "$s"/agents/*.md;    do [ -f "$f" ] || continue; emit agents    "$f" "$label"; done
     for f in "$s"/scripts/*;      do [ -f "$f" ] || continue; emit scripts   "$f" "$label"; done
-    for f in "$s"/docs/*.md;      do [ -f "$f" ] || continue; emit docs      "$f" "$label"; done
+    for f in "$s"/docs/*.md "$s"/docs/*.yaml; do [ -f "$f" ] || continue; emit docs "$f" "$label"; done
     if [ "$label" = core ]; then
       for f in "$HERE"/templates/repo/* "$HERE"/templates/workspace/*; do [ -f "$f" ] || continue; emit templates "$f" templates; done
     else
@@ -316,7 +316,7 @@ capture_prior() {
     [ -d "$CLAUDE_DIR/$d" ] || continue; cp -R "$CLAUDE_DIR/$d" "$dst/$d"
   done
   mkdir -p "$dst/docs"
-  for f in "$HERE"/core/docs/*.md "$HERE"/roles/*/docs/*.md; do
+  for f in "$HERE"/core/docs/*.md "$HERE"/core/docs/*.yaml "$HERE"/roles/*/docs/*.md; do
     [ -f "$f" ] || continue
     [ -f "$CLAUDE_DIR/$(basename "$f")" ] || continue; cp "$CLAUDE_DIR/$(basename "$f")" "$dst/docs/"
   done
@@ -355,7 +355,7 @@ install_tree() { # $1 = $HERE/core or $HERE/roles/<name>
   for f in "$s"/agents/*.md;   do [ -f "$f" ] || continue; copy_core "$f" "$CLAUDE_DIR/agents/$(basename "$f")"   agents;   done
   for f in "$s"/scripts/*;     do [ -f "$f" ] || continue; copy_core "$f" "$CLAUDE_DIR/scripts/$(basename "$f")"  scripts;  done
   # System docs land at .claude/ root — commands reference them by these exact paths
-  for f in "$s"/docs/*.md;     do [ -f "$f" ] || continue; copy_core "$f" "$CLAUDE_DIR/$(basename "$f")"          docs;     done
+  for f in "$s"/docs/*.md "$s"/docs/*.yaml; do [ -f "$f" ] || continue; copy_core "$f" "$CLAUDE_DIR/$(basename "$f")" docs; done
   if [ -f "$s/learn-targets.yaml" ]; then
     copy_core "$s/learn-targets.yaml" "$CLAUDE_DIR/learn-targets/$(basename "$s").yaml" learn-targets
   fi
@@ -730,4 +730,8 @@ Next steps to specialize this project (fastest path first):
      monthly: it harvests the GENERIC learnings into a redacted, provenance-free
      bundle and files it as an issue in your private inbox. /upstream --intake on
      your own machine turns a month of bundles into one PR on the public repo.
+  6. Run /bootstrap once: it probes this project and proposes which installed
+     commands to keep or archive (nothing is deleted). When a newer release is
+     out, /update shows what changed since your version and re-installs with
+     your local edits kept.
 CHECKLIST

@@ -1,6 +1,6 @@
 ---
 name: cover
-version: 0.8.0
+version: 0.9.0
 model: "opus[1m]"
 description: Write automated coverage for one feature, URL, endpoint or API collection — explore (bounded), propose scenarios, pick, write, BREAK-TO-VALIDATE every test, run, grade. The SDET fold of /clarify + /ticket + /verify; a test that cannot fail is rejected, never committed. With no argument, lists uncovered routes as picks.
 argument-hint: "[<feature> | <URL or /route> | \"GET /path\" | <collection.json>] [--tier smoke|feature|cross] [--mode ui|api|component] [--mcp] [--static] [--env <name>]"

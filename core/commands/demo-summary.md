@@ -1,6 +1,6 @@
 ---
 name: demo-summary
-version: 0.8.0
+version: 0.9.0
 description: Build a sprint-demo runbook from your delivered work — turns "what I shipped" into a user-journey narrative with per-beat talking points, a pre-demo setup checklist, live-demo risk notes, and an ownership guard that flags adjacent work owned by teammates so you never present their ticket as yours.
 argument-hint: "[--sprint | --week | --days N] [--repo NAME] [--audience team|stakeholders] [--artifact]"
 allowed-tools:
@@ -145,4 +145,4 @@ Per `feedback_run_commands_discretely`, this command runs by itself. Don't auto-
 ## Related Commands
 - Inputs: `/status` (in-flight dashboard), `/project-context` (team-ticket dossiers — sharpens the ownership guard), `.claude/tickets/*.md` state files.
 - Sibling: `/retro` (process retrospective — what to improve, not what to present).
-- New command → run `/bootstrap --check` once to register it in the hash ledger. Never commit the `.claude` system.
+- New command → add its row to `core/docs/inventory.yaml` upstream (`scripts/release.py check` flags a file without a row) and run `/bootstrap` once here. Never commit the `.claude` system.

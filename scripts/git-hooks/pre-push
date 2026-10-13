@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# pre-push — refuse a push that would authenticate as the wrong GitHub account, and refuse
+# pushing any commit authored with a non-maintainer email.
+#
+# The commit author is one identity; the PUSHER is another (the GitHub account whose token
+# git presents). With several `gh` logins on one machine the active one may be a company
+# account. This repo pins the account via `credential.https://github.com.username`
+# (scripts/setup-maintainer.sh); the hook verifies the pin and the authors before any bytes leave.
+set -u
+want_user="$(git config --get maintainer.ghuser || true)"
+want_email="$(git config --get maintainer.email || true)"
+if [ -z "$want_user" ] || [ -z "$want_email" ]; then
+  echo "pre-push: maintainer.ghuser / maintainer.email not set — run scripts/setup-maintainer.sh" >&2; exit 1
+fi
+pinned="$(git config --get credential.https://github.com.username || true)"
+if [ "$pinned" != "$want_user" ]; then
+  active="$(gh auth status 2>&1 | grep -B1 'Active account: true' | grep -o 'account [^ ]*' | awk '{print $2}' || true)"
+  if [ "$active" != "$want_user" ]; then
+    echo "pre-push: no credential pin and the active gh account is '${active:-none}', expected '$want_user'" >&2
+    echo "          fix: scripts/setup-maintainer.sh   (pins the account for this repo — no switching needed)" >&2
+    exit 1
+  fi
+fi
+# every commit being pushed must carry the maintainer email
+z40=0000000000000000000000000000000000000000
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$z40" ] && continue
+  if [ "$remote_sha" = "$z40" ]; then range="$local_sha --not --remotes=origin"; else range="$remote_sha..$local_sha"; fi
+  # shellcheck disable=SC2086
+  offenders="$(git log --format='%h %ae' $range 2>/dev/null | grep -v " $want_email\$" || true)"
+  if [ -n "$offenders" ]; then
+    echo "pre-push: commits authored with a non-maintainer email:" >&2
+    echo "$offenders" | sed 's/^/          /' >&2
+    echo "          fix: git rebase -i and reset the author, or git commit --amend --reset-author after setup-maintainer.sh" >&2
+    exit 1
+  fi
+done
+exit 0
