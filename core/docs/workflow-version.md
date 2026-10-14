@@ -30,7 +30,7 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 **Theme:** `/pr` is now `/pr-creation`.
 
 - **Command renamed** `core/commands/pr.md` → `pr-creation.md` (`name: pr-creation`). Every reference updated in one pass: pipeline diagrams, both READMEs, role READMEs, `inventory.yaml`, the commands that hand off to it (`ticket`, `verify`, `build`, `refactor`, `cover`, `triage`, `log`, `ci-check`, `resume-ticket`, `status`, `learn`, `project-debug`), agents (`commit-drafter`, `pr-branch-reviewer` description), templates (`pr-template.md`, `ticket-checklist.md`, `codebase-patterns.md`), docs and examples, `install.sh` next-steps, and the tests that assert on the name. `/review-pr` and the `pr-branch-reviewer` agent are unchanged.
-- Installed workspaces: `install.sh` refreshes `commands/pr-creation.md`; the old `commands/pr.md` is reported by `/bootstrap` as ORPHAN (archive by hand). `/update` lists this entry.
+- Installed workspaces: `install.sh` refreshes `commands/pr-creation.md`; an unmodified `commands/pr.md` is archived automatically to `.claude/_archived-commands/` (retired upstream), while a locally edited one is kept in place, captured to `.claude/.upstream-prior/<date>/`, and flagged for hand review. `/update` lists this entry.
 
 ### 0.9.0 — 2026-10-12
 **Theme:** the bootstrap split — one installer, one adapter, one release tool, one updater.
