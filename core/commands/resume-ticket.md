@@ -1,6 +1,6 @@
 ---
 name: resume
-version: 0.10.0
+version: 0.10.1
 description: Resume an interrupted ticket, debug, build, refactor, cover or triage session from saved state.
 argument-hint: "[PROJ-XXXX | debug-slug | cover--<slug> | triage--<slug>]"
 allowed-tools:
@@ -14,6 +14,7 @@ allowed-tools:
   - AskUserQuestion
   - TodoWrite
 ---
+> **Model floor: sonnet** — reads state, resumes. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 Resume work from a previously interrupted ticket, debug, build, refactor, cover, or triage session.

@@ -1,7 +1,6 @@
 ---
 name: cover
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Write automated coverage for one feature, URL, endpoint or API collection — explore (bounded), propose scenarios, pick, write, BREAK-TO-VALIDATE every test, run, grade. The SDET fold of /clarify + /ticket + /verify; a test that cannot fail is rejected, never committed. With no argument, lists uncovered routes as picks.
 argument-hint: "[<feature> | <URL or /route> | \"GET /path\" | <collection.json>] [--tier smoke|feature|cross] [--mode ui|api|component] [--mcp] [--static] [--env <name>]"
 allowed-tools:
@@ -14,6 +13,7 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+> **Model floor: opus** — test design that must fail for the right reason. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Turn one target — a feature name, a route, an endpoint, or an in-repo API collection — into committed,

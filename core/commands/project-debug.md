@@ -1,6 +1,6 @@
 ---
 name: project-debug
-version: 0.10.0
+version: 0.10.1
 description: Start a systematic debug session with persistent state.
 argument-hint: "[issue description]"
 allowed-tools:
@@ -13,6 +13,7 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+> **Model floor: opus** — hypothesis tracking over unknown causes. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Debug issues using systematic hypothesis testing with persistent state.

@@ -75,6 +75,57 @@ sidecar for any `kind:`. Details, counts and the break-to-validate protocol: `ro
 known failures are never folded into passes (native reporters count them as expected — the command reports are authoritative).
 Deferred (`/gaps` scoring, `/stabilize`, quarantine expiry, reporter, …): `docs/roadmap.md`.
 
+## Model floors (guidance, never a pin)
+
+No command or agent pins a model: all inherit the session model. Each carries a **floor**, the recommended
+minimum, as a one-line note under its frontmatter and as `floor:` in `core/docs/inventory.yaml`. A command
+whose floor is `opus` says so in one line if it finds itself running as a smaller model, then continues.
+Rule of thumb: **opus** where the work is judgment over large context; **sonnet** where it is prose from
+structured input or script orchestration — those keep their full power on Sonnet. Pick the session model
+per budget; switch up for the opus-floor commands when it matters.
+
+### Commands
+
+| Name | Floor | Why |
+|---|---|---|
+| `build` | opus | same as /ticket without a tracker |
+| `clarify` | opus | investigation + blueprint over a whole repo |
+| `cover` | opus | test design that must fail for the right reason |
+| `learn` | opus | synthesis that feeds every later command |
+| `project-debug` | opus | hypothesis tracking over unknown causes |
+| `refactor` | opus | pattern violations across a codebase |
+| `review-pr` | opus | review against conventions and patterns |
+| `ticket` | opus | implementation across many files with phased plans |
+| `triage` | opus | clustering red runs by shared cause |
+| `ui-fidelity` | opus | see inventory.yaml |
+| `upstream` | opus | confidentiality triage (noun-deletion test) |
+| `verify` | opus | adversarial, evidence-backed verification |
+| `bootstrap` | sonnet | orchestrates probe + adapt-plan scripts |
+| `ci-check` | sonnet | watches CI, prompts to merge |
+| `demo-summary` | sonnet | summary from state files |
+| `log` | sonnet | ticket text from work already done |
+| `memory-lint` | sonnet | audits memory files mechanically |
+| `pr-creation` | sonnet | commit message + PR body from a diff |
+| `project-context` | sonnet | see inventory.yaml |
+| `qa` | sonnet | QA guide from a state file |
+| `resume-ticket` | sonnet | reads state, resumes |
+| `review-comments` | sonnet | triage of review comments |
+| `screenshot` | sonnet | drives a capture script |
+| `status` | sonnet | reads the state index |
+| `update` | sonnet | orchestrates drift + install scripts |
+
+### Agents (`model: inherit`)
+
+| Name | Floor | Why |
+|---|---|---|
+| `codebase-investigator` | opus | its file:line claims are re-verified downstream; a weaker investigator raises the false-claim rate |
+| `pr-branch-reviewer` | opus | checklist review before hand-off |
+| `ui-fidelity` | opus | see inventory.yaml |
+| `verifier` | opus | adversarial verification |
+| `commit-drafter` | sonnet | message from a diff |
+| `contract-verifier` | sonnet | mechanical shape comparison |
+| `jira-context-loader` | sonnet | fetch + summarize |
+
 ### Automation & Setup
 
 | Command | Role | Args | Description |

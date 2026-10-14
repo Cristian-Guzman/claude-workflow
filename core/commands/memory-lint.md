@@ -1,6 +1,6 @@
 ---
 name: memory-lint
-version: 0.10.0
+version: 0.10.1
 description: Audit the auto-memory directory for drift — orphan files, broken pointers, schema violations, stale references. Reports only; no auto-fix without --fix flag + per-category confirmation.
 argument-hint: "[--fix]"
 allowed-tools:
@@ -10,6 +10,7 @@ allowed-tools:
   - Grep
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — audits memory files mechanically. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 Ingest, query, and lint are the three operations of a healthy LLM wiki (Karpathy pattern). This workflow has ingest (memory auto-saves during conversations) and query (MEMORY.md auto-loads into context), but no lint — until now. This command surfaces memory drift proactively, so stale claims don't get discovered when acting on them.

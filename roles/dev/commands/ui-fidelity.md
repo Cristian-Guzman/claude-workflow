@@ -1,7 +1,6 @@
 ---
 name: ui-fidelity
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Ad-hoc design-fidelity check — compare a UI implementation against its design reference for the current surface. Dimension-by-dimension gap list with scoped fixes, live-data hardening pass, and per-surface manual QA checklist. Reports only, never edits.
 argument-hint: "[repo | PROJ-XXXX] [design ref: URL or screenshot path]"
 allowed-tools:
@@ -12,6 +11,7 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — see inventory.yaml. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 # /ui-fidelity
 

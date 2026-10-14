@@ -1,7 +1,6 @@
 ---
 name: build
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Implement a feature or change without a ticket. Loads repo patterns, investigates codebase, plans, then builds — iterating phase-by-phase with checkpoints when the plan defines phases.
 argument-hint: "describe what you want to build"
 allowed-tools:
@@ -17,6 +16,7 @@ allowed-tools:
   - ExitPlanMode
   - TodoWrite
 ---
+> **Model floor: opus** — same as /ticket without a tracker. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Implement "$ARGUMENTS" following all repo conventions and patterns.

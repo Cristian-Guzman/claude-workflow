@@ -1,10 +1,11 @@
 ---
 name: pr-branch-reviewer
 description: Reviews commits on branches (feat/PROJ-XXXX, fix/PROJ-XXXX, hotfix/PROJ-XXXX) and ensures compliance with ticket-checklist.md before PR creation. Includes debugging investigation when issues are found. Workspace fallback — a repo-specific override at {REPO_ROOT}/.claude/agents/pr-branch-reviewer.md takes precedence when present.
-model: opus
+model: inherit
 tools: Read, Glob, Grep, Bash
 color: green
 ---
+> **Model floor: opus** — checklist review before hand-off. Guidance, not a pin (`model: inherit`).
 
 > **Workspace generic copy.** Repo-specific copy at `{REPO_ROOT}/.claude/agents/pr-branch-reviewer.md` takes precedence when present. The inline commands below assume a TypeScript/React stack (the addin-fe origin). When invoked in a non-TS repo, translate: `yarn eslint` → repo's lint, `npx tsc --noEmit` → repo's typecheck, `yarn ci` → repo's CI baseline. Read `{REPO_ROOT}/CLAUDE.md` + `repo-profiles/{REPO}.yaml` first.
 

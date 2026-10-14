@@ -1,7 +1,6 @@
 ---
 name: upstream
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Harvest the GENERIC workflow learnings a confidential project produced (local edits to core commands, landed proposals, process lessons, feedback memories) into a sanitized, provenance-free bundle. Deterministic redaction + leak check + secrets scan; bundles go to a PRIVATE inbox repo as issues, never to the public repo. --intake runs on your personal machine, merges a month of bundles into ONE public PR under a scoped personal git identity, then restores the previous identity.
 argument-hint: "[--since YYYY-MM-DD] [--dry-run] [--publish] | --intake <bundle-dir|inbox>"
 allowed-tools:
@@ -14,6 +13,7 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+> **Model floor: opus** — confidentiality triage (noun-deletion test). This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Close the loop that `/learn` leaves open. `/learn` makes THIS project smarter; nothing carries the part

@@ -1,7 +1,6 @@
 ---
 name: review-pr
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Review someone else's PR against repo conventions AND the ticket's ACs. Combines pattern compliance, AC verification (via /verify logic), CI status, and bimodal confidence into an evidence-backed verdict. Never auto-posts.
 argument-hint: "PR-number or PR-URL [--repo repo-name]"
 allowed-tools:
@@ -12,6 +11,7 @@ allowed-tools:
   - AskUserQuestion
   - Task
 ---
+> **Model floor: opus** — review against conventions and patterns. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Review a pull request created by another developer. Checks three things, not one:

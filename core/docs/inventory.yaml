@@ -9,6 +9,8 @@
 #
 # Row format is one flow mapping per line (parsed by a regex, no YAML library needed):
 #   - {name: <cmd>, role: core|dev|sdet, priority: core|recommended|conditional|multi-repo|optional, since: X.Y.Z, gate: "<expr>"}
+# floor: opus|sonnet — the RECOMMENDED minimum model (guidance only; nothing is pinned, commands inherit the session model).
+#   opus = judgment over large context; sonnet = prose from structured input or script orchestration — full power on Sonnet.
 # Gate grammar: always | <cap> == <v> | <cap> != <v> | <cap> >= <n> | A AND B | A OR B | ( … )
 # Capabilities (all emitted by scripts/capability-probe.sh): vcs_host ci ticket_system wiki e2e api_collection
 #   dev_server ui_surfaces repo_count memory_system team. Values are literal: dev_server is yes|none,
@@ -16,42 +18,42 @@
 
 commands:
   # core — installed for every role
-  - {name: bootstrap,       role: core, priority: core,        since: 0.1.0, gate: always}
-  - {name: learn,           role: core, priority: core,        since: 0.1.0, gate: always}
-  - {name: project-debug,   role: core, priority: core,        since: 0.1.0, gate: always}
-  - {name: resume-ticket,   role: core, priority: core,        since: 0.1.0, gate: always}
-  - {name: pr-creation,              role: core, priority: core,        since: 0.1.0, gate: "vcs_host != none"}
-  - {name: review-pr,       role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none"}
-  - {name: review-comments, role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none"}
-  - {name: ci-check,        role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none AND ci == yes"}
-  - {name: upstream,        role: core, priority: recommended, since: 0.7.0, gate: always}
-  - {name: qa,              role: core, priority: conditional, since: 0.1.0, gate: "ui_surfaces != none"}
-  - {name: screenshot,      role: core, priority: conditional, since: 0.1.1, gate: "ui_surfaces != none AND (e2e == playwright OR dev_server == yes)"}
-  - {name: project-context, role: core, priority: multi-repo,  since: 0.2.0, gate: "repo_count >= 2"}
-  - {name: status,          role: core, priority: multi-repo,  since: 0.2.0, gate: "repo_count >= 2 OR ticket_system != none"}
-  - {name: demo-summary,    role: core, priority: optional,    since: 0.4.0, gate: "ticket_system != none AND team == true"}
-  - {name: memory-lint,     role: core, priority: optional,    since: 0.4.0, gate: "memory_system == yes"}
-  - {name: update,          role: core, priority: recommended, since: 0.9.0, gate: always}
+  - {name: bootstrap,       role: core, priority: core,        since: 0.1.0, gate: always, floor: sonnet}
+  - {name: learn,           role: core, priority: core,        since: 0.1.0, gate: always, floor: opus}
+  - {name: project-debug,   role: core, priority: core,        since: 0.1.0, gate: always, floor: opus}
+  - {name: resume-ticket,   role: core, priority: core,        since: 0.1.0, gate: always, floor: sonnet}
+  - {name: pr-creation,              role: core, priority: core,        since: 0.1.0, gate: "vcs_host != none", floor: sonnet}
+  - {name: review-pr,       role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none", floor: opus}
+  - {name: review-comments, role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none", floor: sonnet}
+  - {name: ci-check,        role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none AND ci == yes", floor: sonnet}
+  - {name: upstream,        role: core, priority: recommended, since: 0.7.0, gate: always, floor: opus}
+  - {name: qa,              role: core, priority: conditional, since: 0.1.0, gate: "ui_surfaces != none", floor: sonnet}
+  - {name: screenshot,      role: core, priority: conditional, since: 0.1.1, gate: "ui_surfaces != none AND (e2e == playwright OR dev_server == yes)", floor: sonnet}
+  - {name: project-context, role: core, priority: multi-repo,  since: 0.2.0, gate: "repo_count >= 2", floor: sonnet}
+  - {name: status,          role: core, priority: multi-repo,  since: 0.2.0, gate: "repo_count >= 2 OR ticket_system != none", floor: sonnet}
+  - {name: demo-summary,    role: core, priority: optional,    since: 0.4.0, gate: "ticket_system != none AND team == true", floor: sonnet}
+  - {name: memory-lint,     role: core, priority: optional,    since: 0.4.0, gate: "memory_system == yes", floor: sonnet}
+  - {name: update,          role: core, priority: recommended, since: 0.9.0, gate: always, floor: sonnet}
   # dev — the implementation lane (roles/dev/commands)
-  - {name: clarify,         role: dev,  priority: core,        since: 0.1.0, gate: "ticket_system != none"}
-  - {name: ticket,          role: dev,  priority: core,        since: 0.1.0, gate: "ticket_system != none"}
-  - {name: build,           role: dev,  priority: core,        since: 0.1.0, gate: always}
-  - {name: verify,          role: dev,  priority: core,        since: 0.1.0, gate: always}
-  - {name: refactor,        role: dev,  priority: core,        since: 0.1.0, gate: always}
-  - {name: ui-fidelity,     role: dev,  priority: conditional, since: 0.4.0, gate: "ui_surfaces != none"}
+  - {name: clarify,         role: dev,  priority: core,        since: 0.1.0, gate: "ticket_system != none", floor: opus}
+  - {name: ticket,          role: dev,  priority: core,        since: 0.1.0, gate: "ticket_system != none", floor: opus}
+  - {name: build,           role: dev,  priority: core,        since: 0.1.0, gate: always, floor: opus}
+  - {name: verify,          role: dev,  priority: core,        since: 0.1.0, gate: always, floor: opus}
+  - {name: refactor,        role: dev,  priority: core,        since: 0.1.0, gate: always, floor: opus}
+  - {name: ui-fidelity,     role: dev,  priority: conditional, since: 0.4.0, gate: "ui_surfaces != none", floor: opus}
   # sdet — the coverage lane (roles/sdet/commands), MVP per the 0.8.0 plan
-  - {name: cover,           role: sdet, priority: core,        since: 0.8.0, gate: "e2e != none OR api_collection != none"}
-  - {name: triage,          role: sdet, priority: core,        since: 0.8.0, gate: "e2e != none OR api_collection != none"}
-  - {name: log,             role: sdet, priority: recommended, since: 0.8.0, gate: always}
+  - {name: cover,           role: sdet, priority: core,        since: 0.8.0, gate: "e2e != none OR api_collection != none", floor: opus}
+  - {name: triage,          role: sdet, priority: core,        since: 0.8.0, gate: "e2e != none OR api_collection != none", floor: opus}
+  - {name: log,             role: sdet, priority: recommended, since: 0.8.0, gate: always, floor: sonnet}
 
 agents:
-  - {name: codebase-investigator, since: 0.1.1, gate: always}
-  - {name: verifier,              since: 0.1.0, gate: always}
-  - {name: commit-drafter,        since: 0.5.0, gate: "vcs_host != none"}
-  - {name: pr-branch-reviewer,    since: 0.5.0, gate: "vcs_host != none"}
-  - {name: jira-context-loader,   since: 0.1.1, gate: "ticket_system == jira"}
-  - {name: contract-verifier,     since: 0.5.0, gate: always}
-  - {name: ui-fidelity,           since: 0.5.0, gate: "ui_surfaces != none"}
+  - {name: codebase-investigator, since: 0.1.1, gate: always, floor: opus}
+  - {name: verifier,              since: 0.1.0, gate: always, floor: opus}
+  - {name: commit-drafter,        since: 0.5.0, gate: "vcs_host != none", floor: sonnet}
+  - {name: pr-branch-reviewer,    since: 0.5.0, gate: "vcs_host != none", floor: opus}
+  - {name: jira-context-loader,   since: 0.1.1, gate: "ticket_system == jira", floor: sonnet}
+  - {name: contract-verifier,     since: 0.5.0, gate: always, floor: sonnet}
+  - {name: ui-fidelity,           since: 0.5.0, gate: "ui_surfaces != none", floor: opus}
 
 structural:
   - {path: .claude/workflow-version.md,       since: 0.1.0, owner: upstream}

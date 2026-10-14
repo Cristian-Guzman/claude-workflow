@@ -118,6 +118,15 @@ hit or credential. The bundle goes, as an issue, to a **private inbox repo** you
 merges a month of bundles into **one** PR here under a scoped personal git identity. `scripts/harvest-profile.py` emits an aggregates-only
 profile ([core/docs/profile.schema.md](core/docs/profile.schema.md)) to compare a mature install against the public defaults without moving a single file.
 
+## Models
+
+Nothing is pinned. Every command and agent inherits the session model and carries a **floor** (recommended
+minimum): `opus` for judgment over large context (`/clarify`, `/ticket`, `/verify`, `/learn`, `/review-pr`,
+`/cover`, `/triage`, …), `sonnet` for prose-from-structure and script orchestration (`/pr-creation`, `/qa`,
+`/status`, `/bootstrap`, `/update`, …) — those lose nothing on Sonnet. The full table with reasons is in
+[core/commands/README.md](core/commands/README.md#model-floors-guidance-never-a-pin); `/bootstrap` prints
+it for the installed set. An opus-floor command running as a smaller model says so once and continues.
+
 ## Maintainer setup — commit and push as yourself, whatever the machine says
 
 A machine whose global git config or active `gh` login is a company identity will stamp that identity

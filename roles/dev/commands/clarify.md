@@ -1,7 +1,6 @@
 ---
 name: clarify
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Analyze a ticket — investigate the codebase, recommend file placement and patterns, plan execution phases when complexity warrants, persist the blueprint for downstream commands, and surface only the questions you can't answer yourself.
 argument-hint: "PROJ-XXXX [--phase N] [--no-prior-art] [--cross-repo] [--full-history]"
 allowed-tools:
@@ -15,6 +14,7 @@ allowed-tools:
   - mcp__atlassian__getJiraIssue
   - mcp__atlassian__searchJiraIssuesUsingJql
 ---
+> **Model floor: opus** — investigation + blueprint over a whole repo. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Pre-implementation analysis for ticket $ARGUMENTS. Investigate the codebase FIRST — find where things

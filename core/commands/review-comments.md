@@ -1,6 +1,6 @@
 ---
 name: review-comments
-version: 0.10.0
+version: 0.10.1
 description: Fetch and triage PR review comments. Save valid feedback to the ticket state file for /learn to process later.
 argument-hint: "PR-number [--repo repo-name]"
 allowed-tools:
@@ -11,6 +11,7 @@ allowed-tools:
   - Edit
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — triage of review comments. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 Fetch review comments from a PR, present them for triage, and save the valid ones to the ticket

@@ -1,7 +1,6 @@
 ---
 name: update
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Bring an installed workflow up to the newest upstream version without losing local edits. Shows only the changelog entries you don't have, surfaces local edits to core files BEFORE anything is overwritten (harvest them with /upstream or keep them via 3-way merge), lists new keys in project-owned templates to merge by hand, then runs install.sh and re-runs /bootstrap for gate flips.
 argument-hint: "[--check] [--upstream <path-or-owner/repo>] [--dry-run]"
 allowed-tools:
@@ -13,6 +12,7 @@ allowed-tools:
   - Edit
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — orchestrates drift + install scripts. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 `git pull` in the upstream clone tells you nothing about what changed for THIS install, and

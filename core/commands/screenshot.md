@@ -1,6 +1,6 @@
 ---
 name: screenshot
-version: 0.10.0
+version: 0.10.1
 description: Capture a screenshot of any page or component in the running app.
 argument-hint: "/url-path [name] [--selector .css] [--mobile] [--full-page]"
 allowed-tools:
@@ -10,6 +10,7 @@ allowed-tools:
   - Grep
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — drives a capture script. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 Capture a screenshot of a page or specific component using Playwright (or similar tool).

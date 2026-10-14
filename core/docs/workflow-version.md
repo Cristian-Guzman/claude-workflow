@@ -1,6 +1,6 @@
 ---
-version: 0.10.0
-last-updated: 2026-10-13
+version: 0.10.1
+last-updated: 2026-10-14
 maintainer: your-name@your-org.com
 ---
 
@@ -25,6 +25,14 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.10.1 — 2026-10-14
+**Theme:** model floors instead of model pins — guidance, never fixed.
+
+- **All `model:` pins removed from commands** (13 carried `opus[1m]`); every command inherits the session model. Agents switch to `model: inherit`. Pick the session model per budget.
+- **Floors added** — the recommended minimum per command/agent, in three places: a one-line note under each frontmatter (with the reason), `floor: opus|sonnet` on every `inventory.yaml` row, and a generated table in `core/commands/README.md` (+ a short `## Models` section in the README). `/bootstrap` prints the floors of the installed set in its summary.
+- Rule of thumb encoded: `opus` = judgment over large context (clarify, ticket, build, verify, review-pr, learn, project-debug, refactor, cover, triage, upstream; agents verifier, pr-branch-reviewer, ui-fidelity, codebase-investigator). `sonnet` = prose from structured input or script orchestration (pr-creation, qa, review-comments, log, resume-ticket, status, screenshot, ci-check, memory-lint, demo-summary, bootstrap, update; agents commit-drafter, jira-context-loader, contract-verifier) — these keep their full power on Sonnet.
+- An opus-floor command that finds itself running as a smaller model says so in one line and continues — never blocks.
 
 ### 0.10.0 — 2026-10-13
 **Theme:** `/pr` is now `/pr-creation`.

@@ -1,6 +1,6 @@
 ---
 name: project-context
-version: 0.10.0
+version: 0.10.1
 description: Map dependencies across all repos — which FE calls which BFF, which BFF calls which Go lambda, plus business-logic signals. Also runs a sprint ticket-activity pass that writes team-ticket dossiers (teammates' work you didn't touch) for cross-team learning. Incremental cache after first run.
 argument-hint: "[--full | --incremental | --stale] [--weeks N | --month | --days N] [--no-activity]"
 allowed-tools:
@@ -13,6 +13,7 @@ allowed-tools:
   - Edit
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — see inventory.yaml. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 Build a connection map across every repo in the workspace. Unlike `/clarify` (single-ticket scope) or `/related` (single Jira graph), this command answers structural questions:

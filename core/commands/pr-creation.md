@@ -1,7 +1,6 @@
 ---
 name: pr-creation
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Generate PR deliverables (commit message + PR description) from current changes. Resolves the branch's state file via the index for any kind (ticket, build, cover, triage).
 argument-hint: "[PROJ-XXXX] — optional; ticket-less branches (test/<slug>) resolve their state file by branch"
 allowed-tools:
@@ -11,6 +10,7 @@ allowed-tools:
   - Grep
   - Task
 ---
+> **Model floor: sonnet** — commit message + PR body from a diff. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 Generate commit message and PR description from the current branch changes.

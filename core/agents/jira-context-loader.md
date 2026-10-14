@@ -1,13 +1,14 @@
 ---
 name: jira-context-loader
 description: Load full Jira context for a ticket in parallel — primary ticket, linked issues, epic siblings, subtasks, parent, blockers. Normalizes MCP vs CLI output. Used by /clarify, /ticket, /verify, /project-debug, /status.
-model: opus
+model: inherit
 tools:
   - Read
   - Bash
   - Grep
   - Glob
 ---
+> **Model floor: sonnet** — fetch + summarize. Guidance, not a pin (`model: inherit`).
 
 You are a Jira context loader. Your job is to produce a single normalized ticket-graph object for a given ticket ID, fetching everything in parallel so the caller doesn't have to.
 

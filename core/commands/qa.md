@@ -1,6 +1,6 @@
 ---
 name: qa
-version: 0.10.0
+version: 0.10.1
 description: Generate a QA guide and optionally run it live with Playwright. Auto-detects backend tickets and produces a runtime-evidence guide instead (deploy confirmation, trigger, data inspection, logs). Also offers a CSS preview harness for sideload-only surfaces (Word Add-in, Google Docs Add-in) where Playwright can't drive the real app.
 argument-hint: "PROJ-XXXX [--live] [--guide-only] [--no-preview]"
 allowed-tools:
@@ -12,6 +12,7 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — QA guide from a state file. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 Generate a practical QA guide for ticket $ARGUMENTS, then optionally execute it live using Playwright.

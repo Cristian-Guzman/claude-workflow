@@ -1,7 +1,6 @@
 ---
 name: bootstrap
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Adapt an installed workflow to THIS project. Runs the capability probe, evaluates every command's gate from inventory.yaml for the installed roles, and proposes keep / prune / un-archive — then writes only the capability manifest and the archive moves. Never writes command files (install.sh owns every file) and never manages versions (scripts/release.py, maintainer side).
 argument-hint: "[--root <path>] [--dry-run]"
 allowed-tools:
@@ -12,6 +11,7 @@ allowed-tools:
   - Write
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — orchestrates probe + adapt-plan scripts. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 `install.sh` copies the workflow; `/bootstrap` fits it. Same install, different project → different
@@ -96,6 +96,7 @@ KEEP {n} · PRUNE {n} · UN-ARCHIVE {n} · MISSING {n} · unchanged since last r
 ## 6. Summary
 Counts per decision, the manifest path, and — for any MISSING row — the exact installer command.
 Suggest `/update` when the manifest's installed version is older than the inventory's newest `since`.
+Print the **model floors** of the kept commands (from `inventory.yaml` `floor:`), grouped `opus` / `sonnet`, with the one-line reminder that nothing is pinned and the sonnet group keeps its full power on Sonnet.
 
 </process>
 

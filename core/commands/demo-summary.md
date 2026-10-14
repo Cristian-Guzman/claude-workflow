@@ -1,6 +1,6 @@
 ---
 name: demo-summary
-version: 0.10.0
+version: 0.10.1
 description: Build a sprint-demo runbook from your delivered work — turns "what I shipped" into a user-journey narrative with per-beat talking points, a pre-demo setup checklist, live-demo risk notes, and an ownership guard that flags adjacent work owned by teammates so you never present their ticket as yours.
 argument-hint: "[--sprint | --week | --days N] [--repo NAME] [--audience team|stakeholders] [--artifact]"
 allowed-tools:
@@ -13,6 +13,7 @@ allowed-tools:
   - AskUserQuestion
   - Artifact
 ---
+> **Model floor: sonnet** — summary from state files. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 `/status` is a raw dashboard of in-flight work. `/retro` is a process retrospective (what to do better). `/demo-summary` is **audience-facing**: it turns the work you delivered this sprint into *how you present it* — a tight runbook you read from during a demo.

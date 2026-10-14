@@ -1,7 +1,6 @@
 ---
 name: verify
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Goal-backward verification that acceptance criteria are actually met in the code.
 argument-hint: "[PROJ-XXXX or paste ACs]"
 allowed-tools:
@@ -14,6 +13,7 @@ allowed-tools:
   - Edit
   - AskUserQuestion
 ---
+> **Model floor: opus** — adversarial, evidence-backed verification. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Verify that acceptance criteria are actually achieved in the codebase, not just that tasks were completed.

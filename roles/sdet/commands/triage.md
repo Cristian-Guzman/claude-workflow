@@ -1,7 +1,6 @@
 ---
 name: triage
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Turn a red test run into causes. Single mode fixes one failing test behind the cause-known gate; batch mode runs or ingests a JSON report, clusters failures by shared helper → selector → endpoint → file (triage-cluster.py), classifies each cluster (broken-test / env-or-data / flaky / real-app-bug) and fixes cluster-first. Real app bugs stay red; quarantine only as test.fail(true, 'BUG KEY-n'); every summary lists known failures separately from passes.
 argument-hint: "[--batch [report.json | --run]] | <spec>[:line] | \"<test title>\" [--newman] [--env <name>]"
 allowed-tools:
@@ -14,6 +13,7 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+> **Model floor: opus** — clustering red runs by shared cause. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 A red run is a list of symptoms; the fix is almost always one cause behind several of them — a shared

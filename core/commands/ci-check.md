@@ -1,6 +1,6 @@
 ---
 name: ci-check
-version: 0.10.0
+version: 0.10.1
 description: Post-/pr CI watcher. Waits until CI is green on your open PR, prompts you to merge, then auto-runs /learn. Closes the pipeline loop.
 argument-hint: "[PR# — optional, discovers from current branch]"
 allowed-tools:
@@ -10,6 +10,7 @@ allowed-tools:
   - Grep
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — watches CI, prompts to merge. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 After `/pr-creation` creates the PR and you push it, the ticket usually lives in limbo until CI finishes and someone approves. This command closes that gap:

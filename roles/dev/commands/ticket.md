@@ -1,7 +1,6 @@
 ---
 name: ticket
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Start implementing a Jira ticket. Reads the persisted clarify blueprint (if present), seeds phase-based progress, and iterates phases with checkpoints so each chunk stays small enough for Claude Code to ship reliably.
 argument-hint: "PROJ-XXXX [paste acceptance criteria]"
 allowed-tools:
@@ -17,6 +16,7 @@ allowed-tools:
   - ExitPlanMode
   - TodoWrite
 ---
+> **Model floor: opus** — implementation across many files with phased plans. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Investigate and plan implementation for ticket $ARGUMENTS.

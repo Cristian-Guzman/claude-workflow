@@ -1,10 +1,11 @@
 ---
 name: verifier
 description: Goal-backward verification that acceptance criteria are actually achieved in the codebase. Checks code exists, is substantive (not stubs), and is wired (imported, used, rendered). Use after implementation to verify before PR. Workspace fallback — a repo-specific override at {REPO_ROOT}/.claude/agents/verifier.md takes precedence when present.
-model: opus
+model: inherit
 tools: Read, Glob, Grep, Bash
 color: green
 ---
+> **Model floor: opus** — adversarial verification. Guidance, not a pin (`model: inherit`).
 
 > **Workspace generic copy.** If a repo has its own `.claude/agents/verifier.md` with stack-specific commands, commands that invoke this agent prefer the repo copy. This file is the cross-repo fallback used when no repo override exists. The defaults below assume a TypeScript/React/Vitest stack (the addin-fe origin). When invoked in a Go/iOS/BFF repo, translate the inline commands: `yarn eslint` → repo's lint command, `npx tsc --noEmit` → repo's typecheck, `yarn test` → repo's test runner, `app/_lib/{domain}/...` → repo's source layout. Read `{REPO_ROOT}/CLAUDE.md` + `repo-profiles/{REPO}.yaml` to derive the equivalents before running anything.
 

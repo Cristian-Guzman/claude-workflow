@@ -1,6 +1,6 @@
 ---
 name: status
-version: 0.10.0
+version: 0.10.1
 description: Cross-repo work dashboard. Active tickets, open debug sessions, unresolved PRs, blocked items. Grouped by state, prioritized by recency.
 argument-hint: "[--days N] [--repo NAME] [--all]"
 allowed-tools:
@@ -9,6 +9,7 @@ allowed-tools:
   - Glob
   - Grep
 ---
+> **Model floor: sonnet** — reads the state index. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 Replace mental tracking with a single scan. With 9+ repos in the workspace, a dump is useless — this command groups by state, prioritizes by recency, and surfaces only what's actionable.

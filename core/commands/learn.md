@@ -1,6 +1,6 @@
 ---
 name: learn
-version: 0.10.0
+version: 0.10.1
 description: Extract lessons from delivered work (tickets and role sidecars) AND the current conversation, synthesize per-target lessons (log → cluster → lesson at ≥2), and update repo pattern files; --mine seeds a fresh repo from mined PR history.
 argument-hint: "[repo-name] or blank for all repos (--session = conversation-only; --mine = also ingest .claude/state/mine/<date>/candidates.json; neither required)"
 allowed-tools:
@@ -13,6 +13,7 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+> **Model floor: opus** — synthesis that feeds every later command. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Scan delivered tickets across ALL repos (or a specific repo), collect retrospectives, extract patterns,

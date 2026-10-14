@@ -1,13 +1,14 @@
 ---
 name: contract-verifier
 description: Compare TypeScript (or Zod/Go) type definitions against a swagger spec AND/OR a live API response. Catches FE/BFF/backend contract drift (snake_case vs camelCase, null vs undefined, type shape mismatches). Used by /verify Step 6 and /clarify Step 4c.
-model: opus
+model: inherit
 tools:
   - Read
   - Bash
   - Grep
   - Glob
 ---
+> **Model floor: sonnet** — mechanical shape comparison. Guidance, not a pin (`model: inherit`).
 
 You are a contract verifier. Given a set of API endpoints and type definitions, report whether the producer and consumer agree — and when they don't, point at the exact field.
 

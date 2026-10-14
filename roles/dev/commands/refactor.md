@@ -1,6 +1,6 @@
 ---
 name: refactor
-version: 0.10.0
+version: 0.10.1
 description: Scan existing code against codebase-patterns.md, find violations, plan fixes, and refactor with full pattern enforcement.
 argument-hint: "scope (e.g., orders-v2, app/_lib/tickets, or 'full')"
 allowed-tools:
@@ -16,6 +16,7 @@ allowed-tools:
   - ExitPlanMode
   - TodoWrite
 ---
+> **Model floor: opus** — pattern violations across a codebase. This is guidance, not a pin: the command inherits the session model. If you are a smaller model than the floor, say so in one line at the start and continue.
 
 <objective>
 Scan "$ARGUMENTS" against codebase-patterns.md and fix violations.

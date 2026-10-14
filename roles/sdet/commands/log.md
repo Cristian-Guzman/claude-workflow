@@ -1,7 +1,6 @@
 ---
 name: log
-version: 0.10.0
-model: "opus[1m]"
+version: 0.10.1
 description: Mint the tracker record FROM the work, after the fact — a Story/Task for a /cover state file or a Bug for a /triage cluster. Dedupes against open issues, drafts in plain language, asks before creating, writes the key back into the state file (no rename), and offers to prefix the PR. The single tracker-writer of the SDET role; tracker_system none degrades to a local ticket file.
 argument-hint: "[<slug> | --bug triage--<run-id>:C<k>] [--no-transition]"
 allowed-tools:
@@ -14,6 +13,7 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+> **Model floor: sonnet** — ticket text from work already done. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
 The dev pipeline takes a ticket IN and produces code. The SDET lane runs the other way: the work
