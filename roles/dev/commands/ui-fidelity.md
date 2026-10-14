@@ -1,6 +1,6 @@
 ---
 name: ui-fidelity
-version: 0.10.1
+version: 0.10.2
 description: Ad-hoc design-fidelity check — compare a UI implementation against its design reference for the current surface. Dimension-by-dimension gap list with scoped fixes, live-data hardening pass, and per-surface manual QA checklist. Reports only, never edits.
 argument-hint: "[repo | PROJ-XXXX] [design ref: URL or screenshot path]"
 allowed-tools:

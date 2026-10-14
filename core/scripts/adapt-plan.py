@@ -10,8 +10,11 @@ vector's roles[], else inferred from which role directories' commands are presen
 the state of each command/agent file, and emits one decision per row:
 
   KEEP · KEEP(in-use) · KEEP(core) · PRUNE · UN-ARCHIVE · MISSING · IGNORE · ORPHAN
-  (ORPHAN = a file in commands/ or agents/ with no inventory row at all — a retired command
-   left behind by an older install, e.g. test-plan.md after 0.8.0; reported, never moved)
+  (ORPHAN = a file in commands/ or agents/ with no inventory row. install.sh already archives a
+   retired file when the previous baseline proves it was upstream's and it is unmodified, so an
+   orphan is one of two things, and the reason says which: a LOCALLY EDITED retired file the
+   installer kept (its copy is in .upstream-prior/<date>/), or a leftover from a pre-baseline
+   (< 0.7.0) install. Reported, never moved — the owner archives by hand after a look.)
 
 Rules (fail-safe):
   - gate grammar: always | <cap> == <v> | <cap> != <v> | <cap> >= <n> | A AND B | A OR B | ( ... )
@@ -223,13 +226,26 @@ def main():
     roles = [r for r in (args.roles.split(",") if args.roles else vec.get("roles") or []) if r] or infer_roles(claude)
     rows = [decide(r, "commands", claude, vec, roles) for r in inv["commands"] if "name" in r]
     rows += [decide(r, "agents", claude, vec, roles) for r in inv["agents"] if "name" in r]
-    # orphans: shipped files no inventory row names (retired commands from an older install)
+    # orphans: shipped files no inventory row names. install.sh archives a retired file itself when
+    # the previous baseline proves it was upstream's AND it is unmodified; whatever is left is either
+    # a locally edited retired file it kept (captured under .upstream-prior/) or a pre-baseline leftover.
     listed = {(k, r["name"]) for k in ("commands", "agents") for r in inv[k] if "name" in r}
     for kind in ("commands", "agents"):
         for f in sorted((claude / kind).glob("*.md")):
-            if f.name != "README.md" and (kind, f.stem) not in listed:
-                rows.append({"name": f.stem, "kind": kind[:-1], "role": "?", "priority": "", "gate": "",
-                             "decision": "ORPHAN", "reason": "no inventory row — retired upstream; archive by hand or leave"})
+            if f.name == "README.md" or (kind, f.stem) in listed:
+                continue
+            captures = sorted(claude.glob(f".upstream-prior/*/installed/{kind}/{f.name}")) + \
+                       sorted(claude.glob(f".upstream-prior/*/{kind}/{f.name}"))
+            archived = (claude / ("_archived-commands" if kind == "commands" else "_archived-agents") / f.name).exists()
+            if captures:
+                rel = captures[-1].relative_to(claude)
+                reason = f"retired upstream but locally edited — install.sh kept it; your copy is at .claude/{rel}; review, then archive by hand"
+            else:
+                reason = "retired upstream; this install predates the baseline (< 0.7.0) so install.sh could not prove it was upstream's — archive by hand"
+            if archived:
+                reason += " (an archived copy already exists — compare before overwriting)"
+            rows.append({"name": f.stem, "kind": kind[:-1], "role": "?", "priority": "", "gate": "",
+                         "decision": "ORPHAN", "reason": reason})
     counts = {}
     for r in rows:
         counts[r["decision"]] = counts.get(r["decision"], 0) + 1

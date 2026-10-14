@@ -140,7 +140,11 @@ python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec-q.json" >/dev/null
 printf -- '---\nname: test-plan\nversion: 0.6.0\n---\n' > "$A/commands/test-plan.md"
 out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json")
 grep -q "ORPHAN          command  test-plan" <<<"$out" && ok "adapt: retired file with no row -> ORPHAN (reported, not moved)" || bad "adapt: ORPHAN" "$out"
+grep -q "predates the baseline" <<<"$out" && ok "adapt: orphan without a capture is explained as pre-baseline" || bad "adapt: pre-baseline reason" "$out"
 [ -f "$A/commands/test-plan.md" ] && ok "adapt: orphan left in place" || bad "adapt: orphan moved"
+mkdir -p "$A/.upstream-prior/2026-01-01/installed/commands" && cp "$A/commands/test-plan.md" "$A/.upstream-prior/2026-01-01/installed/commands/"
+out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json")
+grep -q "locally edited — install.sh kept it; your copy is at .claude/.upstream-prior/2026-01-01/installed/commands/test-plan.md" <<<"$out" && ok "adapt: orphan with a capture is explained as locally edited + where the copy is" || bad "adapt: captured-orphan reason" "$out"
 
 echo
 echo "passed $pass · failed $fail · scratch: $T"

@@ -1,6 +1,6 @@
 ---
 name: clarify
-version: 0.10.1
+version: 0.10.2
 description: Analyze a ticket — investigate the codebase, recommend file placement and patterns, plan execution phases when complexity warrants, persist the blueprint for downstream commands, and surface only the questions you can't answer yourself.
 argument-hint: "PROJ-XXXX [--phase N] [--no-prior-art] [--cross-repo] [--full-history]"
 allowed-tools:

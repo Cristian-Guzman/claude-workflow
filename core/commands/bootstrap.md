@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-version: 0.10.1
+version: 0.10.2
 description: Adapt an installed workflow to THIS project. Runs the capability probe, evaluates every command's gate from inventory.yaml for the installed roles, and proposes keep / prune / un-archive — then writes only the capability manifest and the archive moves. Never writes command files (install.sh owns every file) and never manages versions (scripts/release.py, maintainer side).
 argument-hint: "[--root <path>] [--dry-run]"
 allowed-tools:
@@ -71,7 +71,7 @@ Run it, don't re-derive it: `python3 "$CLAUDE_DIR/scripts/adapt-plan.py" --root 
 | in `_archived-commands/` | false | leave |
 | missing from both | true | **MISSING** → report `install.sh <root> --role <role>`; write nothing |
 | missing from both | false | ignore |
-| in `commands/` or `agents/`, **no inventory row** | — | **ORPHAN** → report only ("retired upstream; archive by hand or leave"); never moved automatically |
+| in `commands/` or `agents/`, **no inventory row** | — | **ORPHAN** → report only, never moved. `install.sh` already archives a retired file it can prove was upstream's and unmodified; what remains is either a **locally edited** retired file it kept (copy under `.upstream-prior/<date>/` — say where) or a leftover from a **pre-baseline** (< 0.7.0) install. The owner archives by hand after a look |
 
 Agents follow the same table against the `agents:` rows.
 Diff against the previous `capability-manifest.md` when present: only decisions that FLIPPED since the

@@ -1,5 +1,5 @@
 ---
-version: 0.10.1
+version: 0.10.2
 last-updated: 2026-10-14
 maintainer: your-name@your-org.com
 ---
@@ -25,6 +25,11 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.10.2 — 2026-10-14
+**Theme:** `/bootstrap` orphan reporting matches what `install.sh` actually does.
+
+- `install.sh` (since 0.8.0) archives a retired command by itself when the previous baseline proves it was upstream's and the file is unmodified, and keeps a locally edited one (captured under `.upstream-prior/<date>/`). The adapter and its docs still said every leftover was "retired upstream; archive by hand". Now `adapt-plan.py` tells the two cases apart — **locally edited, kept by the installer, copy at `.claude/.upstream-prior/<date>/…`** vs **pre-baseline (< 0.7.0) leftover** — and notes when an archived copy already exists. `bootstrap.md` and the README say the same thing in the same words. Two new test cases.
 
 ### 0.10.1 — 2026-10-14
 **Theme:** model floors instead of model pins — guidance, never fixed.

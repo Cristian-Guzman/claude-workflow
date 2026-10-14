@@ -1,6 +1,6 @@
 ---
 name: pr-creation
-version: 0.10.1
+version: 0.10.2
 description: Generate PR deliverables (commit message + PR description) from current changes. Resolves the branch's state file via the index for any kind (ticket, build, cover, triage).
 argument-hint: "[PROJ-XXXX] — optional; ticket-less branches (test/<slug>) resolve their state file by branch"
 allowed-tools:
