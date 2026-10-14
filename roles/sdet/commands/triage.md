@@ -1,6 +1,6 @@
 ---
 name: triage
-version: 0.9.0
+version: 0.10.0
 model: "opus[1m]"
 description: Turn a red test run into causes. Single mode fixes one failing test behind the cause-known gate; batch mode runs or ingests a JSON report, clusters failures by shared helper → selector → endpoint → file (triage-cluster.py), classifies each cluster (broken-test / env-or-data / flaky / real-app-bug) and fixes cluster-first. Real app bugs stay red; quarantine only as test.fail(true, 'BUG KEY-n'); every summary lists known failures separately from passes.
 argument-hint: "[--batch [report.json | --run]] | <spec>[:line] | \"<test title>\" [--newman] [--env <name>]"
@@ -29,7 +29,7 @@ known-failures-with-bug count holds only `test.fail` tests with a `BUG` key — 
 the unkeyed ones next to it as `known-failures-unkeyed` (the violations count), never as passes nor as
 known failures with bug.
 
-Stops after the state table. `/pr` is the user's next step; bug drafts hand off to `/log --bug`.
+Stops after the state table. `/pr-creation` is the user's next step; bug drafts hand off to `/log --bug`.
 </objective>
 
 <principles>
@@ -185,7 +185,7 @@ Statuses: `fixed` · `env-blocked` · `open` (red by design, bug pending) · `qu
 ### 2.7 Wrap
 
 - Append `- [HH:MM] /triage run={run-id} clusters=N fixed=A env-blocked=B bugs=C flaky=D passed=P failed=F known-failures-with-bug=K skipped=S`
-  (`/pr` §5.5a reads a `/triage` event as the verification evidence for `kind: triage`).
+  (`/pr-creation` §5.5a reads a `/triage` event as the verification evidence for `kind: triage`).
 - `status`: `ready-for-pr` when every non-env cluster is fixed/open-by-design; `env-blocked` when the
   remaining work waits on the environment; else `in-progress`.
 - Skip-guard scan on the diff as in `/cover` §6.4 — the hook already blocked unkeyed quarantines at
@@ -193,7 +193,7 @@ Statuses: `fixed` · `env-blocked` · `open` (red by design, bug pending) · `qu
 
 ## 3. Stop
 
-Print the summary. Do not commit, do not open a PR, do not run `/log`. Next: `/pr` for the fixes;
+Print the summary. Do not commit, do not open a PR, do not run `/log`. Next: `/pr-creation` for the fixes;
 `/log --bug triage--<run-id>:C<k>` per real bug.
 
 </process>
@@ -211,7 +211,7 @@ Violations: {V} test.fail without a BUG key  (listed in the state file)
 
 Fixed: {A} clusters ({n} tests) · env-blocked: {B} · real bugs (red, drafts ready): {C} · flaky → ledger: {D}
 Re-run after fixes: passed={P'} failed={F'} known-failures-with-bug={K} skipped={S'}  (cluster-scoped)
-Next: /pr for the fixes · /log --bug triage--<run-id>:C<k> for each bug draft. Nothing committed.
+Next: /pr-creation for the fixes · /log --bug triage--<run-id>:C<k> for each bug draft. Nothing committed.
 ```
 </output_format>
 

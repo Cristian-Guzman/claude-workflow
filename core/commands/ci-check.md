@@ -1,6 +1,6 @@
 ---
 name: ci-check
-version: 0.9.0
+version: 0.10.0
 description: Post-/pr CI watcher. Waits until CI is green on your open PR, prompts you to merge, then auto-runs /learn. Closes the pipeline loop.
 argument-hint: "[PR# — optional, discovers from current branch]"
 allowed-tools:
@@ -12,7 +12,7 @@ allowed-tools:
 ---
 
 <objective>
-After `/pr` creates the PR and you push it, the ticket usually lives in limbo until CI finishes and someone approves. This command closes that gap:
+After `/pr-creation` creates the PR and you push it, the ticket usually lives in limbo until CI finishes and someone approves. This command closes that gap:
 
 1. Identifies the PR for the current branch (or $ARGUMENTS).
 2. Polls CI status until green or failed.
@@ -46,7 +46,7 @@ Also resolve `REPO_NAME` from CWD and — when the branch carries one — the ti
 
 ## 1.5 Resolve Base Branch (via repo profile)
 
-Resolve `$BASE_BRANCH` from the repo profile — never hardcode. Mirrors `/pr` and `/verify`:
+Resolve `$BASE_BRANCH` from the repo profile — never hardcode. Mirrors `/pr-creation` and `/verify`:
 
 ```bash
 PROFILE=$WORKSPACE_ROOT/.claude/repo-profiles/${REPO_NAME}.yaml
@@ -145,14 +145,14 @@ If the user picks "Hold off", exit cleanly without touching anything.
 
 Only if the merge succeeded:
 
-1. **Transition the state file to delivered + snapshot the outcome** — resolve it by branch via the index, for ANY kind (ticket, build, cover, triage), the same way `/pr` §2 does:
+1. **Transition the state file to delivered + snapshot the outcome** — resolve it by branch via the index, for ANY kind (ticket, build, cover, triage), the same way `/pr-creation` §2 does:
    ```bash
    STATE_FILE=$(jq -r --arg r "$REPO_NAME" --arg b "$current_branch" \
      '[.entries[] | select(.repo==$r and .branch==$b and .archived!=true)] | sort_by(.updated) | last | .path // empty' \
      "$WORKSPACE_ROOT/.claude/state/index.json" 2>/dev/null)
    : "${STATE_FILE:={REPO_ROOT}/.claude/tickets/{PROJ-XXXX}.md}"   # no index / no match → today's ticket path
    ```
-   - Expected incoming status: `pr-generated` (set by `/pr`). If it's already `delivered` or `learned`, skip the transition — the merge is late to the state file, not first.
+   - Expected incoming status: `pr-generated` (set by `/pr-creation`). If it's already `delivered` or `learned`, skip the transition — the merge is late to the state file, not first.
    - Set `status: delivered`.
    - Append an event-log line `- [HH:MM] Merged via PR #{PR_NUMBER} to {BASE_BRANCH} (CI-check)`.
    - Do NOT rewrite or truncate existing event-log entries — append only.
@@ -211,6 +211,6 @@ Only if the merge succeeded:
 </success_criteria>
 
 ## Related Commands
-- Upstream: `/pr` (creates the PR)
+- Upstream: `/pr-creation` (creates the PR)
 - Downstream: `/learn` (extract patterns after merge)
 - Related: `/review-comments` (triage feedback when CHANGES_REQUESTED)

@@ -1,11 +1,11 @@
 <!--
   pr-template.md — PR description skeleton for this repo.
-  Read by /pr, which fills the placeholders from the current branch's changes
+  Read by /pr-creation, which fills the placeholders from the current branch's changes
   and the ticket's acceptance criteria, then outputs the raw markdown.
   Seed it manually at install (adjust sections + tracker URL to your project);
   /learn may grow it over time as your team's PR conventions evolve.
 -->
-// `/pr` creates the PR end-to-end: after CI is green, commit + push + `gh pr create --assignee "@me"` (invoking /pr is the authorization). ALSO output this markdown UNFORMATTED (raw, not rendered by Claude Code) plus a one-line commit message, so the user can copy them.
+// `/pr-creation` creates the PR end-to-end: after CI is green, commit + push + `gh pr create --assignee "@me"` (invoking /pr-creation is the authorization). ALSO output this markdown UNFORMATTED (raw, not rendered by Claude Code) plus a one-line commit message, so the user can copy them.
 
 ## 📋 Summary
 

@@ -1,6 +1,6 @@
 ---
-name: pr
-version: 0.9.0
+name: pr-creation
+version: 0.10.0
 model: "opus[1m]"
 description: Generate PR deliverables (commit message + PR description) from current changes. Resolves the branch's state file via the index for any kind (ticket, build, cover, triage).
 argument-hint: "[PROJ-XXXX] — optional; ticket-less branches (test/<slug>) resolve their state file by branch"
@@ -255,7 +255,7 @@ Missing → "⚠️ No `/cover` gate (or `/triage` outcome) is recorded for this
 ```bash
 git -C {REPO_ROOT} log --oneline {verify_sha}..HEAD 2>/dev/null
 ```
-Commits after the verified SHA → warn: "⚠️ /verify last ran against {verify_sha}; {N} newer commit(s) exist: {list}. Re-run /verify before /pr?" (No SHA in the event → skip this sub-check; ad-hoc commits after verification are exactly how documented-rule violations have shipped before.)
+Commits after the verified SHA → warn: "⚠️ /verify last ran against {verify_sha}; {N} newer commit(s) exist: {list}. Re-run /verify before /pr-creation?" (No SHA in the event → skip this sub-check; ad-hoc commits after verification are exactly how documented-rule violations have shipped before.)
 
 **c) Fast pattern scan on the branch diff** (non-blocking — catches documented-rule violations CI is blind to):
 ```bash
@@ -271,7 +271,7 @@ git -C {REPO_ROOT} diff $BASE_BRANCH...HEAD | grep -niE 'QA-?BYPASS|DO NOT COMMI
 ```
 Any match → REFUSE to generate deliverables. Print each match with file:line and require the marker reverted first, or an explicit `--allow-bypass-markers` override from the user.
 
-**e) Comment-hygiene gate (BLOCKING).** Linters and CI never check comment style, so noise comments and ref/history comments ship silently. This is the same gate as `/verify` §3.4 — run it here too because the `/ticket` → `/pr` shortcut skips `/verify` (keep the pattern list in sync with §3.4):
+**e) Comment-hygiene gate (BLOCKING).** Linters and CI never check comment style, so noise comments and ref/history comments ship silently. This is the same gate as `/verify` §3.4 — run it here too because the `/ticket` → `/pr-creation` shortcut skips `/verify` (keep the pattern list in sync with §3.4):
 ```bash
 FILES=$(git -C {REPO_ROOT} diff --name-only $BASE_BRANCH...HEAD -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.css' '*.scss' '*.go' '*.swift' '*.py' | grep -vE '\.claude/')
 [ -n "$FILES" ] && (cd {REPO_ROOT} && git diff $BASE_BRANCH...HEAD -- $FILES \
@@ -282,7 +282,7 @@ Any match → REFUSE to generate deliverables; print each `file:line` and requir
 
 Also surface verification-summary skips when present: security scan skipped → "⚠️ No security scan was run. Quick scan on changed files? (yes/skip)"; Proxyman not connected → informational only.
 
-This step catches the `/ticket` → `/pr` shortcut where verification gets skipped. Sub-checks a–c are reminders; d and e block.
+This step catches the `/ticket` → `/pr-creation` shortcut where verification gets skipped. Sub-checks a–c are reminders; d and e block.
 
 ## 6. Run CI Verification
 
@@ -328,14 +328,14 @@ Example:
 gh pr create --base $BASE_BRANCH --assignee "@me" --title "..." --body "..."
 ```
 
-**IMPORTANT — `/pr` creates the PR end-to-end.** Invoking `/pr` IS the user's authorization to commit, push, and open the PR. After CI is green, run all three (no separate confirmation — the command name is the go):
+**IMPORTANT — `/pr-creation` creates the PR end-to-end.** Invoking `/pr-creation` IS the user's authorization to commit, push, and open the PR. After CI is green, run all three (no separate confirmation — the command name is the go):
 ```bash
 git -C {REPO_ROOT} add -A
 git -C {REPO_ROOT} commit -m "<subject>" -m "<body>"   # no AI attribution, ever
 git -C {REPO_ROOT} push -u origin <branch>
 gh pr create --base $BASE_BRANCH --assignee "@me" --title "..." --body "..."   # --assignee "@me" is mandatory
 ```
-Also print the commit message + PR markdown (unformatted) so the user can reuse them. This authorization is scoped to the initial PR only — any FOLLOW-UP commit/push after the PR exists needs a fresh "commit"/"push" from the user ([[feedback_confirm_before_commit_push]]). Never use `--no-verify`. Only act on an explicit `/pr` — never commit/push outside it.
+Also print the commit message + PR markdown (unformatted) so the user can reuse them. This authorization is scoped to the initial PR only — any FOLLOW-UP commit/push after the PR exists needs a fresh "commit"/"push" from the user ([[feedback_confirm_before_commit_push]]). Never use `--no-verify`. Only act on an explicit `/pr-creation` — never commit/push outside it.
 
 **If the push fails with "Repository not found" (HTTPS 404):** the HTTPS remote isn't carrying your gh token — don't surface the bare 404. Probe both auth paths:
 ```bash
@@ -357,14 +357,14 @@ If a state file matched in §2 (`$STATE_FILE` — ticket, build, cover or triage
   pr_number: 123
   pr_url: https://github.com/{org}/{repo}/pull/123
   ```
-  and log the event: `- [HH:MM] /pr: PR #123 opened against {BASE_BRANCH}`
+  and log the event: `- [HH:MM] /pr-creation: PR #123 opened against {BASE_BRANCH}`
 - Add an `## Obsidian Links` section (if one doesn't already exist) at the end of the file:
   ```
   ## Obsidian Links
   - Branch: {branch-name}
   - PR: #{pr-number} (if PR number is known from deliverables)
   ```
-- **Write the `## Process Summary` block (mechanical — derive from the Event Log + git, never ask).** This is the process-telemetry capture that `/learn` §2.7b distills. It MUST be written here, at PR time, because `/pr` is the one command that always runs before a chat can be abandoned — if the user closes the session without ever running `/learn`, this block is what survives:
+- **Write the `## Process Summary` block (mechanical — derive from the Event Log + git, never ask).** This is the process-telemetry capture that `/learn` §2.7b distills. It MUST be written here, at PR time, because `/pr-creation` is the one command that always runs before a chat can be abandoned — if the user closes the session without ever running `/learn`, this block is what survives:
   ```markdown
   ## Process Summary
   - sessions: {N}           # distinct session starts in the Event Log (classification + /resume-ticket entries)
@@ -456,7 +456,7 @@ If no, remind them: "No problem. Run `/learn` anytime — it'll pick up all deli
 - [ ] PR description generated (using repo template if available)
 - [ ] PR branch reviewer ran quality check (if agent available)
 - [ ] All deliverables presented as copyable text
-- [ ] Initial commit + push + `gh pr create --assignee "@me"` executed — the explicit `/pr` invocation IS that authorization (§7, [[feedback_confirm_before_commit_push]]); any follow-up commit/push after the PR exists needs a fresh user confirmation
+- [ ] Initial commit + push + `gh pr create --assignee "@me"` executed — the explicit `/pr-creation` invocation IS that authorization (§7, [[feedback_confirm_before_commit_push]]); any follow-up commit/push after the PR exists needs a fresh user confirmation
 - [ ] Bypass-marker gate (§5.5d) passed — no QA-BYPASS / DO-NOT-COMMIT / TODO-REVERT markers in the diff
 - [ ] Ticket state updated to `pr-generated` (if exists) — NOT `delivered`; `/ci-check` sets `delivered` after merge
 - [ ] `pr_number` + `pr_url` written into the ticket state frontmatter (and matching build state file, if any)

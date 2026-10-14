@@ -71,11 +71,11 @@ def build_workspace(root):
           "2026-07-14 non-schema status 'implementing' in /x/ZZZ-1.md\n2026-07-15 non-schema status 'implementing' in /x/ZZZ-2.md\n")
     write(ws / "command-proposals.md",
           "# Proposals\n\n### [2026-01-10] /verify — old open thing\n**Target:** verify.md §3\n**Status:** OPEN\n**Occurrences:** 2\n\n"
-          "### [2026-09-30] /pr — recent\n**Target:** pr.md §8\n**Status:** ADDRESSED 2026-10-01\n\n"
+          "### [2026-09-30] /pr-creation — recent\n**Target:** pr-creation.md §8\n**Status:** ADDRESSED 2026-10-01\n\n"
           "### [2026-05-01] /foo — local-only command\n**Target:** foo.md §1\n**Status:** STALE\n")
     write(ws / "capability-manifest.md", "| Command | Decision | Reason |\n|---|---|---|\n| /do | PRUNE | x |\n| /build | KEEP (watch) | y |\n")
     write(ws / "commands" / "verify.md", "# verify\nline\n")
-    write(ws / "commands" / "pr.md", "# pr\n")
+    write(ws / "commands" / "pr-creation.md", "# pr\n")
     write(ws / "commands" / "foo.md", "# local only\n")
     write(ws / "agents" / "verifier.md", "---\nname: verifier\ntools: Read, Grep\nmodel: opus\n---\nbody\n")
     write(ws / "metrics" / "2026-06-01.json", json.dumps({"schema_version": 3, "metrics": {"learn_churn": {}, "ticket_cycle_time": {}}}))
@@ -140,7 +140,7 @@ def build_workspace(root):
     # public core snapshot for drift
     core = root / "public" / "core"
     write(core / "commands" / "verify.md", "# verify\n")
-    write(core / "commands" / "pr.md", "# pr\n")
+    write(core / "commands" / "pr-creation.md", "# pr\n")
     write(core / "commands" / "ticket.md", "# ticket\n")
     write(core / "agents" / "verifier.md", "---\nname: verifier\n---\n")
     write(core / "docs" / "routing.md", "# routing\n")
@@ -273,7 +273,7 @@ class HarvestProfileTest(unittest.TestCase):
         pr = ws["proposals"]
         self.assertEqual(pr["blocks"], 3)
         self.assertEqual(pr["by_status"], {"ADDRESSED": 1, "OPEN": 1, "STALE": 1})
-        self.assertEqual({t["label"]: t["n"] for t in pr["targets"]}, {"verify": 1, "pr": 1, "other": 1})
+        self.assertEqual({t["label"]: t["n"] for t in pr["targets"]}, {"verify": 1, "pr-creation": 1, "other": 1})
         self.assertEqual(pr["occurrences"], {"1": 2, "2": 1})
         self.assertEqual(ws["capability_enums"]["type"], {"backend-service": 1, "frontend-ui": 1})
         self.assertEqual(ws["capability_enums"]["base_branch_is_default"], {"False": 1, "True": 1})
@@ -285,7 +285,7 @@ class HarvestProfileTest(unittest.TestCase):
         self.assertEqual(ws["metrics"]["span_days"], 30)
         self.assertEqual(ws["schema_drift"]["distinct_statuses"], [{"label": "implementing", "n": 2}])
         self.assertEqual(ws["commands"]["local_only"], ["foo"])
-        self.assertEqual(ws["commands"]["in_public_core"], ["pr", "verify"])
+        self.assertEqual(ws["commands"]["in_public_core"], ["pr-creation", "verify"])
 
     def test_process_and_ui_ledgers(self):
         pl = self.profile["repos"]["web-app"]["process_ledger"]
@@ -323,7 +323,7 @@ class HarvestProfileTest(unittest.TestCase):
         self.assertEqual(by_file["commands/verify.md"]["changed_lines"], 1)
         self.assertEqual(by_file["commands/ticket.md"]["status"], "missing")
         self.assertEqual(by_file["docs/routing.md"]["status"], "missing")
-        self.assertNotIn("commands/pr.md", by_file)       # identical → not listed
+        self.assertNotIn("commands/pr-creation.md", by_file)       # identical → not listed
         self.assertEqual(by_file["agents/verifier.md"]["changed_lines"], 3)
         self.assertEqual(d["modified"], 2)
         self.assertEqual(d["missing"], 2)

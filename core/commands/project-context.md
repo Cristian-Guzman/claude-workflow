@@ -1,6 +1,6 @@
 ---
 name: project-context
-version: 0.9.0
+version: 0.10.0
 description: Map dependencies across all repos — which FE calls which BFF, which BFF calls which Go lambda, plus business-logic signals. Also runs a sprint ticket-activity pass that writes team-ticket dossiers (teammates' work you didn't touch) for cross-team learning. Incremental cache after first run.
 argument-hint: "[--full | --incremental | --stale] [--weeks N | --month | --days N] [--no-activity]"
 allowed-tools:

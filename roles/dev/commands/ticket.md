@@ -1,6 +1,6 @@
 ---
 name: ticket
-version: 0.9.0
+version: 0.10.0
 model: "opus[1m]"
 description: Start implementing a Jira ticket. Reads the persisted clarify blueprint (if present), seeds phase-based progress, and iterates phases with checkpoints so each chunk stays small enough for Claude Code to ship reliably.
 argument-hint: "PROJ-XXXX [paste acceptance criteria]"
@@ -427,14 +427,14 @@ Notes:
 - `<IN_PROGRESS_TRANSITION_ID>` — read `jira_transition_inprogress` from `repo-profiles/<repo>.yaml` (the single home for tracker config — see `_schema.yaml`). If empty, look it up via the jira CLI or `mcp__atlassian__getTransitionsForJiraIssue` and record it there.
 - Skip if the ticket is already in `In Progress`, `Code Review`, `QA`, or `Done`.
 - If the recorded id errors, re-fetch with `mcp__atlassian__getTransitionsForJiraIssue` — workflow ids can differ per project.
-- `/pr` handles the next transition (Code Review) when the PR is created; `/verify` leaves status alone until PR time.
+- `/pr-creation` handles the next transition (Code Review) when the PR is created; `/verify` leaves status alone until PR time.
 
 ## 5. Implement
 
 Follow the repo's conventions from CLAUDE.md and codebase-patterns.md (if available).
 If the repo has a `ticket-checklist.md`, follow its implementation and testing phases.
 
-**Comment hygiene — apply as you write, don't clean it up afterward.** Default to **NO comment**; names, types, and the commit message carry intent. Add a comment ONLY for a non-obvious WHY / constraint a maintainer genuinely can't infer from the code. **Never** put in a comment: ticket numbers (`PROJ-XXXX`), section/spec refs (`§16`, `NEW-2`), acceptance-criteria refs (`AC3`), bug-letter labels (`Bug C`), or before→after / changelog history — all of that lives in git + the PR. This is the recurring noise complaint ([[feedback_no_bug_letter_comments]]) and is machine-enforced by the **Comment Hygiene Gate** (`/verify` §3.4 and `/pr` §5e), which BLOCKS delivery on a hit — writing it clean now saves a rework pass.
+**Comment hygiene — apply as you write, don't clean it up afterward.** Default to **NO comment**; names, types, and the commit message carry intent. Add a comment ONLY for a non-obvious WHY / constraint a maintainer genuinely can't infer from the code. **Never** put in a comment: ticket numbers (`PROJ-XXXX`), section/spec refs (`§16`, `NEW-2`), acceptance-criteria refs (`AC3`), bug-letter labels (`Bug C`), or before→after / changelog history — all of that lives in git + the PR. This is the recurring noise complaint ([[feedback_no_bug_letter_comments]]) and is machine-enforced by the **Comment Hygiene Gate** (`/verify` §3.4 and `/pr-creation` §5e), which BLOCKS delivery on a hit — writing it clean now saves a rework pass.
 
 ### 5.0 Branching
 
@@ -446,7 +446,7 @@ If a PHASE_PLAN was loaded with Phase 0 = Setup, that phase covers branch creati
 git -C {REPO_ROOT} worktree add ../{repo}-wt/{TICKET_ID} -b <fix|feat>/{TICKET_ID}-{slug} origin/{BASE_BRANCH}
 ```
 
-Do ALL work for this ticket inside the worktree path, and record `worktree: ../{repo}-wt/{TICKET_ID}` in the state-file frontmatter so `/verify`, `/pr`, and `/resume-ticket` operate there. This mechanically kills the shared-checkout failure classes — a sibling session's commit landing on your branch, and cross-ticket staging surgery ([[feedback_shared_checkout_commit_lands_on_wrong_branch]], [[feedback_shared_checkout_selective_staging]]). After the PR merges, `/ci-check` runs `git worktree remove ../{repo}-wt/{TICKET_ID}`.
+Do ALL work for this ticket inside the worktree path, and record `worktree: ../{repo}-wt/{TICKET_ID}` in the state-file frontmatter so `/verify`, `/pr-creation`, and `/resume-ticket` operate there. This mechanically kills the shared-checkout failure classes — a sibling session's commit landing on your branch, and cross-ticket staging surgery ([[feedback_shared_checkout_commit_lands_on_wrong_branch]], [[feedback_shared_checkout_selective_staging]]). After the PR merges, `/ci-check` runs `git worktree remove ../{repo}-wt/{TICKET_ID}`.
 
 ### 5.1 Phase-aware execution (when PHASE_PLAN exists)
 
@@ -585,7 +585,7 @@ Before marking delivered, fill in the **Retrospective** section of the ticket st
 
 Update ticket state file: set status to `ready-for-pr`, all phases to DONE.
 
-> `/ticket` never sets `delivered` — that transition belongs to `/ci-check` after the PR actually merges. Setting it here would overwrite the event log. The handoff chain is: `/ticket` (`ready-for-pr`) → `/pr` (`pr-generated`) → `/ci-check` (`delivered`) → `/learn` (`learned`).
+> `/ticket` never sets `delivered` — that transition belongs to `/ci-check` after the PR actually merges. Setting it here would overwrite the event log. The handoff chain is: `/ticket` (`ready-for-pr`) → `/pr-creation` (`pr-generated`) → `/ci-check` (`delivered`) → `/learn` (`learned`).
 
 </process>
 
@@ -602,28 +602,28 @@ The ticket state file (`{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md`) MUST be kept 
 | Phase transition | Update progress table |
 | Decision made | Add to Decisions Made |
 | Question resolved | Add to Blockers / Questions Resolved |
-| Ticket complete | status → ready-for-pr, all phases → DONE (handoff to /pr) |
+| Ticket complete | status → ready-for-pr, all phases → DONE (handoff to /pr-creation) |
 
 ## State File Lifecycle
 
 1. **Created** when /ticket starts → status: `planning`
 2. **Active** throughout implementation → tracks ACs, files, decisions
 3. **Ready for PR** when /ticket finishes phase 8 → status: `ready-for-pr`
-4. **PR generated** when /pr completes → status: `pr-generated` (set by /pr)
+4. **PR generated** when /pr-creation completes → status: `pr-generated` (set by /pr-creation)
 5. **Delivered** when /ci-check confirms merge → status: `delivered` (set by /ci-check)
 6. **Learned** when /learn extracts lessons → status: `learned` (set by /learn)
 
 State files are **never deleted** — they remain on disk after `learned` for retro, /status, and future prior-art lookup. `/learn` may rewrite them but does not remove them.
 
 ## Related Commands
-- Next: /verify → /pr → /learn
+- Next: /verify → /pr-creation → /learn
 - Testing: /cover (SDET role; e2e steps run inside /ticket §5.1a)
 - Context: /qa (related-ticket lookup is built into /clarify Step 1.5)
 - If interrupted: /resume-ticket
 - Building without ticket: /build
 - Patterns: codebase-patterns.md | testing-patterns.md
 
-After handing off, tell the user: *"Ticket marked `ready-for-pr`. Run `/pr` to generate the commit message and PR description. The state file stays on disk through merge and beyond — `/learn` will reuse it later."*
+After handing off, tell the user: *"Ticket marked `ready-for-pr`. Run `/pr-creation` to generate the commit message and PR description. The state file stays on disk through merge and beyond — `/learn` will reuse it later."*
 
 </state_management>
 

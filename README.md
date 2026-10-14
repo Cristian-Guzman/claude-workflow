@@ -7,7 +7,7 @@ more you work — see [a pattern file after 20 tickets](docs/examples/codebase-p
 
 Built on **Jira + GitHub** (`jira` CLI or Atlassian MCP; `gh` for PRs, CI and reviews). Without Jira, run the no-tracker
 lane: `/build` replaces `/clarify`+`/ticket` and the ticket-transition steps no-op (`tracker_system: none`). Without GitHub,
-`/pr` still produces the commit message and PR text but cannot open the PR, and `/ci-check`, `/review-pr`, `/review-comments`
+`/pr-creation` still produces the commit message and PR text but cannot open the PR, and `/ci-check`, `/review-pr`, `/review-comments`
 are not usable. GitHub Issues and Linear are accepted profile values but **not implemented** — they degrade to "paste the
 acceptance criteria". The compatibility table under *Configuration points* is the honest status per cell.
 
@@ -36,7 +36,7 @@ SHA256SUMS) before touching anything; a 0.6.0 install's retired `test-plan.md` s
 | Developer | SDET |
 |---|---|
 | `/ticket PROJ-123` — implement the ticket phase by phase (no tracker? `/build "…"`) | `/cover <feature \| URL>` — explore, propose, write tests, break each one on purpose, gate table |
-| `/pr` — CI, commit message, PR description | `/pr` — same command; finds the sidecar by branch, skips the tracker step |
+| `/pr-creation` — CI, commit message, PR description | `/pr-creation` — same command; finds the sidecar by branch, skips the tracker step |
 | `/learn` — turn the delivered work into pattern entries | `/learn` — same; scans `cover`/`triage` sidecars via the role's learn-targets |
 
 Each step runs on its own — nothing auto-chains. One ticket through the whole pipeline: [docs/examples/walkthrough-standard-ticket.md](docs/examples/walkthrough-standard-ticket.md).
@@ -44,7 +44,7 @@ Each step runs on its own — nothing auto-chains. One ticket through the whole 
 ## The full pipeline (when you want it)
 
 ```
-/clarify ──▶ /ticket ──▶ /verify ──▶ /qa ──▶ /pr ──▶ /ci-check ──▶ /learn
+/clarify ──▶ /ticket ──▶ /verify ──▶ /qa ──▶ /pr-creation ──▶ /ci-check ──▶ /learn
  investigate   implement    AC-check     QA guide   PR gen    CI watch     extract
  + blueprint   in phases    w/ evidence  or live    + commit  + merge      patterns
                                                                               │
@@ -58,7 +58,7 @@ Each command runs **once per ticket**, discretely. State persists in `.claude/ti
 
 ## All commands (advanced)
 
-- **core (16, every role):** `/pr` `/ci-check` `/learn` `/qa` `/review-pr` `/review-comments` `/resume-ticket` `/status` `/project-debug` `/project-context` `/screenshot` `/demo-summary` `/memory-lint` `/bootstrap` `/update` `/upstream`
+- **core (16, every role):** `/pr-creation` `/ci-check` `/learn` `/qa` `/review-pr` `/review-comments` `/resume-ticket` `/status` `/project-debug` `/project-context` `/screenshot` `/demo-summary` `/memory-lint` `/bootstrap` `/update` `/upstream`
 - **dev (6):** `/clarify` `/ticket` `/build` `/refactor` `/verify` `/ui-fidelity`
 - **sdet (3):** `/cover` `/triage` (one red test, or a whole red run clustered by shared cause) `/log` (mint the ticket *from* the work)
 
@@ -100,13 +100,13 @@ A repo with history but empty pattern files: `.claude/scripts/mine-history.sh` (
 - **Base branch** — per repo in its profile; `guard-base-branch.sh` derives the protected list from the profiles.
 - **Single repo vs workspace** — default layout is a workspace with repos inside; for a single repo set `"env": {"WORKFLOW_LAYOUT": "single-repo"}` in `.claude/settings.json`.
 - **Tooling** — hooks and the settings merge need `jq`; `triage-cluster.py`, `verify-score.py`, `harvest-profile.py` need `python3`;
-  `mine-history.sh` is GitHub-only (`gh` + `jq`, degrades to an empty `candidates.json` elsewhere). `/pr` and `/ci-check` use `gh`; **no host detection**.
+  `mine-history.sh` is GitHub-only (`gh` + `jq`, degrades to an empty `candidates.json` elsewhere). `/pr-creation` and `/ci-check` use `gh`; **no host detection**.
 
 | Tracker ↓ / Host → | GitHub | GitLab / Bitbucket |
 |---|---|---|
-| Jira | **Full** — fetch, transitions, QA-bounce Closeout, `/pr`, `/ci-check`, reviews | **Partial** — Jira side full; `/pr` prints text only; no `/ci-check` / review commands |
-| GitHub Issues, Linear | **Paste-only** — enum values; no fetch or transition path | **Paste-only** + text-only `/pr` |
-| none | **Supported** — `/build` lane + full `gh` pipeline | **Supported** — `/build` + text-only `/pr`, no CI watch |
+| Jira | **Full** — fetch, transitions, QA-bounce Closeout, `/pr-creation`, `/ci-check`, reviews | **Partial** — Jira side full; `/pr-creation` prints text only; no `/ci-check` / review commands |
+| GitHub Issues, Linear | **Paste-only** — enum values; no fetch or transition path | **Paste-only** + text-only `/pr-creation` |
+| none | **Supported** — `/build` lane + full `gh` pipeline | **Supported** — `/build` + text-only `/pr-creation`, no CI watch |
 
 ## Contributing learnings back from a confidential project
 

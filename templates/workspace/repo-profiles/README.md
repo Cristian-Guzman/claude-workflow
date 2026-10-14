@@ -4,7 +4,7 @@ One YAML file per repo. Every command reads the profile for the current repo ins
 
 ## Why this exists
 
-Before profiles, `/pr` and `/verify` contained hardcoded tables like:
+Before profiles, `/pr-creation` and `/verify` contained hardcoded tables like:
 ```
 api-bff        → develop-v2
 web-app        → develop-v2

@@ -1,6 +1,6 @@
 ---
 name: cover
-version: 0.9.0
+version: 0.10.0
 model: "opus[1m]"
 description: Write automated coverage for one feature, URL, endpoint or API collection — explore (bounded), propose scenarios, pick, write, BREAK-TO-VALIDATE every test, run, grade. The SDET fold of /clarify + /ticket + /verify; a test that cannot fail is rejected, never committed. With no argument, lists uncovered routes as picks.
 argument-hint: "[<feature> | <URL or /route> | \"GET /path\" | <collection.json>] [--tier smoke|feature|cross] [--mode ui|api|component] [--mcp] [--static] [--env <name>]"
@@ -22,7 +22,7 @@ test was broken on purpose and failed for the mutated reason, then the revert wa
 stays green under every applicable mutation is rejected and not committed. Verifying tests with tests
 is circular; break-to-validate is the receipt that is not.
 
-Stops after the gate table. The next step is `/pr` (or `/log` to mint a tracker record). Nothing chains.
+Stops after the gate table. The next step is `/pr-creation` (or `/log` to mint a tracker record). Nothing chains.
 With no argument, `/cover` prints the unscored list of app routes no spec visits and offers them as picks.
 </objective>
 
@@ -87,7 +87,7 @@ ticket: null                 # set later by /log, never by this command
 repo: web-app
 branch: test/items-create
 base_branch: main            # from the profile
-status: planning             # planning → in-progress → ready-for-pr (then /pr, /ci-check, /learn)
+status: planning             # planning → in-progress → ready-for-pr (then /pr-creation, /ci-check, /learn)
 tier: feature                # smoke | feature | cross
 mode: ui                     # ui | api | component
 exploration: pending         # live-pw | mcp | static — set in §1
@@ -340,7 +340,7 @@ as the receipt; re-run the scorer. Score < 70 → `status` stays `in-progress`; 
 
 **6.6 Event + evidence.** Append exactly:
 `- [HH:MM] /cover gate score=NN sha=<short-sha> passed=A failed=B known-failures-with-bug=C skipped=D`
-(`/pr` §5.5a reads this line as the verification evidence for `kind: cover`). List under `## Evidence`:
+(`/pr-creation` §5.5a reads this line as the verification evidence for `kind: cover`). List under `## Evidence`:
 explore screenshots, `run.json`, trace zips, the b2v originals dir.
 
 ## 7. Knowledge rows (log only — lessons are `/learn`'s job)
@@ -355,7 +355,7 @@ Never write a `## … lessons` entry here; patterns need a second occurrence and
 ## 8. Stop
 
 Print the summary (format below), including the FOUR numbers and any rejected tests. Do not commit,
-do not open a PR, do not run `/log` — the user paces those (`/pr` next; `/log` if a tracker record
+do not open a PR, do not run `/log` — the user paces those (`/pr-creation` next; `/log` if a tracker record
 is wanted).
 
 </process>
@@ -376,7 +376,7 @@ Score: NN% ({p}/{n} gates) — {band}            ← from verify-score.py, never
 
 Files: {list}
 Manual remainder: {rows or none}
-Next: /pr (or /log to mint a tracker record). Nothing has been committed.
+Next: /pr-creation (or /log to mint a tracker record). Nothing has been committed.
 ```
 </output_format>
 

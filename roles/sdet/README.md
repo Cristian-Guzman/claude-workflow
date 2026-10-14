@@ -8,25 +8,25 @@ tracker record is optional output.
 ## Pipeline
 
 ```
-WRITE   /cover <feature | /route | "GET /path" | collection.json>  ──▶  /pr  ──▶  /ci-check  ──▶  /learn
+WRITE   /cover <feature | /route | "GET /path" | collection.json>  ──▶  /pr-creation  ──▶  /ci-check  ──▶  /learn
           explore (bounded) → propose → pick → write → BREAK-TO-VALIDATE → run → gate table
                 └──▶ /log            (optional: mint the Story/Task FROM the state file)
 
-RED RUN /triage --batch [report.json | --run]   or   /triage <spec>[:line]  ──▶  fix cluster-first  ──▶  /pr
+RED RUN /triage --batch [report.json | --run]   or   /triage <spec>[:line]  ──▶  fix cluster-first  ──▶  /pr-creation
                 └──▶ real-app-bug → plain-language bug draft ──▶ /log --bug triage--<run>:C<k>
 
 NO ARG  /cover            → unscored list of app routes no spec visits, offered as picks
 ```
 
-Every step runs discretely — nothing chains. `/pr`, `/ci-check` and `/learn` are the shared core
+Every step runs discretely — nothing chains. `/pr-creation`, `/ci-check` and `/learn` are the shared core
 commands; they resolve the branch's state file by `branch:` for any `kind:`.
 
 | Case | Steps | Count |
 |---|---|---|
-| Tests for one feature, no tracker record | `/cover` → `/pr` | **2** |
-| … with a tracker record | `/cover` → `/log` → `/pr` | 3 |
-| A red run | `/triage --batch` → `/pr` | **2** (+ `/log --bug` per real bug) |
-| One failing test | `/triage <spec>` → `/pr` | 2 |
+| Tests for one feature, no tracker record | `/cover` → `/pr-creation` | **2** |
+| … with a tracker record | `/cover` → `/log` → `/pr-creation` | 3 |
+| A red run | `/triage --batch` → `/pr-creation` | **2** (+ `/log --bug` per real bug) |
+| One failing test | `/triage <spec>` → `/pr-creation` | 2 |
 
 ## Commands
 

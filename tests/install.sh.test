@@ -72,8 +72,8 @@ assert "learn-targets/dev.yaml installed" cmp -s "$REPO/roles/dev/learn-targets.
 assert "no prior capture on a fresh install" test ! -e "$W/.claude/.upstream-prior"
 assert "no archive on a fresh install" test ! -e "$W/.claude/_archived-commands"
 assert_grep "Done line prints roles" "Done. roles: dev |" "$S/out.log"
-assert_grep "checklist names dev start-here" "/ticket (or /build without a tracker) -> /pr -> /learn" "$S/out.log"
-assert_grep "checklist names sdet start-here" "/cover -> /pr -> /learn" "$S/out.log"
+assert_grep "checklist names dev start-here" "/ticket (or /build without a tracker) -> /pr-creation -> /learn" "$S/out.log"
+assert_grep "checklist names sdet start-here" "/cover -> /pr-creation -> /learn" "$S/out.log"
 assert_grep "checklist names cold start" "mine-history.sh" "$S/out.log"
 assert_grep "checklist names --role" "\-\-role" "$S/out.log"
 assert_grep "gitignore has manifest-free local state" "^.claude/.upstream-prior/$" "$W/.gitignore"
@@ -198,13 +198,13 @@ if [ -n "$V6" ] && git -C "$REPO" rev-parse --verify -q "$V6^" >/dev/null; then
   assert "0.6.0 install has no manifest" test ! -e "$W/.claude/workflow-manifest.json"
   assert "0.6.0 install has no baseline" test ! -e "$W/.claude/.upstream-base"
   echo "## Local pattern" >>"$W/.claude/codebase-patterns.md"
-  echo "<!-- local edit -->" >>"$W/.claude/commands/pr.md"
+  echo "<!-- local edit -->" >>"$W/.claude/commands/verify.md"
   seed_sha "$W" >"$S/before"
   run "$W"
   assert_eq "exit" "$(rc)" 0
   assert_grep "roles inferred" "roles    dev (inferred from installed commands)" "$S/out.log"
   assert_eq "manifest written as dev" "$(manifest_roles "$W")" "dev"
-  assert_eq "commands = core + dev (+ the orphan 0.6.0 left)" "$(installed_cmds "$W" | grep -vx test-plan.md)" "$(expected_cmds dev)"
+  assert_eq "commands = core + dev (+ the orphans 0.6.0 left: retired test-plan.md, renamed pr.md)" "$(installed_cmds "$W" | grep -vxE 'test-plan.md|pr.md')" "$(expected_cmds dev)"
   assert "orphan kept: no baseline proves test-plan.md was upstream's" test -f "$W/.claude/commands/test-plan.md"
   assert "nothing archived" test ! -e "$W/.claude/_archived-commands"
   assert "baseline created" test -d "$W/.claude/.upstream-base/commands"
@@ -212,12 +212,12 @@ if [ -n "$V6" ] && git -C "$REPO" rev-parse --verify -q "$V6^" >/dev/null; then
   assert "0.6.0 had no upstream.json; now seeded" test -f "$W/.claude/upstream.json"
   P="$W/.claude/.upstream-prior/$TODAY"
   assert "prior capture dir" test -d "$P"
-  assert "prior capture has the edited pr.md" grep -q "local edit" "$P/commands/pr.md"
+  assert "prior capture has the edited verify.md" grep -q "local edit" "$P/commands/verify.md"
   assert "prior capture has MANIFEST.md" test -f "$P/MANIFEST.md"
   assert "prior capture SHA256SUMS verifies" sh -c "cd '$P' && shasum -a 256 -c SHA256SUMS >/dev/null"
   assert "prior capture has docs" test -f "$P/docs/workflow-version.md"
   assert_grep "diff hint printed" "diff -r .claude/.upstream-prior/$TODAY/commands .claude/commands" "$S/out.log"
-  assert "refreshed pr.md lost the local edit (the capture is where it lives now)" sh -c "! grep -q 'local edit' '$W/.claude/commands/pr.md'"
+  assert "refreshed verify.md lost the local edit (the capture is where it lives now)" sh -c "! grep -q 'local edit' '$W/.claude/commands/verify.md'"
   mv "$W/.claude/commands/test-plan.md" "$S/"
   run "$W"
   assert_eq "still dev after manual removal" "$(manifest_roles "$W")" "dev"
@@ -225,32 +225,44 @@ if [ -n "$V6" ] && git -C "$REPO" rev-parse --verify -q "$V6^" >/dev/null; then
 else
   bad "could not locate the 0.6.0 commit"
 fi
-# 0.7.0 = main (baseline that still lists test-plan.md -> retired upstream, archived)
+# 0.7.0 = the newest commit on main whose version doc says 0.7.0 (baseline that still lists test-plan.md -> retired upstream, archived)
+# prefer the release tag; else the newest commit that is 0.7.0-shaped (doc says 0.7.0, no roles/, test-plan.md still in core)
+V7="$(git -C "$REPO" rev-parse -q --verify 'v0.7.0^{commit}' 2>/dev/null || true)"
+if [ -z "$V7" ]; then
+  for c in $(git -C "$REPO" log --format=%H main); do
+    [ "$(git -C "$REPO" show "${c}:core/docs/workflow-version.md" 2>/dev/null | sed -n 's/^version: *//p')" = "0.7.0" ] || continue
+    git -C "$REPO" cat-file -e "${c}:roles" 2>/dev/null && continue
+    git -C "$REPO" cat-file -e "${c}:core/commands/test-plan.md" 2>/dev/null || continue
+    V7="$c"; break
+  done
+fi
 LEG7="$S/legacy-070"; mkdir -p "$LEG7"
-if git -C "$REPO" archive main 2>/dev/null | tar -x -C "$LEG7" && grep -q write_upstream_baseline "$LEG7/install.sh"; then
+if [ -n "$V7" ] && git -C "$REPO" archive "$V7" 2>/dev/null | tar -x -C "$LEG7" && grep -q write_upstream_baseline "$LEG7/install.sh"; then
   W="$(fresh c7b)"
   bash "$LEG7/install.sh" "$W" >/dev/null 2>&1
   assert "0.7.0 wrote a baseline" test -f "$W/.claude/.upstream-base/commands/test-plan.md"
   echo "<!-- local edit -->" >>"$W/.claude/commands/upstream.md"
-  echo "<!-- local edit review -->" >>"$W/.claude/commands/pr.md"
+  echo "<!-- local edit review -->" >>"$W/.claude/commands/verify.md"
   run "$W"
   assert_eq "exit" "$(rc)" 0
   assert_grep "roles inferred" "roles    dev (inferred from installed commands)" "$S/out.log"
   P="$W/.claude/.upstream-prior/$TODAY"
   assert "drifted core captured before the refresh" test -d "$P"
-  assert "edited pr.md recoverable under installed/" grep -q "local edit review" "$P/installed/commands/pr.md"
+  assert "edited verify.md recoverable under installed/" grep -q "local edit review" "$P/installed/commands/verify.md"
   assert "edited upstream.md recoverable under installed/" grep -q "local edit" "$P/installed/commands/upstream.md"
-  assert "old baseline copy of pr.md kept" cmp -s "$LEG7/core/commands/pr.md" "$P/baseline/commands/pr.md"
+  assert "old baseline copy of verify.md kept" cmp -s "$LEG7/core/commands/verify.md" "$P/baseline/commands/verify.md"
   assert "old baseline kept whole (test-plan.md too)" test -f "$P/baseline/commands/test-plan.md"
   assert "unedited files not duplicated under installed/" test ! -e "$P/installed/commands/clarify.md"
-  assert_grep "MANIFEST names pr.md" 'commands/pr.md' "$P/MANIFEST.md"
+  assert_grep "MANIFEST names verify.md" 'commands/verify.md' "$P/MANIFEST.md"
   assert_grep "MANIFEST names upstream.md" 'commands/upstream.md' "$P/MANIFEST.md"
   assert_grep "MANIFEST records versions old -> new" "Versions: 0.7.0 -> $(sed -n 's/^version: *//p' "$REPO/core/docs/workflow-version.md" | head -1)" "$P/MANIFEST.md"
   assert "capture SHA256SUMS verifies" sh -c "cd '$P' && shasum -a 256 -c SHA256SUMS >/dev/null"
-  assert_grep "notice names the drifted file" "commands/pr.md (modified)" "$S/out.log"
+  assert_grep "notice names the drifted file" "commands/verify.md (modified)" "$S/out.log"
   assert_grep "notice counts both drifted files" "2 core file(s) differ from the 0.7.0 baseline" "$S/out.log"
-  assert "live pr.md is the fresh copy" cmp -s "$REPO/core/commands/pr.md" "$W/.claude/commands/pr.md"
-  assert "live pr.md lost the edit (it lives in the capture now)" sh -c "! grep -q 'local edit review' '$W/.claude/commands/pr.md'"
+  assert "live verify.md is the fresh copy" cmp -s "$REPO/roles/dev/commands/verify.md" "$W/.claude/commands/verify.md"
+  assert "live verify.md lost the edit (it lives in the capture now)" sh -c "! grep -q 'local edit review' '$W/.claude/commands/verify.md'"
+  assert "renamed pr.md archived as retired (baseline proves it was upstream's)" test -f "$W/.claude/_archived-commands/pr.md"
+  assert "renamed pr.md gone from commands" test ! -e "$W/.claude/commands/pr.md"
   assert "retired test-plan.md archived" test -f "$W/.claude/_archived-commands/test-plan.md"
   assert "retired test-plan.md gone from commands" test ! -e "$W/.claude/commands/test-plan.md"
   assert_grep "retirement reported" "retired upstream" "$S/out.log"
@@ -263,7 +275,7 @@ if git -C "$REPO" archive main 2>/dev/null | tar -x -C "$LEG7" && grep -q write_
   assert_grep "kept + explained" "locally modified" "$S/out.log"
   assert "second drifted upgrade the same day gets a numeric suffix" test -d "$W/.claude/.upstream-prior/$TODAY.1"
   assert "suffixed capture holds the drifted test-plan.md" grep -q "^edited$" "$W/.claude/.upstream-prior/$TODAY.1/installed/commands/test-plan.md"
-  assert "first capture untouched by the second" grep -q "local edit review" "$P/installed/commands/pr.md"
+  assert "first capture untouched by the second" grep -q "local edit review" "$P/installed/commands/verify.md"
   # Same 0.7.0 install, no local edits: nothing can be lost, so nothing is captured.
   W="$(fresh c7c)"
   bash "$LEG7/install.sh" "$W" >/dev/null 2>&1

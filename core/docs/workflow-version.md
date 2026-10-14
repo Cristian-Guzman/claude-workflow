@@ -1,6 +1,6 @@
 ---
-version: 0.9.0
-last-updated: 2026-10-12
+version: 0.10.0
+last-updated: 2026-10-13
 maintainer: your-name@your-org.com
 ---
 
@@ -25,6 +25,12 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.10.0 — 2026-10-13
+**Theme:** `/pr` is now `/pr-creation`.
+
+- **Command renamed** `core/commands/pr.md` → `pr-creation.md` (`name: pr-creation`). Every reference updated in one pass: pipeline diagrams, both READMEs, role READMEs, `inventory.yaml`, the commands that hand off to it (`ticket`, `verify`, `build`, `refactor`, `cover`, `triage`, `log`, `ci-check`, `resume-ticket`, `status`, `learn`, `project-debug`), agents (`commit-drafter`, `pr-branch-reviewer` description), templates (`pr-template.md`, `ticket-checklist.md`, `codebase-patterns.md`), docs and examples, `install.sh` next-steps, and the tests that assert on the name. `/review-pr` and the `pr-branch-reviewer` agent are unchanged.
+- Installed workspaces: `install.sh` refreshes `commands/pr-creation.md`; the old `commands/pr.md` is reported by `/bootstrap` as ORPHAN (archive by hand). `/update` lists this entry.
 
 ### 0.9.0 — 2026-10-12
 **Theme:** the bootstrap split — one installer, one adapter, one release tool, one updater.
@@ -56,7 +62,7 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 **Core patches for ticket-less, branch-keyed state:**
 - `state-file-schema.md` — `## Kinds (closed enum)` table + machine-readable `<!-- kind-enum -->` / `<!-- kind-dirs -->` lines; sidecar contract `tickets/<kind>--<slug>.md` (`kind, slug, ticket: null|KEY, branch, status`); status `env-blocked`; legacy `-test-plan` sidecar rule (kind `test-plan`, status `blueprint`, archived).
 - `state-index-upsert.sh` — generic `kind:` passthrough (enum wins over directory), `-test-plan` suffix rule, slug-keyed id `<repo>:<kind>:<slug>` immutable across `/log` re-keying, `null`/`~` ticket → null, a missing status now logs `missing status` to `schema-drift.log` (it used to pass silently as `unknown`), a declared kind outside the enum logs `non-schema kind`. `tests/b2-upsert.test.sh` (25 checks).
-- `/pr` — resolves the branch's state file via `state/index.json` for any kind; `test/<slug>` and `fix/triage-<run-id>` branch rows; §5.5a accepts `/cover gate score=NN …` / `/triage run=…` events as verification evidence; §8 writes `pr_number` into whichever file matched; §8.5 no-ops on `ticket: null`.
+- `/pr-creation` — resolves the branch's state file via `state/index.json` for any kind; `test/<slug>` and `fix/triage-<run-id>` branch rows; §5.5a accepts `/cover gate score=NN …` / `/triage run=…` events as verification evidence; §8 writes `pr_number` into whichever file matched; §8.5 no-ops on `ticket: null`.
 - `/ci-check` — ticket-from-branch optional; §5.1 sets `delivered` by branch for any kind; §5.1b post-deploy re-check lists the specs under a cover file's `## Files Modified`; §3b routes a red e2e job to `/triage <spec>`; Jira snapshot skipped on `ticket: null`.
 - `/learn` — §0 kinds from `.claude/learn-targets/*.yaml` (workspace + repo files merged; fallback = the old grep); §2.7 is ONE parameterised routine (log → cluster by key → lesson at `promote_at`) with the `ui` and `process` targets built in (§2.7b kept as the process sub-heading so citations resolve); **`--mine`** feeds `.claude/state/mine/<date>/candidates.json` into the unchanged §3/§4/§5 path (`_Source: mined:PR#n,#m_`, one `seeded-by` marker per file, mined beats seed-pack on title match); §2.5 criterion 6 retires uncited `mined:` / `seed-pack:` entries after 90 days or 10 learned tickets; §5 marks non-ticket kinds `learned`.
 - `/resume-ticket` — cover resumes at the first scenario without a break-to-validate receipt, triage at the first unresolved cluster. `/status` — fallback kind dirs read from the schema's `kind-dirs` line.
@@ -69,7 +75,7 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 - `core/scripts/render-walkthrough.py` — state file → sanitized step table + Process Summary (derived vs recorded) + Closeout; imports the `upstream.py` rule builder and runs its check fail-closed (exit 1, no output on a hit). `docs/examples/{codebase-patterns.after-20-tickets, process-ledger.example, walkthrough-standard-ticket, walkthrough-standard-ticket.state}.md` — the README's "self-improving" claim now points at these instead of asserting the outcome. `tests/b5-render-walkthrough.test.py` (5 tests).
 
 **Hub reconciliation (this entry's own bookkeeping):**
-- README restructured (orientation paragraph, honest tracker × host compatibility table, `## Install` with roles, `## Start here` per role — dev `/ticket`|`/build` → `/pr` → `/learn`, sdet `/cover` → `/pr` → `/learn`, per-role install table, cold-start section); over-claims fixed (`/project-context` does not generate profiles — they are hand-copied from `_schema.yaml`; `/pr` does not detect the git host; `github`/`linear` are enum-only). `core/commands/README.md` gains a Role column, the SDET MVP section, the MCP → CLI → paste Jira chain, and drops the owner-deployment history. `core/agents/README.md` lists all 7 agents with callers (dead "Planned agents" table gone). `bootstrap.md`: `Tier` → `Priority` + `Role` column, `role ∈ selected roles AND gate` on §4 / §8.5 / `--check` (ORPHAN rule), `roles[]` in §3i and §8.6 from `workflow-manifest.json`, §3a.1 reads the seed packs, §12 `--flavor` order, `test-plan` row removed, `<command-specs>` marked as a stale fork. `docs/verify-confidence-score.md` status corrected (applied in 0.6.0, `[CAP85]`). `_schema.yaml` documents the optional `e2e.local_base_url` / `feature_map` / `shared_paths` / `smoke_specs` keys.
+- README restructured (orientation paragraph, honest tracker × host compatibility table, `## Install` with roles, `## Start here` per role — dev `/ticket`|`/build` → `/pr-creation` → `/learn`, sdet `/cover` → `/pr-creation` → `/learn`, per-role install table, cold-start section); over-claims fixed (`/project-context` does not generate profiles — they are hand-copied from `_schema.yaml`; `/pr-creation` does not detect the git host; `github`/`linear` are enum-only). `core/commands/README.md` gains a Role column, the SDET MVP section, the MCP → CLI → paste Jira chain, and drops the owner-deployment history. `core/agents/README.md` lists all 7 agents with callers (dead "Planned agents" table gone). `bootstrap.md`: `Tier` → `Priority` + `Role` column, `role ∈ selected roles AND gate` on §4 / §8.5 / `--check` (ORPHAN rule), `roles[]` in §3i and §8.6 from `workflow-manifest.json`, §3a.1 reads the seed packs, §12 `--flavor` order, `test-plan` row removed, `<command-specs>` marked as a stale fork. `docs/verify-confidence-score.md` status corrected (applied in 0.6.0, `[CAP85]`). `_schema.yaml` documents the optional `e2e.local_base_url` / `feature_map` / `shared_paths` / `smoke_specs` keys.
 - **Product-noun sweep:** every product-domain example in `core/**` and `roles/**` (feature name and its `-v2` variants, swagger filename, lambda group, service class, domain enums, wiki page title, the third-party attribution in `codebase-patterns-shared.md`) replaced by neutral equivalents (`orders-v2`, `GET /items`, `orders-api.json`, `ms-orders`, `OrdersService`, `ORDERS_V2 | INVENTORY | BILLING`, "the domain wiki page"); mechanisms unchanged. Only this changelog keeps the old words, as history.
 - **Moved to `docs/roadmap.md`** (deferred, with promotion evidence): `/gaps` scoring, `/stabilize`, `sdet-seed.sh`, guard sentinel + assertion-count check, quarantine expiry + `/status` bucket, `cluster-investigator`, SDET `pr-branch-reviewer` override, four-number Playwright reporter, eval harness, plugin packaging, bootstrap deep cut / `<command-specs>` reconcile, optional history rewrite.
 - Inventory: 15 core + 6 dev + 3 sdet commands (see below). Frontmatter propagated: every command file under `core/commands/` and `roles/*/commands/` carries `version: 0.8.0`. The stale 0.3.1 command inventory, the 2026-06-11 hash ledger and the v0.1.0 agent ledger that this file shipped to every install are replaced by the current inventory below.
@@ -89,7 +95,7 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 
 **Generic kernel (design principle: config-driven topology + clean low-context degradation):**
 - **`guard-base-branch.sh` rearchitected** — `WORKSPACE_ROOT` resolves via `$CLAUDE_PROJECT_DIR` (no silent `$HOME/workspace` fallback that disabled the guard); protected base branches derived from repo-profiles at runtime (nothing hardcoded); `WORKFLOW_LAYOUT=single-repo` first-class mode (root = product repo: commits allowed, base-branch protection kept); honors leading `cd <path> &&` when judging git commands (live false-positive fixed). Functionally tested: 9 guard cases + full virgin-project install.
-- **`repo-profiles/_schema.yaml` is the single home for tracker config** — `tracker_system` (jira|github|linear|none) + numeric `jira_transition_*` ids + `default_feature_area` + `ui_surface`/`visual_qa_notes`. README, `pr.md`, `bootstrap.md` §4.5 all point here now (previously three contradicting homes).
+- **`repo-profiles/_schema.yaml` is the single home for tracker config** — `tracker_system` (jira|github|linear|none) + numeric `jira_transition_*` ids + `default_feature_area` + `ui_surface`/`visual_qa_notes`. README, `pr-creation.md`, `bootstrap.md` §4.5 all point here now (previously three contradicting homes).
 - **Zero hardcoded repo topology** — `tag-tickets.sh` maps repo→layer from the profile `type:` field; `audit_metrics.py` drops its repo-name fallback; ui-fidelity agent resolves surfaces profile-first → auto-detect → ask (hardcoded registry demoted to example).
 - **`install.sh` completes the low-context contract** — seeds a minimal `CLAUDE.md` skeleton (new `templates/repo/CLAUDE.template.md`), creates ALL runtime dirs the hooks/gitignore reference, initializes `state/index.json`, checklist covers single-repo env + no-tracker lane. Verified on a virgin single-repo project (no Jira, no CLAUDE.md): installs clean, guard works, re-run preserves user-owned files.
 - **`bootstrap.md` canonical inventory reconciled with the shipped set** — archived `/do` `/queue` `/retro` `/docs` `/e2e` rows removed (with an explicit drift rule), `/test-plan` added, all 7 agents listed with gates, "two installers" section defines install.sh (copies) vs /bootstrap (adapts) with single-file mode as explicit fallback.
@@ -112,7 +118,7 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 ### 0.5.1 — 2026-07-03
 **Theme:** /learn reoriented from pattern-appender to process distiller. User diagnosis: capture died when chats closed without /learn, and the output had drifted into "adding code patterns without much sense" instead of "how we do things in this project."
 
-- **Capture moved to where work happens:** `/pr` §8 now writes a mechanical `## Process Summary` block (sessions, phases, fix_iterations, debug links, commits, days-to-PR — all derived from the Event Log + git, `unrecorded` when underivable, never estimated) into the state file at PR time. Closing a chat without /learn no longer loses telemetry.
+- **Capture moved to where work happens:** `/pr-creation` §8 now writes a mechanical `## Process Summary` block (sessions, phases, fix_iterations, debug links, commits, days-to-PR — all derived from the Event Log + git, `unrecorded` when underivable, never estimated) into the state file at PR time. Closing a chat without /learn no longer loses telemetry.
 - **`/verify` §8.5** — non-UI note added: the rounds survey stays UI-only (design rightness isn't machine-readable); non-UI iteration cost comes from the Process Summary mechanically.
 - **`/learn` §2.7 Target Synthesis — process target (§2.7b) (new, PRIMARY output)** — generalizes §2.7 beyond UI: per-repo `process-ledger.md` with `AUTO:PROCESS-LOG` + clustered `AUTO:PROCESS-LESSONS` ("next time do X first" rules, ≥2-ticket recurrence bar, provenance, per-class KPI = mean fix_iterations/sessions trailing-3 vs prior-3).
 - **`/learn` §3 recurrence gate** — pattern entries now require a SECOND occurrence (mirror of §5.6 DROP); first occurrences stay in the ticket state file. Exceptions: mechanically-checkable lessons (→ COMPILE-TO-CHECK) or explicit user ask. Directly attacks the 5,839-line accretion problem.
@@ -125,7 +131,7 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 - `/do`, `/retro`, `/queue`, `/docs`, `/e2e` archived to `.claude/_archived-commands/` — zero usage evidence (state-index kind counts, no artifacts, owner memory disowns /do and /retro). New `capability-manifest.md` records each decision + reversal path. README.md + routing.md references cleaned; `audit_metrics.py` do_routing metric goes null harmlessly (guarded at line 376/460).
 - `/demo-summary` was archived then un-archived the same day on user correction — created ~1 week earlier and actively wanted; "no artifacts" meant NEW, not dead. Manifest lesson: age-gate usage evidence.
 - `/e2e` folded into `ticket.md` §5.1a (E2E coverage during the final Verify phase, headed-local validation rules inline) per the user's core-pipeline vision.
-- **Core-pipeline principle (user-stated, canonical in commands/README.md):** `/clarify → /ticket → /verify → /qa → /pr → /learn` are the per-ticket commands, each run ONCE per ticket; bugs route to `/project-debug` or the `/ticket` §5.1b gate. Future capabilities fold into these six — no new commands.
+- **Core-pipeline principle (user-stated, canonical in commands/README.md):** `/clarify → /ticket → /verify → /qa → /pr-creation → /learn` are the per-ticket commands, each run ONCE per ticket; bugs route to `/project-debug` or the `/ticket` §5.1b gate. Future capabilities fold into these six — no new commands.
 - Command surface: 26 → 21 files (20 commands + README).
 
 **Mechanical enforcement (prose rules → PreToolUse hooks):**
@@ -178,10 +184,10 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 **Routing (the headline):**
 - New canonical flowchart `routing.md` — single source of truth mapping ticket signal → tier → exactly what loads. `/do`, `/clarify`, `/ticket` all resolve the SAME tier from the SAME signals (no drift).
 - `/clarify` now **classifies at Step 1.2, before loading anything**, and **short-circuits Trivial** (Dependabot/config/copy) to a one-paragraph blueprint — no patterns, no investigator, no prior-art, no Confluence. Heavy loads deferred until after classification. Lands the "don't overstimulate the agent on trivial work" principle ([[feedback_right_size_context_by_tier]]).
-- `/do` routes Trivial straight to implement → CI → /pr (no `/clarify` detour); `/ticket` points its tier matrix at `routing.md`.
+- `/do` routes Trivial straight to implement → CI → /pr-creation (no `/clarify` detour); `/ticket` points its tier matrix at `routing.md`.
 
 **Correctness:**
-- Lifecycle reconciled everywhere (`planning → in-progress → ready-for-pr → pr-generated → delivered → learned`); the `delivered`-set-by-`/pr` phantom removed from ticket/pr/README/do/learn/state-file-schema. State-file `rm` deletions removed (never-delete rule). `state-file-schema.md` now documents the statuses actually used.
+- Lifecycle reconciled everywhere (`planning → in-progress → ready-for-pr → pr-generated → delivered → learned`); the `delivered`-set-by-`/pr-creation` phantom removed from ticket/pr/README/do/learn/state-file-schema. State-file `rm` deletions removed (never-delete rule). `state-file-schema.md` now documents the statuses actually used.
 - `contract-verifier` jq rewritten from OpenAPI-3.0 to Swagger-2.0 definition-centric extraction (was silently returning null on every spec); handles both spec shapes + schema-less detection.
 - `verifier` + `pr-branch-reviewer` given scoped `tools:` frontmatter (were inheriting Write/Edit). `commit-drafter` `chore(deps)`/`[[brackets]]` fixed. `queue` model → `claude-opus-4-8` (no Sonnet). Hardcoded `main` → base-branch resolution in `qa` + `pr-branch-reviewer`. `do.md` emojis stripped. Dead `/related` refs removed (4 files). `verify` `Agent(`→`Task(`. `ticket` duplicate Classification block removed.
 
@@ -208,11 +214,11 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 **Theme:** close the proposal feedback loop + first outcome metric. Triggered by a 20-agent audit that found `/learn → command-proposals.md` was leaking effort (25% landing rate, 83% dead at 21d) and metrics measured activity not outcomes.
 
 **Enhancements:**
-- `/pr` Step 1.5 — added profile-vs-reality sanity check (greps last 5 merged PRs' `baseRefName`, warns when modal recent base differs from the repo profile's `base_branch`). Lands the 2026-04-18 dead proposal.
-- `/pr` Step 6 — split into 6a (discover workflow keywords from `.github/workflows/*.yml`) + 6b (run baseline CI + any uncovered workflow step like `format:check`, `prettier`, `lint`, `typecheck`). Lands the 2026-04-16 GDocs Add-In format:check miss.
-- `/pr` Step 8.5 — added assignee email gate before Jira transition; fetches `fields.assignee.emailAddress` via `getJiraIssue` and skips the <CODE_REVIEW_TRANSITION_ID> transition (look up per-project via jira CLI or MCP getTransitionsForJiraIssue) with a logged reason when the assignee isn't the user. Lands the 2026-04-21 [[PROJ-6022]] cross-assignee proposal.
+- `/pr-creation` Step 1.5 — added profile-vs-reality sanity check (greps last 5 merged PRs' `baseRefName`, warns when modal recent base differs from the repo profile's `base_branch`). Lands the 2026-04-18 dead proposal.
+- `/pr-creation` Step 6 — split into 6a (discover workflow keywords from `.github/workflows/*.yml`) + 6b (run baseline CI + any uncovered workflow step like `format:check`, `prettier`, `lint`, `typecheck`). Lands the 2026-04-16 GDocs Add-In format:check miss.
+- `/pr-creation` Step 8.5 — added assignee email gate before Jira transition; fetches `fields.assignee.emailAddress` via `getJiraIssue` and skips the <CODE_REVIEW_TRANSITION_ID> transition (look up per-project via jira CLI or MCP getTransitionsForJiraIssue) with a logged reason when the assignee isn't the user. Lands the 2026-04-21 [[PROJ-6022]] cross-assignee proposal.
 - `/learn` Section 5.6 — proposals now carry an explicit `**Status:** OPEN|ADDRESSED YYYY-MM-DD — <command-file>§<section>|STALE YYYY-MM-DD — <reason>` lifecycle marker. Added a **dedupe-before-append** scan (existing OPEN entry with same command+signal → bump `**Last seen:**` instead of appending duplicate) and a **reconciliation pass** every 5th /learn run (or when proposals exceed 50). Goal: stop the proposals file from accreting unread.
-- `command-proposals.md` — three 04-16/04-18/04-21 `/pr` proposals marked `**Status:** ADDRESSED 2026-05-12` with file+section pointers.
+- `command-proposals.md` — three 04-16/04-18/04-21 `/pr-creation` proposals marked `**Status:** ADDRESSED 2026-05-12` with file+section pointers.
 - `scripts/audit_metrics.py` — new `ticket_cycle_time()` function: joins `state/index.json` ticket entries (kind=ticket, branch != placeholder) with `gh pr list --state merged --limit 200 --json mergedAt,headRefName` per repo, computes mean/median hours-to-merge over 30d. Wired into snapshot dict, headline, and diff output. First reading 2026-05-12: addin-fe median 316h (~13d), gdocs-addin 13.7h, mail-service 16.4h, overall n=20 mean 145.5h. **This is the dial that answers "are we improving?"**
 
 **Agents:**
@@ -247,9 +253,9 @@ with local edits kept. There is no hash ledger: per-install drift is `scripts/up
 - `/test` — superseded by `/build` (no-ticket implementation) and `/verify`'s tests-for-every-source enforcement
 
 **Enhancements (from this release):**
-- `/bootstrap` — full rewrite. Portable across workspaces (no hardcoded user paths; everything derives from `WORKSPACE_ROOT` resolved at runtime). Single canonical inventory table is the source of truth for both fresh-install and upgrade flows. Version-aware upgrade walks `ACTUAL → TARGET` step-by-step. Stack-flavor detection (`frontend-web | backend-api | fullstack-monorepo | cli-tool | library`) drives flavored seed rules, DoD additions, and `/verify` simplify-checklist. Inlined schemas (`state-file-schema.md`, `_schema.yaml`, both index scripts) so bootstrap actually creates them. PostToolUse hook uses `$CLAUDE_PROJECT_DIR`. Tier-gated install (core / recommended / multi-repo / optional). Deeper specs (50–80 lines each) for `/verify`, `/ticket`, `/pr`, `/clarify`, `/learn`, `/review-pr` so generated commands are capable, not stub-shaped.
+- `/bootstrap` — full rewrite. Portable across workspaces (no hardcoded user paths; everything derives from `WORKSPACE_ROOT` resolved at runtime). Single canonical inventory table is the source of truth for both fresh-install and upgrade flows. Version-aware upgrade walks `ACTUAL → TARGET` step-by-step. Stack-flavor detection (`frontend-web | backend-api | fullstack-monorepo | cli-tool | library`) drives flavored seed rules, DoD additions, and `/verify` simplify-checklist. Inlined schemas (`state-file-schema.md`, `_schema.yaml`, both index scripts) so bootstrap actually creates them. PostToolUse hook uses `$CLAUDE_PROJECT_DIR`. Tier-gated install (core / recommended / multi-repo / optional). Deeper specs (50–80 lines each) for `/verify`, `/ticket`, `/pr-creation`, `/clarify`, `/learn`, `/review-pr` so generated commands are capable, not stub-shaped.
 - `/learn` — `--session` mode formalized in spec (4-prompt pattern + source tagging `_Source: session YYYY-MM-DD_` vs `_Source: ticket:<ID>_`). Always-on conversation-signal scan appends recurring gaps to `command-proposals.md`. **New Section 2.5 "Identify Patterns to Retire"** — five retirement criteria (stale source ticket >90d, superseded by specific entry, code reality changed, contradicted, pure process commentary). Section 4 now requires presenting an add/retire ratio per run; Section 5 applies retirements alongside additions. Goal: keep `codebase-patterns.md` from growing monotonically.
-- `/ticket` — state lifecycle reconciled with `/pr` and `/ci-check`. Ticket finishes phase 8 at `ready-for-pr` (not `delivered` — that transition belongs to `/ci-check`). Removed the file-deletion stanza that contradicted `feedback_never_delete_state_files`. Lifecycle is now: `planning → in-progress → ready-for-pr → pr-generated (/pr) → delivered (/ci-check) → learned (/learn)`. Files never deleted.
+- `/ticket` — state lifecycle reconciled with `/pr-creation` and `/ci-check`. Ticket finishes phase 8 at `ready-for-pr` (not `delivered` — that transition belongs to `/ci-check`). Removed the file-deletion stanza that contradicted `feedback_never_delete_state_files`. Lifecycle is now: `planning → in-progress → ready-for-pr → pr-generated (/pr-creation) → delivered (/ci-check) → learned (/learn)`. Files never deleted.
 - `/do` — routing table expanded from 7 → 20 intents. Every command in the inventory now has an explicit trigger phrase; `/do` is no longer a dead end for half the surface. Added coverage contract enforced by `audit_metrics.py`.
 - `mark-ci-passed.sh` (addin-fe pre-push hook) — now honors `tool_response.exit_code`, `is_error`, `interrupted`, plus stdout/stderr failure-phrase scan. Previously created the CI-passed marker on every `yarn ci` invocation regardless of outcome, silently allowing pushes after a failed local CI run.
 - `/review-pr` — full multi-strategy spec (worktree / diff-only / fetch-ref selected by PR shape). Bimodal confidence (Author × Reviewer, headline = min, gaming guards). Trump/discuss/approve decision tree with gut-check override. Two-output rendering (≤80-line report + ≤15-line PR comment). Review-log feedback loop into `/learn`.
@@ -265,7 +271,7 @@ Security + pipeline integrity:
 - Removed `skipDangerousModePermissionPrompt: true` from global settings
 - Re-narrowed `Read(//<home>/**)` to specific subdirs
 - `/ci-check` — added base-branch resolution via repo profile + wrong-base merge block
-- Split ticket lifecycle: `/pr` sets `status: pr-generated`, `/ci-check` transitions to `delivered` (no more event-log overwrite)
+- Split ticket lifecycle: `/pr-creation` sets `status: pr-generated`, `/ci-check` transitions to `delivered` (no more event-log overwrite)
 - New `.claude/state-file-schema.md` — contract for all commands touching ticket state
 
 State registry (v2):
@@ -287,7 +293,7 @@ Architecture consolidation:
 - `/bootstrap` — forbids creating `.claude/commands/` in sub-repos, surfaces existing ones as drift bugs
 
 Subagents (3 now):
-- New `commit-drafter` agent; `/pr` Step 3 prefers it with inline fallback
+- New `commit-drafter` agent; `/pr-creation` Step 3 prefers it with inline fallback
 - `codebase-investigator` classifies components by atomic level
 - `jira-context-loader` parallelizes ticket graph fetch
 
@@ -295,7 +301,7 @@ Meta:
 - Removed `/init` + `/session` (consolidated into `/learn --session` / built-in)
 - Merged `/related` into `/clarify` Step 1.5
 - Renamed `/merge` to `/ci-check`
-- Base-branch detection moved to `repo-profiles/` YAML; `/pr`, `/verify`, `/ci-check` all read from profile
+- Base-branch detection moved to `repo-profiles/` YAML; `/pr-creation`, `/verify`, `/ci-check` all read from profile
 - Archived 23 `learned` tickets in index (files preserved per user rule)
 - addin-fe profile: added `prototype_branches: [proto/word-addin-v2]`, `component_organization: hybrid`
 
@@ -311,12 +317,12 @@ Initial versioned workflow. Baseline captured after the April 2026 refactor.
 - `/status` — scoped cross-repo work dashboard
 - `/retro` — sprint-level retro with team signals
 - `/pre-flight` — pre-ticket repo hygiene (base branch, pull, clean tree)
-- `/ci-check` — post-`/pr` CI watcher + auto `/learn`
+- `/ci-check` — post-`/pr-creation` CI watcher + auto `/learn`
 - `.claude/agents/` — reusable subagents starting with `codebase-investigator` and `jira-context-loader`
 - `.claude/repo-profiles/` — YAML per repo (base branch, CI command, patterns paths)
 
 **Enhancements:**
-- `/pr`, `/verify` — auto-detect base branch per repo (some repos use a non-default base branch, e.g. api-bff + web-app use `develop-v2` — recorded in the repo profile)
+- `/pr-creation`, `/verify` — auto-detect base branch per repo (some repos use a non-default base branch, e.g. api-bff + web-app use `develop-v2` — recorded in the repo profile)
 - `/verify` — enforce tests-for-every-source, base-branch sanity check, read command-proposals
 - `/clarify` — load FULL patterns file + freshness check, parallelize 6-way codebase investigation, setup auditor (README/CLAUDE.md/patterns check)
 - `/learn` — write `<!-- last-updated -->` marker + maintain `## Index` section in pattern files

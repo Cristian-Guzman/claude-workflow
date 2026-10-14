@@ -6,9 +6,9 @@ Reads one state file (core/docs/state-file-schema.md: YAML frontmatter + `## Eve
 lines `- [HH:MM] …`) and emits markdown:
 
   1. a step table   | step | actor | event | artifact written |
-  2. a Process Summary table — the /pr §8 fields derived MECHANICALLY from the Event Log
+  2. a Process Summary table — the /pr-creation §8 fields derived MECHANICALLY from the Event Log
      (sessions, phases, fix_iterations, debug_sessions, commits, first_event_to_pr_days,
-     ui_iteration), side by side with whatever /pr recorded. A field the log cannot
+     ui_iteration), side by side with whatever /pr-creation recorded. A field the log cannot
      yield is `unrecorded` — never estimated.
   3. the `## Closeout` AUTO region, verbatim, when the file has one.
 
@@ -30,14 +30,14 @@ Derivation rules (deterministic; the whole point is that they cannot be prettifi
              Plan approved, Hit issue:, …); otherwise `—`.
   artifact   paths / `PR #n` / commit shas / the branch after "Branched … →" found in the
              line; a few vocabulary fallbacks (Classified → ## Classification, Plan
-             approved → ## Plan Summary, /pr → ## Process Summary, /ci-check Merged →
+             approved → ## Plan Summary, /pr-creation → ## Process Summary, /ci-check Merged →
              frontmatter merged_at, /learn → ## Closeout); otherwise `—`.
   sessions   `Classified as` lines + /resume-ticket lines.
   phases     body rows of the `## Implementation Progress` table, else distinct
              `Phase N done` events.
   fix_iter   `Hit issue:` + QA-round/bounce + review-fix lines.
   commits    only git knows (`rev-list --count`); never derived from the log → unrecorded.
-  days       first event date → first `/pr … PR #n` event date, only when event lines
+  days       first event date → first `/pr-creation … PR #n` event date, only when event lines
              carry a `[YYYY-MM-DD HH:MM]` stamp; else unrecorded.
 """
 import argparse
@@ -169,7 +169,7 @@ def artifacts_for(actor, text):
         add("## Plan Summary")
     elif text.startswith("Tests written"):
         add("tests")
-    if actor == "/pr" and PR_RX.search(text):
+    if actor == "/pr-creation" and PR_RX.search(text):
         add("## Process Summary")
     if actor == "/ci-check" and re.search(r"\bmerged\b", text, re.I):
         add("frontmatter: merged_at · outcome")
@@ -211,7 +211,7 @@ def derive_summary(events, sections):
         first = date.fromisoformat(dated[0]["date"])
         for e in events:
             a, t = split_actor(e["text"])
-            if a == "/pr" and PR_RX.search(t) and e["date"]:
+            if a == "/pr-creation" and PR_RX.search(t) and e["date"]:
                 days = str((date.fromisoformat(e["date"]) - first).days)
                 break
 
@@ -279,11 +279,11 @@ def render(fm, sections, events, src_name):
         out.append("| — | — | no `- [HH:MM]` lines under `## Event Log` | — |")
 
     derived, rec = derive_summary(events, sections), recorded_summary(sections)
-    out += ["", "## Process Summary", "", "| field | derived from Event Log | recorded by /pr |", "|---|---|---|"]
+    out += ["", "## Process Summary", "", "| field | derived from Event Log | recorded by /pr-creation |", "|---|---|---|"]
     for k, v in derived.items():
         out.append(f"| {k} | {cell(v)} | {cell(rec.get(k, '—'))} |")
     out += ["", "_`commits` and `first_event_to_pr_days` need git and dates; an Event Log stamped only "
-            "`[HH:MM]` cannot yield them, so they read `unrecorded` here and `/pr` records them at PR time._"]
+            "`[HH:MM]` cannot yield them, so they read `unrecorded` here and `/pr-creation` records them at PR time._"]
 
     co = closeout_region(sections)
     if co:

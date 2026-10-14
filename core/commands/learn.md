@@ -1,6 +1,6 @@
 ---
 name: learn
-version: 0.9.0
+version: 0.10.0
 description: Extract lessons from delivered work (tickets and role sidecars) AND the current conversation, synthesize per-target lessons (log → cluster → lesson at ≥2), and update repo pattern files; --mine seeds a fresh repo from mined PR history.
 argument-hint: "[repo-name] or blank for all repos (--session = conversation-only; --mine = also ingest .claude/state/mine/<date>/candidates.json; neither required)"
 allowed-tools:
@@ -233,7 +233,7 @@ Processing 5 items across 3 repos.
 
 If $ARGUMENTS specifies a repo (e.g., `/learn addin-fe`), filter to that repo only.
 
-If NO delivered work is found anywhere, tell the user: "No delivered work found in any repo. Complete tickets with `/ticket` → `/pr` (or `/cover` → `/pr` for coverage work), then `/ci-check` marks them `delivered` after the PR merges."
+If NO delivered work is found anywhere, tell the user: "No delivered work found in any repo. Complete tickets with `/ticket` → `/pr-creation` (or `/cover` → `/pr-creation` for coverage work), then `/ci-check` marks them `delivered` after the PR merges."
 
 For each repo that has delivered work, load its config:
 - Read `{REPO_ROOT}/CLAUDE.md` for current conventions
@@ -451,7 +451,7 @@ This is the **abstraction step** and the PRIMARY /learn output: per-incident cap
 | target | file (repo-relative) | log_section | lesson_section | cluster key | promote_at | signals (incident source) | gate |
 |---|---|---|---|---|---|---|---|
 | **ui** (built-in) | `.claude/ui-fidelity-ledger.md` | `## AUTO:ITERATION-LOG` | `## AUTO:META-LESSONS` | `(surface, correction-class)` | 2 distinct tickets, **or** any single incident at `rounds≥4` | `ui-iteration` Event-Log lines written by `/verify` §8.5 | skip silently when the repo has neither the ledger nor any `ui-iteration` line |
-| **process** (built-in) | `.claude/process-ledger.md` | `## AUTO:PROCESS-LOG` | `## AUTO:PROCESS-LESSONS` | ticket class (tier, surface, or feature_area from the state-file tags) | 2 | `## Process Summary` blocks written by `/pr` §8 | all repos; create file + regions if absent |
+| **process** (built-in) | `.claude/process-ledger.md` | `## AUTO:PROCESS-LOG` | `## AUTO:PROCESS-LESSONS` | ticket class (tier, surface, or feature_area from the state-file tags) | 2 | `## Process Summary` blocks written by `/pr-creation` §8 | all repos; create file + regions if absent |
 | role targets | `file:` from `learn-targets/*.yaml` | `log_section` | `lesson_section` | the fields the `where` / `diff` signal names | `promote_at` (default 2, never lower) | `signals:` | file absent → create it with both regions; `log_only: true` → steps 1–2 only |
 
 ### (b) The routine (run per target, per repo)
@@ -480,7 +480,7 @@ All writes in steps 3–5 go through the normal §4 shown-before-write approval 
 
 ### 2.7b Process target (built-in) — what the routine is *for*
 
-The process target is why §2.7 exists: distilling **how work goes in this project** — steps, sessions, iterations, where friction concentrates — not accumulating code patterns (§3 is recurrence-gated and secondary). Because `/pr` §8 captures the `## Process Summary` at PR time, tickets whose chats were closed without `/learn` lose nothing; this target reads everything since the last run. Typical lessons: "visual tickets here average 3+ rounds; the cause is live-data shapes", "api-bff tickets are 1-session but bounce on lint", "tickets that skipped /clarify average 2× fix_iter". `/clarify` prior-art cites them at planning time.
+The process target is why §2.7 exists: distilling **how work goes in this project** — steps, sessions, iterations, where friction concentrates — not accumulating code patterns (§3 is recurrence-gated and secondary). Because `/pr-creation` §8 captures the `## Process Summary` at PR time, tickets whose chats were closed without `/learn` lose nothing; this target reads everything since the last run. Typical lessons: "visual tickets here average 3+ rounds; the cause is live-data shapes", "api-bff tickets are 1-session but bounce on lint", "tickets that skipped /clarify average 2× fix_iter". `/clarify` prior-art cites them at planning time.
 
 ### 2.7c UI target (built-in) — the agent-facing one
 
@@ -687,7 +687,7 @@ Whenever substantial conversation context exists (not gated on any flag — see 
 | User manually did something a command handles | User ran curl, manual git operations, manual test generation | Command gap or wasn't triggered |
 | User corrected Claude's approach | "actually that's wrong", "no, do X instead", explicit corrections | Investigation or pattern gap |
 | User pasted screenshots to prove breakage | Images shared to show bugs | /verify visual check gap |
-| User ran git commands /pr should handle | Manual branch creation, manual commit description drafting | /pr workflow gap |
+| User ran git commands /pr-creation should handle | Manual branch creation, manual commit description drafting | /pr-creation workflow gap |
 
 ### Triage each signal at capture time (decide its FORM before writing anything)
 
@@ -727,7 +727,7 @@ Dedupe key = **`(target command, failure-class)` — NOT the signal's prose.** T
 - **Same target + same failure class:** do NOT append. Update the existing entry's `**Last seen:** YYYY-MM-DD` line (add it if absent), increment `**Occurrences:**` (add as `2` if absent), and append a one-line bullet under it citing the new context. **If the entry was STALE, flip it back to OPEN** — recurrence revives killed proposals; that's what makes §0.3's recurrence-KILL safe.
 - **Same target, different failure class:** append as a new proposal, and cross-link in a `**Related:**` line.
 
-This prevents the same "/pr should check base branch" idea from being filed three different ways (it was filed seven).
+This prevents the same "/pr-creation should check base branch" idea from being filed three different ways (it was filed seven).
 
 ### Rules
 - **Triage first (above) is mandatory** — APPLY-NOW and COMPILE-TO-CHECK signals must NOT be filed as OPEN proposals "to do later"; filing a mechanical fix into the queue is the failure mode this whole section exists to prevent
@@ -858,7 +858,7 @@ Display:
 ## Related Commands
 - Source: /ticket (delivered tickets), role sidecars named by `learn-targets/*.yaml` (e.g. /cover, /triage), AND the current conversation — all auto-detected in one pass, no flag needed; `--mine` adds `scripts/mine-history.sh` output
 - Updates: codebase-patterns.md | testing-patterns.md | per-target ledgers (§2.7) | .claude/command-proposals.md
-- Pipeline: /ticket → /verify → /pr → /learn
+- Pipeline: /ticket → /verify → /pr-creation → /learn
 - Closes the loop: §0.3 aging gate forces land/defer/kill on aged proposals; §5.6.5 reports process-ROI
 - Review proposals: read `.claude/command-proposals.md` and decide which to implement
 </success_criteria>

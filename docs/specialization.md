@@ -13,7 +13,7 @@ Copy `_schema.yaml` to `<repo>.yaml` by hand (no command generates it) and fill:
 
 - `base_branch` — where feature branches fork from and PRs target. **The single
   highest-value line in the whole system**: it drives branch creation in /ticket,
-  PR targets in /pr, diff scoping in /verify and /review-pr, and the
+  PR targets in /pr-creation, diff scoping in /verify and /review-pr, and the
   guard-base-branch hook.
 - `ci_command` — what /ticket runs before declaring done (`yarn ci`, `make test`, ...).
 - `test_command`, `lint_command` — if different from CI.

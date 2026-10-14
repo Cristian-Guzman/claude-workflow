@@ -1,6 +1,6 @@
 ---
 name: project-debug
-version: 0.9.0
+version: 0.10.0
 description: Start a systematic debug session with persistent state.
 argument-hint: "[issue description]"
 allowed-tools:
@@ -346,7 +346,7 @@ A fix that fails is a new hypothesis, not a retry. Log each fix attempt in the s
 </success_criteria>
 
 ## Related Commands
-- Fix delivery: /pr (after fixing the bug)
+- Fix delivery: /pr-creation (after fixing the bug)
 - Testing: /test (add regression test)
 - If interrupted: /resume-ticket
 - Context: related-ticket lookup is built into /clarify (Step 1.5)

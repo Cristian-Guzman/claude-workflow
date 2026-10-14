@@ -1,6 +1,6 @@
 ---
 name: log
-version: 0.9.0
+version: 0.10.0
 model: "opus[1m]"
 description: Mint the tracker record FROM the work, after the fact — a Story/Task for a /cover state file or a Bug for a /triage cluster. Dedupes against open issues, drafts in plain language, asks before creating, writes the key back into the state file (no rename), and offers to prefix the PR. The single tracker-writer of the SDET role; tracker_system none degrades to a local ticket file.
 argument-hint: "[<slug> | --bug triage--<run-id>:C<k>] [--no-transition]"
@@ -120,7 +120,7 @@ Record the created key `KEY-n`.
 
 - If `pr_number` is set: offer `gh pr edit <n> --title "KEY-n: <current title>"` (AskUserQuestion yes/no).
 - Transition to Code Review ONLY when: `--no-transition` absent, a PR exists, the state status is
-  `pr-generated` or later, and the **assignee gate** passes (`/pr` §8.5: the issue is assigned to the
+  `pr-generated` or later, and the **assignee gate** passes (`/pr-creation` §8.5: the issue is assigned to the
   user or unassigned — fetch `assignee`, compare with the user's identity; otherwise print the skip
   line). Already in Code Review / QA / Done → no-op. Transition id = profile `jira_transition_codereview`
   (MCP numeric id; the CLI state name may carry a suffix). Bugs created from `/triage` are NOT
@@ -140,7 +140,7 @@ Draft: {Task|Story|Bug} "<summary>" → {created KEY-n via mcp|cli | written tic
 State: ticket: KEY-n written to tickets/<kind>--<slug>.md (id unchanged)
 PR: {gh pr edit offered: yes/no | no PR yet}
 Transition: {Code Review (id) | skipped: --no-transition | skipped: assignee is <name> | n/a (bug) | no-op: already CR/QA/Done}
-Next: /pr if not opened yet; /triage or /cover continue on their own state files.
+Next: /pr-creation if not opened yet; /triage or /cover continue on their own state files.
 ```
 </output_format>
 

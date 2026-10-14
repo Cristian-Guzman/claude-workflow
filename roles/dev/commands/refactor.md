@@ -1,6 +1,6 @@
 ---
 name: refactor
-version: 0.9.0
+version: 0.10.0
 description: Scan existing code against codebase-patterns.md, find violations, plan fixes, and refactor with full pattern enforcement.
 argument-hint: "scope (e.g., orders-v2, app/_lib/tickets, or 'full')"
 allowed-tools:
@@ -186,7 +186,7 @@ Use `TodoWrite` to track each fix. Key rules:
 - Run tests after each category to catch regressions early
 - Update state file as fixes progress
 - Follow codebase-patterns.md for the replacement code
-- **Comment hygiene:** a refactor should usually REMOVE noise comments, never add them. Default to NO comment; never introduce ticket numbers (`PROJ-XXXX`), section/spec refs (`§16`, `NEW-2`), AC refs (`AC3`), bug-letters, or before→after history in a comment ([[feedback_no_bug_letter_comments]]). Enforced by the Comment Hygiene Gate in §6 and `/pr`.
+- **Comment hygiene:** a refactor should usually REMOVE noise comments, never add them. Default to NO comment; never introduce ticket numbers (`PROJ-XXXX`), section/spec refs (`§16`, `NEW-2`), AC refs (`AC3`), bug-letters, or before→after history in a comment ([[feedback_no_bug_letter_comments]]). Enforced by the Comment Hygiene Gate in §6 and `/pr-creation`.
 
 ## 6. Verify
 
@@ -239,6 +239,6 @@ Update state file status to `completed`.
 ## Related Commands
 - Source: codebase-patterns.md | testing-patterns.md (patterns to enforce)
 - Verify: /verify (verify refactored code)
-- Deliver: /pr (generate PR)
+- Deliver: /pr-creation (generate PR)
 - If interrupted: /resume-ticket
 - Learn: /learn (after merge, extract new patterns)

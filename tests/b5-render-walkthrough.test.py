@@ -64,7 +64,7 @@ pr_number: 77
 - [10:30] Debug resolved: the wrapper retried every non-2xx — see retry-4xx-timeout.md
 - [10:45] `npm run ci` — passed (lint ✓ test 212/212 ✓)
 - [10:50] /verify: 3/3 ACs verified, confidence 94% — notes at @@URL@@
-- [11:05] /pr: PR #77 opened against main
+- [11:05] /pr-creation: PR #77 opened against main
 
 ## Process Summary
 - sessions: 1
@@ -144,7 +144,7 @@ class RenderWalkthroughTest(unittest.TestCase):
         self.assertEqual(len(rows), 12)
         self.assertIn("| 5 | /ticket | [09:25] Hit issue:", text)
         self.assertIn("| 11 | /verify |", text)
-        self.assertIn("| 12 | /pr |", text)
+        self.assertIn("| 12 | /pr-creation |", text)
         self.assertIn("`.claude/debug/retry-4xx-timeout.md`", text)
         self.assertIn("branch `fix/PROJ-77-retry-4xx`", text)
         self.assertIn("PR #77, ## Process Summary", text)

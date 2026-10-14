@@ -15,7 +15,7 @@ Six commands on top of core, all installed flat into `.claude/commands/` next to
 | `/verify` | Goal-backward verification that acceptance criteria are met in the code; scored gate table. |
 | `/ui-fidelity` | Ad-hoc design-fidelity check for one UI surface; reports, never edits. |
 
-Start here: `/ticket` (or `/build` with no tracker) → `/pr` → `/learn`. Everything else is advanced and discoverable from `.claude/commands/README.md`.
+Start here: `/ticket` (or `/build` with no tracker) → `/pr-creation` → `/learn`. Everything else is advanced and discoverable from `.claude/commands/README.md`.
 
 ## Seeds
 

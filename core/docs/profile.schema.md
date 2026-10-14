@@ -151,7 +151,7 @@ Run titles (`name`) and branch names (`headBranch`) are read for counting and ne
 |---|---|
 | `compared` | true when a core dir was given |
 | `modified`, `missing` | counts |
-| `files[]` | `{file, status: modified|missing, changed_lines, baseline_lines, installed_lines}` for every public-core file that differs; identical files are omitted. `file` is the public-core relative path (`commands/pr.md`) — it names the upstream file, not a local one |
+| `files[]` | `{file, status: modified|missing, changed_lines, baseline_lines, installed_lines}` for every public-core file that differs; identical files are omitted. `file` is the public-core relative path (`commands/pr-creation.md`) — it names the upstream file, not a local one |
 | `local_only_count`, `local_only[]` | installed `commands/`, `agents/`, `scripts/` files and root `*.md` system docs absent from public core. Project-owned root files (`codebase-patterns.md`, `business-context.md`, `command-proposals.md`, …) are excluded. Names pass the sanitizer + check |
 
 ## Reading `profile.md`

@@ -27,10 +27,10 @@ Every command that invokes an agent MUST have an inline fallback — agents are 
 |-------|---------|---------|
 | `codebase-investigator` | Parallel investigation of a repo for a feature area. Returns similar features, file-placement recommendation, reusable components (by atomic level), API surface, interactive patterns, permissions. | `/clarify`, `/ticket`, `/verify`, `/qa`, `/build`, `/refactor`, `/review-pr`, `/cover` (cross tier) |
 | `jira-context-loader` | Parallel Jira fetch — primary ticket + linked + epic siblings + subtasks + blockers. Normalizes MCP vs CLI output. | `/clarify`, `/ticket`, `/verify`, `/review-pr`, `/project-debug`, `/status`, `/log` (dedupe before minting) |
-| `commit-drafter` | Draft a conventional commit message from a diff + ticket context. Respects the no-AI-attribution rule and 72-char subject limit. | `/pr` |
+| `commit-drafter` | Draft a conventional commit message from a diff + ticket context. Respects the no-AI-attribution rule and 72-char subject limit. | `/pr-creation` |
 | `contract-verifier` | Compare TypeScript (or Zod/Go) types against swagger AND/OR a live API response. Catches FE/BFF/backend contract drift. Supports cross-repo consumer trace. | `/verify`, `/clarify`, `/review-pr`, `/cover` (API mode), `/triage` (env-or-data vs real bug) |
 | `verifier` | Goal-backward AC verification: gathers receipts per gate; never grades itself. Scoped `tools:` (no Write/Edit). | `/verify`, `/ticket` (final phase) |
-| `pr-branch-reviewer` | Reviews the branch against `ticket-checklist.md` verbatim before `/pr` hands off. Scoped `tools:`. | `/pr` |
+| `pr-branch-reviewer` | Reviews the branch against `ticket-checklist.md` verbatim before `/pr-creation` hands off. Scoped `tools:`. | `/pr-creation` |
 | `ui-fidelity` | Surface-aware design-fidelity check; reads `ui-fidelity-ledger.md` meta-lessons at step 0, hardens for live-data shapes. | `/clarify`, `/verify`, `/qa`, `/ui-fidelity`, `/learn` (ledger synthesis) |
 
 Deferred: a `cluster-investigator` agent for parallel per-cluster reading in `/triage --batch` (the MVP reads clusters inline) — see `docs/roadmap.md`.

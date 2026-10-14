@@ -1,6 +1,6 @@
 ---
 name: status
-version: 0.9.0
+version: 0.10.0
 description: Cross-repo work dashboard. Active tickets, open debug sessions, unresolved PRs, blocked items. Grouped by state, prioritized by recency.
 argument-hint: "[--days N] [--repo NAME] [--all]"
 allowed-tools:
@@ -163,4 +163,4 @@ Show buckets only if non-empty. Keep tables wide enough to be readable, short en
 
 ## Related Commands
 - Inputs: state files, open PRs, `project-map.md`
-- Typical follow-ups: `/resume-ticket` (pick up in-flight work), `/review-comments` (triage review feedback), `/pr` (push delivered work)
+- Typical follow-ups: `/resume-ticket` (pick up in-flight work), `/review-comments` (triage review feedback), `/pr-creation` (push delivered work)

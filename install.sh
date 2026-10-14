@@ -380,7 +380,7 @@ seed_repo_files() {
   seed "$HERE/templates/repo/codebase-patterns.md" "$CLAUDE_DIR/codebase-patterns.md"
   seed "$HERE/templates/repo/testing-patterns.md"  "$CLAUDE_DIR/testing-patterns.md"
   seed "$HERE/templates/repo/ticket-checklist.md"  "$CLAUDE_DIR/ticket-checklist.md"
-  # Optional — /pr falls back to a host default if absent, but seeding it helps.
+  # Optional — /pr-creation falls back to a host default if absent, but seeding it helps.
   seed "$HERE/templates/repo/pr-template.md"       "$CLAUDE_DIR/pr-template.md"
   # Minimal CLAUDE.md skeleton — every command loads it first; /init can replace it.
   seed "$HERE/templates/repo/CLAUDE.template.md"   "$TARGET/CLAUDE.md"
@@ -720,8 +720,8 @@ Next steps to specialize this project (fastest path first):
      /learn --mine — it lands only the patterns that occurred in 2+ merged PRs (dev).
   4. Start here, by role (the roles line above says which you have; change with
      ./install.sh <target> --role dev --role sdet):
-       dev   /ticket (or /build without a tracker) -> /pr -> /learn
-       sdet  /cover -> /pr -> /learn
+       dev   /ticket (or /build without a tracker) -> /pr-creation -> /learn
+       sdet  /cover -> /pr-creation -> /learn
      Everything else (/clarify, /verify, /qa, /ci-check, /triage, ...) is listed in
      .claude/commands/README.md. Each step is run on its own — nothing auto-chains.
      /learn after each ticket is what makes the system project-specific over time.

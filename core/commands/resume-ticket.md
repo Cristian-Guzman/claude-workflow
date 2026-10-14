@@ -1,6 +1,6 @@
 ---
 name: resume
-version: 0.9.0
+version: 0.10.0
 description: Resume an interrupted ticket, debug, build, refactor, cover or triage session from saved state.
 argument-hint: "[PROJ-XXXX | debug-slug | cover--<slug> | triage--<slug>]"
 allowed-tools:
@@ -141,7 +141,7 @@ Continue from the current phase in the progress table:
 
 ### For Cover / Triage Sidecars:
 
-- **Cover** → resume at the **first scenario without a break-to-validate receipt**: re-run that spec, apply the mutation, confirm it fails, revert, record the receipt — then the next. All rows receipted → re-run the gate (`/cover` writes the `gate score=NN` event) and hand to `/pr`.
+- **Cover** → resume at the **first scenario without a break-to-validate receipt**: re-run that spec, apply the mutation, confirm it fails, revert, record the receipt — then the next. All rows receipted → re-run the gate (`/cover` writes the `gate score=NN` event) and hand to `/pr-creation`.
 - **Triage** → resume at the **first unresolved cluster** (largest first if several): reproduce, classify, apply the class's resolution; a `real-app-bug` cluster stays red and gets a `/log --bug` draft, never a skip.
 - `status: env-blocked` → first re-check the blocker named in the Event Log (deploy landed? data seeded? auth back?). Still blocked → stop and say so; do not grind against the environment.
 - `status: delivered` → same as tickets: ask whether to run `/learn`; sidecars are never renamed or deleted.
@@ -171,4 +171,4 @@ Continue updating the state file as work progresses (same rules as /ticket comma
 
 ## Related Commands
 - Resumes: /ticket | /build | /project-debug | /refactor | /e2e | /cover | /triage
-- Continue with: /verify | /pr | /test
+- Continue with: /verify | /pr-creation | /test

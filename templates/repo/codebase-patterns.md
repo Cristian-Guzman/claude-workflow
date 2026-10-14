@@ -45,7 +45,7 @@ _Source: [[PROJ-123]] — surfaced when a bad payload looked like an outage in Q
 
 ## Code comment hygiene
 
-Default to no comment. The full rule and the gate that enforces it (`/verify` §3.4, `/pr` §5e) live in [[codebase-patterns-shared.md]] — do not copy them here.
+Default to no comment. The full rule and the gate that enforces it (`/verify` §3.4, `/pr-creation` §5e) live in [[codebase-patterns-shared.md]] — do not copy them here.
 
 <!--
   ENTRY FORMAT (what /learn appends):

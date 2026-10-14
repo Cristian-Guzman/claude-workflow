@@ -8,7 +8,7 @@
 
 **Where `/verify` refused to self-flip a human gate.** Step 20: nine ACs verified by machine, AC10 born `UNVERIFIED` because "matches the design at the narrow breakpoint" has no machine receipt — score capped at 70%. The model does not lift that cap by re-reading the code. Step 21 is the user's `[qa-confirmed via in-app QA]` line, recorded with its method; step 22 re-runs `/verify`, which lifts the cap only because that line now exists.
 
-**What the renderer will not guess.** `—` in the actor column marks a line outside the logging vocabulary (free-form implementation notes — all written by `/ticket` here, but the script does not infer that). Step 5 lists a path the line mentions only to say it does not exist. `commits` and `first_event_to_pr_days` read `unrecorded` because an Event Log stamped `[HH:MM]` cannot yield them — `/pr` records both from git and dates, shown in the right-hand column. A generated transcript cannot be prettified, which is the point.
+**What the renderer will not guess.** `—` in the actor column marks a line outside the logging vocabulary (free-form implementation notes — all written by `/ticket` here, but the script does not infer that). Step 5 lists a path the line mentions only to say it does not exist. `commits` and `first_event_to_pr_days` read `unrecorded` because an Event Log stamped `[HH:MM]` cannot yield them — `/pr-creation` records both from git and dates, shown in the right-hand column. A generated transcript cannot be prettified, which is the point.
 
 ## What the user typed
 
@@ -19,7 +19,7 @@
 | step 20 | `/verify PROJ-1131` | 9/10 ACs, one human gate, score capped at 70% |
 | step 21 | `/qa PROJ-1131`, then the in-app check | the `[qa-confirmed via in-app QA]` line, with its method |
 | step 22 | `/verify PROJ-1131` | 10/10 ACs, 92% |
-| step 23 | `/pr PROJ-1131` | PR #412 and the `## Process Summary` block |
+| step 23 | `/pr-creation PROJ-1131` | PR #412 and the `## Process Summary` block |
 | steps 24–25 | `/ci-check PROJ-1131` | CI, base-branch catch-up by merge, squash merge, outcome snapshot |
 | eight days later | `/learn web-app` | two second-occurrence entries, the `## Closeout` block, `status: learned` |
 
@@ -63,13 +63,13 @@ _Rendered by `render-walkthrough.py` from `walkthrough-standard-ticket.state.md`
 | 20 | /verify | [11:58] 9/10 ACs VERIFIED; AC10 UNVERIFIED (human: collapsed group at the narrow breakpoint, in-app QA) — confidence 70% (cap: human confirmation pending; the model does not flip human gates) | — |
 | 21 | user | [13:20] [qa-confirmed via in-app QA] AC10 collapsed group at the narrow breakpoint | — |
 | 22 | /verify | [13:24] re-run — 10/10 ACs, confidence 92% (machine gates unchanged; the human gate lifted by the recorded confirmation, not by re-reading the code) | — |
-| 23 | /pr | [13:40] PR #412 opened against main — 3 commits (head 3f9c2a1); Process Summary written | PR #412, commit 3f9c2a1, ## Process Summary |
+| 23 | /pr-creation | [13:40] PR #412 opened against main — 3 commits (head 3f9c2a1); Process Summary written | PR #412, commit 3f9c2a1, ## Process Summary |
 | 24 | /ci-check | [15:05] CI 9/9 green; base moved 4 commits — merged main into the branch (no force-push on a reviewed PR), one conflict in `OrderItemsList.tsx` resolved, gates re-run 424/424 | `OrderItemsList.tsx`, frontmatter: merged_at · outcome |
 | 25 | /ci-check | [16:10] Merged via PR #412 to main (squash 9b1e7d4) — outcome snapshotted (qa_bounces=0, QA pending on the deployed environment) | PR #412, frontmatter: merged_at · outcome |
 
 ## Process Summary
 
-| field | derived from Event Log | recorded by /pr |
+| field | derived from Event Log | recorded by /pr-creation |
 |---|---|---|
 | sessions | 1 | 1 (single continuous session 2026-09-18) |
 | phases | 5 | 5 |
@@ -79,9 +79,9 @@ _Rendered by `render-walkthrough.py` from `walkthrough-standard-ticket.state.md`
 | first_event_to_pr_days | unrecorded | 0 |
 | ui_iteration | n/a | n/a (no visual-spec; the one visual check was a human gate) |
 
-_`commits` and `first_event_to_pr_days` need git and dates; an Event Log stamped only `[HH:MM]` cannot yield them, so they read `unrecorded` here and `/pr` records them at PR time._
+_`commits` and `first_event_to_pr_days` need git and dates; an Event Log stamped only `[HH:MM]` cannot yield them, so they read `unrecorded` here and `/pr-creation` records them at PR time._
 
 ## Closeout
 
 - Outcome: To Do → In Progress → Code Review → QA → Done  (entered QA 1× → 0 bounces) · cycle 1.3d · 5 pts
-- Health: 🟢 healthy (score 0): no QA bounce, no CHANGES_REQUESTED, single PR. The one open gate was a human visual check, confirmed in-app before /pr; the base-branch conflict was resolved by merge-into-branch, not a force-push.
+- Health: 🟢 healthy (score 0): no QA bounce, no CHANGES_REQUESTED, single PR. The one open gate was a human visual check, confirmed in-app before /pr-creation; the base-branch conflict was resolved by merge-into-branch, not a force-push.

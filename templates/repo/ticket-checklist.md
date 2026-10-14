@@ -1,6 +1,6 @@
 <!--
   ticket-checklist.md — per-repo pre-PR compliance checklist.
-  Read by: /ticket (drives phases), /verify (AC gate), /pr + the pr-branch-reviewer agent (enforcement).
+  Read by: /ticket (drives phases), /verify (AC gate), /pr-creation + the pr-branch-reviewer agent (enforcement).
   Filled: seeded manually at install with your repo's real commands/patterns, then grown by /learn.
   Every "EXAMPLE" entry shows the FORMAT — replace with your project's specifics.
 -->
@@ -78,7 +78,7 @@ If any AC FAILED, fix before quality checks — `/verify` automates this step.
 
 ## Phase 5: Delivery
 
-**DO NOT** run `git commit`, `git push`, or `gh pr create` from this checklist — that is `/pr`'s job.
+**DO NOT** run `git commit`, `git push`, or `gh pr create` from this checklist — that is `/pr-creation`'s job.
 
 **DO provide:** commit message (`feat|fix|refactor(PROJ-123): brief description`), PR description (summary, ticket link, key changes, tests added, definition of done), files-changed list.
 

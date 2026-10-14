@@ -80,4 +80,4 @@ Where the gate fires:
 - **Mid-`/ticket`** — an unexplained failure during implementation auto-spins a linked debug session instead of a silent fix (see `/ticket` §5.1b).
 - **Mid-`/qa`** — a failed QA step is a bug with unknown cause by definition; `/qa` offers to spin the session (see `/qa` §8d).
 
-`/project-debug` is not an island reached only by deliberately typing it — these three seams pull it into the normal `/clarify → /ticket → /qa → /pr` loop, so debugging gets captured whenever it's actually hard and stays out of the way when it isn't.
+`/project-debug` is not an island reached only by deliberately typing it — these three seams pull it into the normal `/clarify → /ticket → /qa → /pr-creation` loop, so debugging gets captured whenever it's actually hard and stays out of the way when it isn't.

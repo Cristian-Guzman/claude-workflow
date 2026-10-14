@@ -113,7 +113,7 @@ Delivered. Learned 2026-09-26.
 - [11:58] /verify: 9/10 ACs VERIFIED; AC10 UNVERIFIED (human: collapsed group at the narrow breakpoint, in-app QA) — confidence 70% (cap: human confirmation pending; the model does not flip human gates)
 - [13:20] user: [qa-confirmed via in-app QA] AC10 collapsed group at the narrow breakpoint
 - [13:24] /verify: re-run — 10/10 ACs, confidence 92% (machine gates unchanged; the human gate lifted by the recorded confirmation, not by re-reading the code)
-- [13:40] /pr: PR #412 opened against main — 3 commits (head 3f9c2a1); Process Summary written
+- [13:40] /pr-creation: PR #412 opened against main — 3 commits (head 3f9c2a1); Process Summary written
 - [15:05] /ci-check: CI 9/9 green; base moved 4 commits — merged main into the branch (no force-push on a reviewed PR), one conflict in `OrderItemsList.tsx` resolved, gates re-run 424/424
 - [16:10] /ci-check: Merged via PR #412 to main (squash 9b1e7d4) — outcome snapshotted (qa_bounces=0, QA pending on the deployed environment)
 
@@ -151,7 +151,7 @@ Delivered. Learned 2026-09-26.
 ## Closeout
 <!-- AUTO:CLOSEOUT START -->
 - Outcome: To Do → In Progress → Code Review → QA → Done  (entered QA 1× → 0 bounces) · cycle 1.3d · 5 pts
-- Health: 🟢 healthy (score 0): no QA bounce, no CHANGES_REQUESTED, single PR. The one open gate was a human visual check, confirmed in-app before /pr; the base-branch conflict was resolved by merge-into-branch, not a force-push.
+- Health: 🟢 healthy (score 0): no QA bounce, no CHANGES_REQUESTED, single PR. The one open gate was a human visual check, confirmed in-app before /pr-creation; the base-branch conflict was resolved by merge-into-branch, not a force-push.
 <!-- AUTO:CLOSEOUT END -->
 
 ## Obsidian Links

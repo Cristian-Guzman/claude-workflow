@@ -1,6 +1,6 @@
 <!-- docs/examples — what /learn §2.7b writes into {repo}/.claude/process-ledger.md after a dozen delivered
      tickets. Neutral content; the shape is the point. One AUTO:PROCESS-LOG row per ticket, copied from the
-     `## Process Summary` block /pr §8 wrote at PR time (`unrecorded` is kept as-is and excluded from means);
+     `## Process Summary` block /pr-creation §8 wrote at PR time (`unrecorded` is kept as-is and excluded from means);
      an AUTO:PROCESS-LESSONS entry only where ≥2 tickets in one class say the same thing. -->
 
 # Process Ledger — web-app

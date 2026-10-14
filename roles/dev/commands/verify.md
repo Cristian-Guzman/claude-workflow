@@ -1,6 +1,6 @@
 ---
 name: verify
-version: 0.9.0
+version: 0.10.0
 model: "opus[1m]"
 description: Goal-backward verification that acceptance criteria are actually met in the code.
 argument-hint: "[PROJ-XXXX or paste ACs]"
@@ -98,7 +98,7 @@ elif git -C {REPO_ROOT} merge-base --is-ancestor "$mb" "origin/{BASE_BRANCH}" 2>
   behind=$(git -C {REPO_ROOT} rev-list --count HEAD..origin/{BASE_BRANCH})
   ahead=$(git -C {REPO_ROOT} rev-list --count origin/{BASE_BRANCH}..HEAD)
   echo "OK — $ahead ahead, $behind behind origin/{BASE_BRANCH}"
-  [ "$behind" -gt 5 ] && echo "  ⚠ stale: consider rebasing before /pr"
+  [ "$behind" -gt 5 ] && echo "  ⚠ stale: consider rebasing before /pr-creation"
 else
   echo "WRONG_BASE — common ancestor not on origin/{BASE_BRANCH}"
 fi
@@ -936,7 +936,7 @@ Run `.claude/scripts/verify-score.py {report-file}` to compute the score — nev
 If `{REPO_ROOT}/.claude/tickets/PROJ-XXXX.md` exists, update:
 - Verification phase → DONE (if all pass) or IN_PROGRESS (if gaps)
 - Record the gate table and computed score
-- Add event log entry: `- [HH:MM] Verified: {N}/{total} ACs, score {NN}% (caps: {list|none}), contract {verified/unverified/N mismatches}, security {clean/N findings}, sha={git rev-parse --short HEAD}` — the `sha=` token is load-bearing: `/pr` §5.5b compares it to HEAD to detect ad-hoc commits made after verification (stale-verify warning)
+- Add event log entry: `- [HH:MM] Verified: {N}/{total} ACs, score {NN}% (caps: {list|none}), contract {verified/unverified/N mismatches}, security {clean/N findings}, sha={git rev-parse --short HEAD}` — the `sha=` token is load-bearing: `/pr-creation` §5.5b compares it to HEAD to detect ad-hoc commits made after verification (stale-verify warning)
 - When the user later confirms a human gate, append: `- [HH:MM] [qa-confirmed via {method}] {gate name}` — re-running /verify then lifts the 70% cap without re-running machine gates
 
 The ticket status line should read:
@@ -965,9 +965,9 @@ Derive `surface` and `source` (`figma|screenshot|sibling|verbal|mixed`) from the
 1. State-file Event Log: `- [HH:MM] /verify: ui-iteration rounds={1|3|4|99} correction={class} source={src} surface={surface}` (`2–3`→3, `4+`→4, `Still not right`→99).
 2. The repo's iteration ledger `{REPO_ROOT}/.claude/ui-fidelity-ledger.md`, under its `## AUTO:ITERATION-LOG` region (create the file + region if absent): `- YYYY-MM-DD PROJ-XXXX surface={surface} rounds={N} correction={class} source={src}`.
 
-**Graceful degradation (the design depends on it):** the prompt is a survey, never a gate. If the user dismisses/skips it, write `rounds=unrecorded` to the Event Log (marks it seen so it never re-nags) and proceed to `/pr` unblocked. NEVER fabricate `rounds=1` on a skip — `/learn` §2.7 excludes `unrecorded` from the KPI mean, so absence never reads as success. A `Still not right` (99) is recorded but excluded from the down-trend mean and counted as an open-failure for its class.
+**Graceful degradation (the design depends on it):** the prompt is a survey, never a gate. If the user dismisses/skips it, write `rounds=unrecorded` to the Event Log (marks it seen so it never re-nags) and proceed to `/pr-creation` unblocked. NEVER fabricate `rounds=1` on a skip — `/learn` §2.7 excludes `unrecorded` from the KPI mean, so absence never reads as success. A `Still not right` (99) is recorded but excluded from the down-trend mean and counted as an open-failure for its class.
 
-**Non-UI tickets: no survey.** Their iteration cost is machine-readable — `/pr` §8 writes a `## Process Summary` (sessions, phases, fix_iterations, debug links) into the state file from the Event Log, and `/learn` §2.7b distills it. The survey above exists only because *design rightness* can't be counted from disk; AC-fix iterations can.
+**Non-UI tickets: no survey.** Their iteration cost is machine-readable — `/pr-creation` §8 writes a `## Process Summary` (sessions, phases, fix_iterations, debug links) into the state file from the Event Log, and `/learn` §2.7b distills it. The survey above exists only because *design rightness* can't be counted from disk; AC-fix iterations can.
 
 </process>
 
@@ -987,7 +987,7 @@ Derive `surface` and `source` (`figma|screenshot|sibling|verbal|mixed`) from the
 
 ## Related Commands
 - Before: /ticket (implements the ACs being verified)
-- After: /pr (generate PR once verified)
+- After: /pr-creation (generate PR once verified)
 - Testing: /test | /e2e
 - Patterns: codebase-patterns.md | testing-patterns.md
 </success_criteria>

@@ -3,7 +3,7 @@
 Slash commands are structured workflows for Claude Code. Type `/command` in any conversation to run one.
 
 Three commands cover a piece of work end-to-end; the rest are opt-in. Developer: `/ticket` (or `/build` with no
-tracker) → `/pr` → `/learn`. SDET: `/cover` → `/pr` → `/learn`. See the repo README's *Start here*.
+tracker) → `/pr-creation` → `/learn`. SDET: `/cover` → `/pr-creation` → `/learn`. See the repo README's *Start here*.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ IS the workspace root. Repos hold **context**, not commands.
 
 No repo should contain a `commands/` directory. If one appears, it's a drift/staleness bug — delete it.
 
-> **Core pipeline principle:** `/clarify` → `/ticket` → `/verify` → `/qa` → `/pr` → `/learn` are THE per-ticket
+> **Core pipeline principle:** `/clarify` → `/ticket` → `/verify` → `/qa` → `/pr-creation` → `/learn` are THE per-ticket
 > commands — each runs ONCE per ticket. Bugs route to `/project-debug` or get handled inside `/ticket` (§5.1b gate).
 > New capabilities fold into these, they don't become new commands.
 
@@ -35,7 +35,7 @@ No repo should contain a `commands/` directory. If one appears, it's a drift/sta
 | `/ticket` | dev | `PROJ-XXXX [ACs]` | Fetch ticket from Jira, investigate codebase, create plan, implement with state tracking. Creates `.claude/tickets/PROJ-XXXX.md` for resumability. |
 | `/resume-ticket` | core | `[PROJ-XXXX or slug]` | Resume any interrupted session (ticket, debug, build, refactor, cover, triage). Scans all repos for active state files. |
 | `/verify` | dev | — | Goal-backward verification: checks each AC against actual code with a computed confidence score, not "I implemented it." Uses the verifier agent if available. |
-| `/pr` | core | — | Generates commit message + PR description from changes. Runs CI first. Resolves the branch's state file via the index for any kind — ticket-less `cover`/`triage` sidecars included; skips the tracker step on `ticket: null`. |
+| `/pr-creation` | core | — | Generates commit message + PR description from changes. Runs CI first. Resolves the branch's state file via the index for any kind — ticket-less `cover`/`triage` sidecars included; skips the tracker step on `ticket: null`. |
 | `/review-comments` | core | `[PR#]` | Fetch and triage PR review comments. Saves valid feedback to the ticket state file so `/learn` can extract patterns from it. |
 | `/learn` | core | `[repo-name] [--mine]` | Extracts lessons from delivered work (kinds from `learn-targets/*.yaml`) and the conversation; one log → cluster → lesson routine per target. `--mine` ingests `mine-history.sh` candidates for a cold start. Marks work `learned`. |
 
@@ -58,8 +58,8 @@ No repo should contain a `commands/` directory. If one appears, it's a drift/sta
 
 ### SDET (role `sdet`)
 
-Output is **tests**, not features; the tracker record is optional output. `/cover` → `/pr` is the two-step
-case; `/triage --batch` → `/pr` for a red run. Shared `/pr`, `/ci-check`, `/learn` resolve the branch's
+Output is **tests**, not features; the tracker record is optional output. `/cover` → `/pr-creation` is the two-step
+case; `/triage --batch` → `/pr-creation` for a red run. Shared `/pr-creation`, `/ci-check`, `/learn` resolve the branch's
 sidecar for any `kind:`. Details, counts and the break-to-validate protocol: `roles/sdet/README.md`.
 
 | Command | Role | Args | Description |
@@ -85,7 +85,7 @@ Deferred (`/gaps` scoring, `/stabilize`, quarantine expiry, reporter, …): `doc
 | `/project-context` | core | `[--full\|--incremental]` | Map dependencies across repos (multi-repo only): which FE calls which BFF, which BFF calls which backend handler. Writes `project-map.md`; it does **not** generate repo profiles. |
 | `/status` | core | `[--days N]` | Cross-repo dashboard. Active work of every kind, open debug sessions, unresolved PRs, blocked items. |
 | `/demo-summary` | core | `[--sprint\|--week] [--audience team\|stakeholders]` | Turns delivered work into a demo runbook: user-journey story, talking points, setup checklist, risks. |
-| `/ci-check` | core | `[PR#]` | Post-`/pr`: watches CI, prompts merge when green, sets `delivered` by branch for any kind, offers the post-deploy re-check of the specs a cover file wrote, routes a red e2e job to `/triage`. |
+| `/ci-check` | core | `[PR#]` | Post-`/pr-creation`: watches CI, prompts merge when green, sets `delivered` by branch for any kind, offers the post-deploy re-check of the specs a cover file wrote, routes a red e2e job to `/triage`. |
 | `/memory-lint` | core | `[--fix]` | Audits the assistant's persistent-memory directory for drift. Reports only unless `--fix`. Requires a host with a memory dir. |
 
 ## Scripts (`.claude/scripts/`, no command wraps them)
@@ -112,7 +112,7 @@ The closed `kind` and `status` vocabularies live in `state-file-schema.md`; `sta
 sidecars by slug and logs anything outside the vocabulary to `state/schema-drift.log`.
 
 ```
-/ticket → planning → in-progress → ready-for-pr → /pr → pr-generated → /ci-check → delivered → /learn → learned
+/ticket → planning → in-progress → ready-for-pr → /pr-creation → pr-generated → /ci-check → delivered → /learn → learned
 /cover  → planning → in-progress (+ env-blocked) → ready-for-pr → pr-generated → delivered → learned
 /project-debug → investigating → root-cause-found → fixed
 ```
@@ -128,8 +128,8 @@ sidecars by slug and logs anything outside the vocabulary to `state/schema-drift
 | `.claude/codebase-patterns.md` | Coding standards and pitfalls | `/ticket`, `/build`, `/refactor`, `/verify`, `/cover` (cross tier) |
 | `.claude/testing-patterns-shared.md` (workspace) | Cross-repo test rules — loaded before the repo file when present | `/ticket`, `/verify`, `/cover` |
 | `.claude/testing-patterns.md` | Test writing conventions | `/ticket`, `/build`, `/qa`, `/cover` (primary read) |
-| `.claude/ticket-checklist.md` | Pre-PR gate | `/ticket`, `/pr`, `/resume-ticket`, `/verify` |
-| `.claude/pr-template.md` | PR description format | `/pr` |
+| `.claude/ticket-checklist.md` | Pre-PR gate | `/ticket`, `/pr-creation`, `/resume-ticket`, `/verify` |
+| `.claude/pr-template.md` | PR description format | `/pr-creation` |
 
 ## Jira Access
 

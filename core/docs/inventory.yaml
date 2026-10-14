@@ -20,7 +20,7 @@ commands:
   - {name: learn,           role: core, priority: core,        since: 0.1.0, gate: always}
   - {name: project-debug,   role: core, priority: core,        since: 0.1.0, gate: always}
   - {name: resume-ticket,   role: core, priority: core,        since: 0.1.0, gate: always}
-  - {name: pr,              role: core, priority: core,        since: 0.1.0, gate: "vcs_host != none"}
+  - {name: pr-creation,              role: core, priority: core,        since: 0.1.0, gate: "vcs_host != none"}
   - {name: review-pr,       role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none"}
   - {name: review-comments, role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none"}
   - {name: ci-check,        role: core, priority: recommended, since: 0.1.1, gate: "vcs_host != none AND ci == yes"}

@@ -1,6 +1,6 @@
 ---
 name: review-pr
-version: 0.9.0
+version: 0.10.0
 model: "opus[1m]"
 description: Review someone else's PR against repo conventions AND the ticket's ACs. Combines pattern compliance, AC verification (via /verify logic), CI status, and bimodal confidence into an evidence-backed verdict. Never auto-posts.
 argument-hint: "PR-number or PR-URL [--repo repo-name]"

@@ -1,6 +1,6 @@
 ---
 name: build
-version: 0.9.0
+version: 0.10.0
 model: "opus[1m]"
 description: Implement a feature or change without a ticket. Loads repo patterns, investigates codebase, plans, then builds — iterating phase-by-phase with checkpoints when the plan defines phases.
 argument-hint: "describe what you want to build"
@@ -191,7 +191,7 @@ Key rules either way:
 - Reuse existing components — never duplicate
 - Follow the same structure as similar existing code
 - Don't guess UI decisions — ask
-- **Comment hygiene (write it clean as you go):** default to NO comment; add one ONLY for a non-obvious WHY a maintainer can't infer. NEVER put ticket numbers (`PROJ-XXXX`), section/spec refs (`§16`, `NEW-2`), AC refs (`AC3`), bug-letters (`Bug C`), or before→after history in a comment — that lives in git + the PR ([[feedback_no_bug_letter_comments]]). Enforced by the Comment Hygiene Gate in §5 below and `/pr`.
+- **Comment hygiene (write it clean as you go):** default to NO comment; add one ONLY for a non-obvious WHY a maintainer can't infer. NEVER put ticket numbers (`PROJ-XXXX`), section/spec refs (`§16`, `NEW-2`), AC refs (`AC3`), bug-letters (`Bug C`), or before→after history in a comment — that lives in git + the PR ([[feedback_no_bug_letter_comments]]). Enforced by the Comment Hygiene Gate in §5 below and `/pr-creation`.
 
 ## 5. Verify
 
@@ -226,7 +226,7 @@ Show the user:
 
 ## Related Commands
 - Verify: /verify (check implementation)
-- Deliver: /pr (generate PR)
+- Deliver: /pr-creation (generate PR)
 - Testing: /test | /e2e
 - If interrupted: /resume-ticket
 - Patterns: codebase-patterns.md | testing-patterns.md
