@@ -15,10 +15,16 @@ allowed-tools:
 > **Model floor: sonnet** — orchestrates drift + install scripts. This is guidance, not a pin: the command inherits the session model. Opus adds nothing here; Sonnet keeps its full power.
 
 <objective>
-`git pull` in the upstream clone tells you nothing about what changed for THIS install, and
-`install.sh` overwrites every core file blind. `/update` is the installed side of versioning: what's
-new since my version, what I edited locally that the update would clobber, what new config keys my
-project-owned files are missing — then the install, with my edits carried over.
+`git pull` in the upstream clone tells you nothing about what changed for THIS install. `/update` is
+the installed side of versioning, and it states the installer's contract before running it:
+**core files** (everything the previous `.upstream-base/` snapshot lists) are refreshed, with local
+edits captured to `.upstream-prior/<date>/` and re-applied by 3-way merge; **project-owned
+commands, agents and scripts** (under `.claude/{commands,agents,scripts}` but NOT in that snapshot —
+a step this project invented) are never overwritten or archived, and are listed so you can see they
+were left alone; a **same-name arrival** (upstream now ships a file with a project-owned basename)
+is skipped — yours stays, upstream's copy is not installed — and reported as a conflict for you to
+rename. So: what's new since my version, what I edited locally, what is mine and untouched, what
+new config keys my project-owned templates are missing — then the install, with my edits carried over.
 </objective>
 
 <principles>
@@ -26,7 +32,10 @@ project-owned files are missing — then the install, with my edits carried over
    overwritten. They are either harvested (`/upstream`) or re-applied by 3-way merge against the
    install baseline. Losing them silently is the failure this command exists to prevent.
 2. **Project-owned files are never overwritten.** New template keys are listed for the user to merge;
-   the command may offer the exact snippet, never the write.
+   the command may offer the exact snippet, never the write. The same holds for a command, agent or
+   script the project created: `install.sh` leaves it in place, never archives it, and when upstream
+   ships a file of the same name it keeps yours, skips upstream's and prints a `conflict` line —
+   this command relays that list and never proposes archiving any of them.
 3. **Show the delta, not the whole changelog.** Only entries newer than the installed version.
 4. **The installer installs.** This command prepares, confirms, calls `install.sh`, re-applies, and
    re-adapts. It does not copy files itself.
@@ -61,6 +70,24 @@ For each `modified` core file:
   the choice per file. Conflicts are shown and left to the user, never auto-resolved.
 `missing` core files (deleted locally on purpose) → ask keep-deleted / restore.
 
+## 3b. Project-owned commands, agents, scripts — what the install will leave alone
+Project-owned = installed under `commands/`, `agents/`, `scripts/` (and `learn-targets/`) with no
+copy in the CURRENT `.upstream-base/` — the snapshot the previous install wrote. Compute it BEFORE
+the install (the install rewrites the snapshot):
+```bash
+for k in commands agents scripts learn-targets; do
+  for f in "$CLAUDE_DIR/$k"/*; do [ -f "$f" ] || continue
+    [ -f "$CLAUDE_DIR/.upstream-base/$k/$(basename "$f")" ] || echo "project-owned $k/$(basename "$f")"
+  done
+done
+```
+Print the list as "left alone (project-owned): …". For each, check whether a selected upstream source
+(`<clone>/core/<k>/`, `<clone>/roles/<role>/<k>/`) ships the same basename — those will be reported
+by `install.sh` as `conflict <kind>/<name> — project-owned … kept yours`; say so now, with the rename
+advice. Never propose archiving a project-owned file. If `.upstream-base/` does not exist (a
+pre-0.7.0 install) print one line: "no baseline — project-owned files cannot be told from upstream's;
+install.sh captures everything it would overwrite to .upstream-prior/<date>/ first" and move on.
+
 ## 4. Project-owned files: what's new in the templates
 For each `owner: project` row in `inventory.yaml` with a template in upstream (`templates/repo/*`,
 `templates/workspace/*`, `repo-profiles/_schema.yaml`): diff the OLD template (from
@@ -75,11 +102,19 @@ Then, unless `--dry-run`:
 for d in "$TMP"/drift/*.diff; do git -C "$CLAUDE_DIR" apply --3way --directory=. "$d" || echo "CONFLICT $d"; done
 ```
 (`install.sh` refreshes `.upstream-base/` to the NEW core, so the re-applied edits show up in the next
-`drift` run — which is exactly right: they are still local edits.) Then run `/bootstrap` for gate flips
-introduced by the new inventory, and print the template-merge list again as the to-do.
+`drift` run — which is exactly right: they are still local edits.) Then, from the installer output and
+`CLAUDE_DIR/workflow-manifest.json`, print the project-owned outcome: every `conflict …` line the
+installer printed, plus the manifest's `"conflicts": ["<kind>/<name>", …]` (absent = none), each with
+"kept yours; upstream's new <kind> of the same name was NOT installed — rename yours to adopt it".
+Re-check the step-3b list still exists unchanged (`cmp` against a copy taken before the install — a
+project-owned file that changed or vanished is a bug to report, not something to fix by hand). Then run
+`/bootstrap` for gate flips introduced by the new inventory — it shows the same files as LOCAL /
+CONFLICT and never moves them — and print the template-merge list again as the to-do.
 
 ## 6. Stop
-"Updated {old} → {new}. Kept {n} local edits ({k} conflicts to resolve). Merge by hand: {list}."
+"Updated {old} → {new}. Kept {n} local edits ({k} merge conflicts to resolve). Left alone: {p}
+project-owned files. Same-name collisions: {c} (rename yours to adopt upstream's: {list}). Merge by
+hand: {list}."
 
 </process>
 
@@ -93,6 +128,9 @@ introduced by the new inventory, and print the template-merge list again as the 
 - [ ] Printed only the changelog entries newer than the installed version.
 - [ ] Every locally modified core file was listed before any copy, with a per-file decision.
 - [ ] No project-owned file was written; new template keys were listed with snippets.
+- [ ] No project-owned command, agent or script was overwritten or archived; the list of those left
+      alone and every same-name conflict (installer output + manifest `conflicts`) was printed, and
+      none was proposed for archiving.
 - [ ] After install, kept edits were re-applied by 3-way and conflicts named, not auto-resolved.
 - [ ] `/bootstrap` ran afterwards (or was offered on `--dry-run`).
 </success_criteria>

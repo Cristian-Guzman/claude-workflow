@@ -9,12 +9,20 @@ the inventory (.claude/inventory.yaml), the installed roles (from --roles, else 
 vector's roles[], else inferred from which role directories' commands are present), and
 the state of each command/agent file, and emits one decision per row:
 
-  KEEP · KEEP(in-use) · KEEP(core) · PRUNE · UN-ARCHIVE · MISSING · IGNORE · ORPHAN
-  (ORPHAN = a file in commands/ or agents/ with no inventory row. install.sh already archives a
-   retired file when the previous baseline proves it was upstream's and it is unmodified, so an
-   orphan is one of two things, and the reason says which: a LOCALLY EDITED retired file the
-   installer kept (its copy is in .upstream-prior/<date>/), or a leftover from a pre-baseline
-   (< 0.7.0) install. Reported, never moved — the owner archives by hand after a look.)
+  KEEP · KEEP(in-use) · KEEP(core) · PRUNE · UN-ARCHIVE · MISSING · IGNORE · ORPHAN · LOCAL · CONFLICT
+  A file in commands/ or agents/ with no inventory row is one of three things, and the baseline
+  (.upstream-base/<kind>/<name>, rewritten by every install from what upstream ships) tells them apart:
+  - LOCAL    = project-owned: created in this project, never shipped upstream (no baseline copy, no
+               capture of it as an upstream file). install.sh and /bootstrap never touch it.
+  - CONFLICT = project-owned AND listed in workflow-manifest.json "conflicts": upstream has since
+               shipped a file of the same name; install.sh kept yours and did not install upstream's.
+               Rename yours to adopt upstream's, or keep ignoring it.
+  - ORPHAN   = was upstream's and is retired. install.sh already archives a retired file when the
+               previous baseline proves it was upstream's and it is unmodified, so an orphan is a
+               LOCALLY EDITED retired file the installer kept (its copy is in .upstream-prior/<date>/),
+               or — when no baseline exists at all (< 0.7.0 install) — a leftover nothing can vouch
+               for; the reason says which. Reported, never moved — the owner archives by hand.
+  scripts/ has no inventory rows, so a script is only ever LOCAL or CONFLICT, never ORPHAN.
 
 Rules (fail-safe):
   - gate grammar: always | <cap> == <v> | <cap> != <v> | <cap> >= <n> | A AND B | A OR B | ( ... )
@@ -206,6 +214,56 @@ def decide(row, kind, claude, vec, roles):
     return out
 
 
+LOCAL_REASON = "created in this project, never shipped upstream — install.sh and /bootstrap never touch it"
+
+
+def read_conflicts(claude):
+    """workflow-manifest.json "conflicts": ['<kind>/<name>', ...] — project-owned files a newer upstream
+    collided with; install.sh kept the project's copy and did not install upstream's. Absent on older installs."""
+    mf = claude / "workflow-manifest.json"
+    if not mf.exists():
+        return set()
+    try:
+        data = json.loads(mf.read_text())
+    except json.JSONDecodeError:
+        return set()
+    items = data.get("conflicts") if isinstance(data, dict) else None
+    return {str(c) for c in items} if isinstance(items, list) else set()
+
+
+def classify_unlisted(f, kind, claude, base_root, conflicts):
+    """Decision for a file in <kind>/ that no inventory row names (kind: commands | agents | scripts)."""
+    out = {"name": f.stem if kind != "scripts" else f.name, "kind": kind[:-1], "role": "?", "priority": "", "gate": ""}
+    rel = f"{kind}/{f.name}"
+    if rel in conflicts:
+        out.update(decision="CONFLICT",
+                   reason=f"project-owned file with the same name as a new upstream {kind[:-1]}; install.sh kept yours "
+                          f"and did not install upstream's — rename yours to adopt upstream's, or keep ignoring it")
+        return out
+    captures = sorted(claude.glob(f".upstream-prior/*/installed/{kind}/{f.name}")) + \
+               sorted(claude.glob(f".upstream-prior/*/{kind}/{f.name}"))
+    baseline_has = (base_root / kind / f.name).exists()
+    if not captures and not baseline_has:
+        if base_root.is_dir():
+            out.update(decision="LOCAL", reason=LOCAL_REASON)
+            return out
+        if kind == "scripts":
+            out.update(decision="IGNORE", reason="no baseline (< 0.7.0 install) — cannot tell project-owned from upstream's")
+            return out
+    archived = (claude / ("_archived-commands" if kind == "commands" else "_archived-agents") / f.name).exists()
+    if captures:
+        rel_cap = captures[-1].relative_to(claude)
+        reason = f"retired upstream but locally edited — install.sh kept it; your copy is at .claude/{rel_cap}; review, then archive by hand"
+    elif baseline_has:
+        reason = "retired upstream (the baseline proves it was upstream's) — install.sh left it; review, then archive by hand"
+    else:
+        reason = "retired upstream; this install predates the baseline (< 0.7.0) so install.sh could not prove it was upstream's — archive by hand"
+    if archived:
+        reason += " (an archived copy already exists — compare before overwriting)"
+    out.update(decision="ORPHAN", reason=reason)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=".claude")
@@ -226,34 +284,35 @@ def main():
     roles = [r for r in (args.roles.split(",") if args.roles else vec.get("roles") or []) if r] or infer_roles(claude)
     rows = [decide(r, "commands", claude, vec, roles) for r in inv["commands"] if "name" in r]
     rows += [decide(r, "agents", claude, vec, roles) for r in inv["agents"] if "name" in r]
-    # orphans: shipped files no inventory row names. install.sh archives a retired file itself when
-    # the previous baseline proves it was upstream's AND it is unmodified; whatever is left is either
-    # a locally edited retired file it kept (captured under .upstream-prior/) or a pre-baseline leftover.
+    # files no inventory row names: project-owned (LOCAL / CONFLICT) or retired upstream (ORPHAN).
+    # The baseline is rewritten by every install from what upstream ships, so a path under
+    # .upstream-base/<kind>/ proves upstream-ness; a capture under .upstream-prior/*/installed/<kind>/
+    # proves it too (install.sh captures only files the previous baseline vouched for). A file with
+    # neither, while a baseline exists, was created in this project — never label it retired.
     listed = {(k, r["name"]) for k in ("commands", "agents") for r in inv[k] if "name" in r}
+    base_root = claude / ".upstream-base"
+    conflicts = read_conflicts(claude)
     for kind in ("commands", "agents"):
         for f in sorted((claude / kind).glob("*.md")):
             if f.name == "README.md" or (kind, f.stem) in listed:
                 continue
-            captures = sorted(claude.glob(f".upstream-prior/*/installed/{kind}/{f.name}")) + \
-                       sorted(claude.glob(f".upstream-prior/*/{kind}/{f.name}"))
-            archived = (claude / ("_archived-commands" if kind == "commands" else "_archived-agents") / f.name).exists()
-            if captures:
-                rel = captures[-1].relative_to(claude)
-                reason = f"retired upstream but locally edited — install.sh kept it; your copy is at .claude/{rel}; review, then archive by hand"
-            else:
-                reason = "retired upstream; this install predates the baseline (< 0.7.0) so install.sh could not prove it was upstream's — archive by hand"
-            if archived:
-                reason += " (an archived copy already exists — compare before overwriting)"
-            rows.append({"name": f.stem, "kind": kind[:-1], "role": "?", "priority": "", "gate": "",
-                         "decision": "ORPHAN", "reason": reason})
+            rows.append(classify_unlisted(f, kind, claude, base_root, conflicts))
+    # scripts have no inventory rows: only LOCAL / CONFLICT can be said about one, never ORPHAN.
+    for f in sorted((claude / "scripts").glob("*")):
+        if not f.is_file():
+            continue
+        row = classify_unlisted(f, "scripts", claude, base_root, conflicts)
+        if row["decision"] in ("LOCAL", "CONFLICT"):
+            rows.append(row)
     counts = {}
     for r in rows:
         counts[r["decision"]] = counts.get(r["decision"], 0) + 1
-    result = {"roles": roles, "counts": counts, "rows": rows}
+    result = {"roles": roles, "baseline": base_root.is_dir(), "conflicts": sorted(conflicts), "counts": counts, "rows": rows}
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print(f"roles: {', '.join(roles) or '(none)'} · " + " · ".join(f"{k} {v}" for k, v in sorted(counts.items())))
+        note = "" if base_root.is_dir() else " · no .upstream-base/ (< 0.7.0 install): project-owned files cannot be told from upstream's"
+        print(f"roles: {', '.join(roles) or '(none)'} · " + " · ".join(f"{k} {v}" for k, v in sorted(counts.items())) + note)
         for r in rows:
             if r["decision"] != "IGNORE":
                 print(f"  {r['decision']:15} {r['kind']:8} {r['name']:20} {r['role']:5} {r['reason']}")

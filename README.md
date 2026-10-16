@@ -23,7 +23,9 @@ git clone <this-repo> && cd claude-workflow
 
 Multi-repo workspace? Install once at the root, then `./install.sh <workspace>/repo-a --repo-only` per repo.
 **Updating:** `git pull` here, re-run `install.sh`. Core and role files refresh in place; anything the project
-owns (patterns, settings, checklists) is never overwritten. Roles are remembered in the tracked `.claude/workflow-manifest.json`
+owns (patterns, settings, checklists) is never overwritten. Commands, agents or scripts the project created are never
+overwritten or archived by an update either; if upstream later ships one with the same name, yours is kept and the
+collision is reported for you to rename. Roles are remembered in the tracked `.claude/workflow-manifest.json`
 (flag → manifest → inferred from installed commands → `dev`); a dropped role's commands are archived to `.claude/_archived-commands/`,
 never deleted. The first run on a pre-0.7.0 install copies what it finds to `.claude/.upstream-prior/<date>/` (MANIFEST.md +
 SHA256SUMS) before touching anything, and on later upgrades any core file you edited locally (plus the old baseline) is copied there before the refresh, so local edits are never lost; a 0.6.0 install's retired `test-plan.md` stays as an orphan that `/bootstrap --check` reports.
