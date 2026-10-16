@@ -1,6 +1,6 @@
 ---
 name: review-comments
-version: 0.10.2
+version: 0.10.3
 description: Fetch and triage PR review comments. Save valid feedback to the ticket state file for /learn to process later.
 argument-hint: "PR-number [--repo repo-name]"
 allowed-tools:

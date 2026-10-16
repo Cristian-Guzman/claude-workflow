@@ -1,6 +1,6 @@
 ---
 name: ticket
-version: 0.10.2
+version: 0.10.3
 description: Start implementing a Jira ticket. Reads the persisted clarify blueprint (if present), seeds phase-based progress, and iterates phases with checkpoints so each chunk stays small enough for Claude Code to ship reliably.
 argument-hint: "PROJ-XXXX [paste acceptance criteria]"
 allowed-tools:

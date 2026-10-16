@@ -1,6 +1,6 @@
 ---
 name: demo-summary
-version: 0.10.2
+version: 0.10.3
 description: Build a sprint-demo runbook from your delivered work — turns "what I shipped" into a user-journey narrative with per-beat talking points, a pre-demo setup checklist, live-demo risk notes, and an ownership guard that flags adjacent work owned by teammates so you never present their ticket as yours.
 argument-hint: "[--sprint | --week | --days N] [--repo NAME] [--audience team|stakeholders] [--artifact]"
 allowed-tools:

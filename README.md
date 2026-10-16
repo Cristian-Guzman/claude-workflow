@@ -28,8 +28,7 @@ overwritten or archived by an update either; if upstream later ships one with th
 collision is reported for you to rename. Roles are remembered in the tracked `.claude/workflow-manifest.json`
 (flag → manifest → inferred from installed commands → `dev`); a dropped role's commands are archived to `.claude/_archived-commands/`,
 never deleted. The first run on a pre-0.7.0 install copies what it finds to `.claude/.upstream-prior/<date>/` (MANIFEST.md +
-SHA256SUMS) before touching anything, and on later upgrades any core file you edited locally (plus the old baseline) is copied there before the refresh, so local edits are never lost; a 0.6.0 install's retired `test-plan.md` stays as an orphan that `/bootstrap --check` reports.
-SHA256SUMS) before touching anything; on 0.7.0+ installs an unmodified retired command is archived automatically (the baseline proves it was upstream's) and a locally edited one is kept and captured; a 0.6.0 install has no baseline, so its retired `test-plan.md` stays as an orphan that `/bootstrap` reports (ORPHAN, never moved). Inside an installed workspace, `/update` shows the changelog since your version and re-installs with local edits kept.
+SHA256SUMS) before touching anything, and on later upgrades any core file you edited locally (plus the old baseline) is copied there before the refresh, so local edits are never lost. On 0.7.0+ installs an unmodified retired command is archived automatically (the baseline proves it was upstream's) and a locally edited one is kept and captured; a 0.6.0 install has no baseline, so its retired `test-plan.md` stays as an orphan that `/bootstrap` reports (ORPHAN, never moved). Inside an installed workspace, `/update` shows the changelog since your version and re-installs with local edits kept.
 
 ## Start here
 

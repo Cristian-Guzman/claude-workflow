@@ -1,6 +1,6 @@
 ---
-version: 0.10.2
-last-updated: 2026-10-14
+version: 0.10.3
+last-updated: 2026-10-16
 maintainer: your-name@your-org.com
 ---
 
@@ -25,6 +25,16 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.10.3 — 2026-10-16
+**Theme:** project-owned files are never overwritten or archived.
+
+A project may add its own commands, agents or scripts under `.claude/` (a step upstream never shipped). They are now **project-owned** everywhere: a file under `commands/`, `agents/`, `scripts/` or `learn-targets/` that the previous `.upstream-base/` never held.
+
+- **`install.sh`** — never overwrites a project-owned file, even when a later release ships one with the same basename: yours stays, upstream's copy is not installed and not mirrored into the baseline, the collision is printed as `conflict <kind>/<name> …` with rename advice and recorded as `"conflicts": [...]` in `.claude/workflow-manifest.json` (re-runs do not re-capture it). Never archived by a role switch or a retirement either (both passes only consider files the previous baseline shipped). Each project-owned file is listed under a `local` label and counted on the Done line (`project-owned left alone: N`). Without a baseline (pre-0.7.0 install) nothing can be proven; the old capture-then-overwrite stands and one `prior    no baseline — …` line says so.
+- **`/bootstrap` (`adapt-plan.py`)** — a file with no inventory row is no longer blanket-labelled ORPHAN "retired upstream … archive by hand". New decisions: **LOCAL** (project-owned: "created in this project, never shipped upstream — install.sh and /bootstrap never touch it") and **CONFLICT** (recorded same-name collision, with the rename advice); ORPHAN is reserved for files the baseline or a capture proves were upstream's. `scripts/` get the same LOCAL/CONFLICT pass and are never ORPHAN. Both counted in the summary and carried in `--json` (plus `baseline`, `conflicts`). LOCAL/CONFLICT are excluded from any move.
+- **`/update`** — objective restated as the real contract (core refreshed with local edits captured and re-applied; project-owned files listed and left alone; same-name arrivals skipped and reported); new step prints the project-owned list and conflicts; success criterion "no project-owned command, agent or script was overwritten or archived". README "Updating" paragraph says the same in one sentence (and its duplicated tail is merged).
+- Tests: `tests/install.sh.test` case 16 (survive re-run and role switch; same-name arrival kept byte-identical, conflict printed and recorded, nothing mirrored; retirement still archives an unmodified upstream file) — 16 cases; `tests/bootstrap-split.test.sh` +18 assertions (LOCAL, CONFLICT, baselined file stays ORPHAN, scripts never ORPHAN, `--json` shape) — 58 checks. Both suites fail against the 0.10.2 scripts on exactly the new assertions.
 
 ### 0.10.2 — 2026-10-14
 **Theme:** `/bootstrap` orphan reporting matches what `install.sh` actually does.
