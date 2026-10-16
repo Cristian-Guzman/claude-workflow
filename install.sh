@@ -30,6 +30,9 @@ set -euo pipefail
 #     copies everything upstream-shaped to .claude/.upstream-prior/<date>/ before touching
 #     anything; every later run compares the installed core against .upstream-base/ and, when
 #     anything drifted, copies the drifted files + the old baseline there before refreshing
+#   - PROJECT-OWNED files (in .claude/{commands,agents,scripts,learn-targets} but not in the previous baseline)
+#     are never overwritten or archived; an upstream file of the same name is NOT installed — the collision
+#     is recorded under "conflicts" in workflow-manifest.json (rename yours to adopt upstream's)
 #   - --stack appends seed packs per templates/seed-packs/README.md (marker + H2 for the two
 #     pattern files, DoD lines behind a marker in ticket-checklist.md, fullstack-monorepo
 #     composes frontend-web + backend-api first); every unit is appended at most once
@@ -102,6 +105,16 @@ available_roles() {
 recorded_roles() { # $1 = manifest path; prints one role per line (empty if none)
   [ -f "$1" ] || return 0
   sed -n 's/.*"roles": *\[\([^]]*\)\].*/\1/p' "$1" | tr -d '" ' | tr ',' '\n' | grep -v '^$' || true
+}
+
+recorded_conflicts() { # $1 = manifest path; prints one "top/rel" per line the last run recorded as a conflict
+  [ -f "$1" ] || return 0
+  sed -n 's/.*"conflicts": *\[\([^]]*\)\].*/\1/p' "$1" | tr -d '" ' | tr ',' '\n' | grep -v '^$' || true
+}
+
+in_list() { # $1 = newline-separated list, $2 = item
+  case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0 ;; esac
+  return 1
 }
 
 infer_legacy_roles() { # pre-manifest install: a role is on if any of its commands is installed
@@ -237,12 +250,18 @@ capture_drifted() {
 $(cd "$BASE/$top" && find . -type f | sed 's|^\./||' | sort)
 EOF_BASE
   done
-  # Installed files the refresh is about to overwrite that the baseline cannot vouch for.
+  # Installed files at a shipped path that the baseline cannot vouch for. Under commands/agents/
+  # scripts/learn-targets these are project-owned and will be KEPT (see compute_project_conflicts);
+  # they are still captured once, so the collision leaves a trace — but not again on every re-run
+  # once the previous manifest already recorded the conflict.
+  local known_conflicts
+  known_conflicts="$(recorded_conflicts "$MANIFEST")"
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     top="${line%%/*}"; rel="${line#*/}"
     [ -f "$(base_dest "$top")/$rel" ] || continue
     [ -f "$BASE/$top/$rel" ] && continue
+    in_list "$known_conflicts" "$line" && continue
     drifted="${drifted}unbaselined $line"$'\n'
   done <<EOF_SHIPPED
 $(shipped_paths | sort -u)
@@ -340,9 +359,106 @@ EOF_PRIOR
   echo "           compare: diff -r $(rel "$dst")/commands .claude/commands"
 }
 
+# ---------------------------------------------------------------- project-owned files
+# PROJECT-OWNED = installed under commands/agents/scripts/learn-targets but NOT in the previous
+# baseline: upstream never shipped it, so the project created it. Such a file is never overwritten
+# (even when a source now ships the same basename), never archived, and never mirrored into the
+# baseline. Without a baseline (pre-0.7.0 install) nothing can be proven and the old
+# capture-then-overwrite stands.
+OWNED_TOPS="commands agents scripts learn-targets"
+HAD_BASE=0            # 1 when a previous baseline existed at the start of this run
+PREV_BASE_PATHS=""    # every "top/rel" the previous baseline held (OWNED_TOPS only)
+PROJECT_CONFLICTS=""  # shipped "top/rel" whose installed file is project-owned -> kept, not installed
+conflicts=0
+local_count=0
+
+compute_project_conflicts() { # must run BEFORE the baseline is wiped
+  local top rel line
+  if [ ! -d "$BASE" ]; then
+    [ -d "$CLAUDE_DIR/commands" ] && echo "  prior    no baseline — project-owned files cannot be told apart from an old upstream copy on this first run; everything was captured to .upstream-prior/"
+    return 0
+  fi
+  HAD_BASE=1
+  for top in $OWNED_TOPS; do
+    [ -d "$BASE/$top" ] || continue
+    while IFS= read -r rel; do
+      [ -n "$rel" ] || continue
+      PREV_BASE_PATHS="$PREV_BASE_PATHS$top/$rel"$'\n'
+    done <<EOF_BASE
+$(cd "$BASE/$top" && find . -type f | sed 's|^\./||' | sort)
+EOF_BASE
+  done
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    top="${line%%/*}"; rel="${line#*/}"
+    case " $OWNED_TOPS " in *" $top "*) ;; *) continue ;; esac
+    [ -f "$(base_dest "$top")/$rel" ] || continue
+    in_list "$PREV_BASE_PATHS" "$line" && continue
+    PROJECT_CONFLICTS="$PROJECT_CONFLICTS$line"$'\n'
+  done <<EOF_SHIPPED
+$(shipped_paths | sort -u)
+EOF_SHIPPED
+  return 0
+}
+
+unselected_role_copy() { # $1 = top, $2 = basename; prints the role whose unselected copy is byte-identical to the installed file
+  local r src
+  for r in $(available_roles); do
+    case " $(printf '%s ' $ROLES)" in *" $r "*) continue ;; esac
+    case "$1" in
+      learn-targets) [ "$2" = "$r.yaml" ] && src="$HERE/roles/$r/learn-targets.yaml" || continue ;;
+      *) src="$HERE/roles/$r/$1/$2" ;;
+    esac
+    [ -f "$src" ] && cmp -s "$src" "$(base_dest "$1")/$2" && { echo "$r"; return 0; }
+  done
+  return 1
+}
+
+project_owned_installed() { # after the install: "local <top/rel>" for every installed file that is the project's own,
+  local top f rel r         # "leftover <top/rel> <role>" for an unselected role's unmodified copy (not archived: hooks may reference it)
+  for top in $OWNED_TOPS; do
+    [ -d "$(base_dest "$top")" ] || continue
+    for f in "$(base_dest "$top")"/*; do
+      [ -f "$f" ] || continue
+      rel="$top/$(basename "$f")"
+      [ -f "$BASE/$rel" ] && continue                   # shipped by this run
+      in_list "$PROJECT_CONFLICTS" "$rel" && continue   # kept, reported as a conflict
+      in_list "$PREV_BASE_PATHS" "$rel" && continue     # retired upstream + locally modified: reported as kept
+      if r="$(unselected_role_copy "$top" "$(basename "$f")")"; then echo "leftover $rel $r"; else echo "local $rel"; fi
+    done
+  done
+  return 0
+}
+
+report_project_owned() {
+  local line status rel r
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    status="${line%% *}"; rel="$(printf '%s' "$line" | cut -d' ' -f2)"; r="${line##* }"
+    if [ "$status" = local ]; then
+      local_count=$((local_count + 1))
+      echo "  local    $rel — project-owned (never shipped upstream); left alone"
+    else
+      echo "  leftover $rel — unmodified copy from role '$r' (not selected); left in place"
+    fi
+  done <<EOF_LOCAL
+$(project_owned_installed)
+EOF_LOCAL
+  return 0
+}
+
 # ---------------------------------------------------------------- copy / seed
 copy_core() { # always refresh — upstream-owned; mirrored into the baseline in the same step
-  local src="$1" dst="$2" top="$3"
+  local src="$1" dst="$2" top="$3" key kind
+  key="$top/$(basename "$dst")"
+  if in_list "$PROJECT_CONFLICTS" "$key"; then
+    # The installed file is the project's (never in a baseline): keep it, install nothing, mirror
+    # nothing — a baseline copy would make the project's file look like a locally edited upstream one.
+    kind="${top%s}"
+    echo "  conflict $key — project-owned (never shipped upstream before); kept yours, upstream's new $kind of the same name was NOT installed. Rename yours to adopt upstream's."
+    conflicts=$((conflicts + 1))
+    return 0
+  fi
   mkdir -p "$(dirname "$dst")" "$BASE/$top"
   cp "$src" "$dst"
   cp "$src" "$BASE/$top/$(basename "$dst")"
@@ -483,7 +599,14 @@ archive_one() { # $1 = basename in commands/, $2 = reason
   echo "  archived commands/$b -> $(rel "$dst") ($2)"
 }
 
+from_previous_baseline() { # $1 = "top/rel"; true when the previous install put it there (so it is upstream's, not the project's)
+  [ "$HAD_BASE" = 1 ] || return 0   # no baseline: nothing can be proven, keep the pre-0.7.0 behaviour
+  in_list "$PREV_BASE_PATHS" "$1"
+}
+
 archive_removed_roles() { # /bootstrap PRUNE semantics: archive, never rm
+  # Both passes only ever archive a file the PREVIOUS baseline shipped: a project-owned command
+  # (never in a baseline) stays put even when its basename matches an unselected role's command.
   local r f b
   for r in $(available_roles); do
     case " $(printf '%s ' $ROLES)" in *" $r "*) continue ;; esac
@@ -492,9 +615,10 @@ archive_removed_roles() { # /bootstrap PRUNE semantics: archive, never rm
       b="$(basename "$f")"
       [ -f "$CLAUDE_DIR/commands/$b" ] || continue
       shipped_command "$b" && continue
+      from_previous_baseline "commands/$b" || continue
       archive_one "$b" "role '$r' not selected"
     done
-    if [ -f "$CLAUDE_DIR/learn-targets/$r.yaml" ]; then
+    if [ -f "$CLAUDE_DIR/learn-targets/$r.yaml" ] && from_previous_baseline "learn-targets/$r.yaml"; then
       mkdir -p "$CLAUDE_DIR/_archived-commands/learn-targets"
       mv "$CLAUDE_DIR/learn-targets/$r.yaml" "$CLAUDE_DIR/_archived-commands/learn-targets/$r.yaml"
       echo "  archived learn-targets/$r.yaml -> .claude/_archived-commands/learn-targets/ (role '$r' not selected)"
@@ -502,6 +626,7 @@ archive_removed_roles() { # /bootstrap PRUNE semantics: archive, never rm
   done
   # Commands the previous baseline shipped that no source ships any more (retired upstream).
   # Only an unmodified copy is archived; a locally edited one is left for the owner to judge.
+  # PREV_BASE_COMMANDS is the previous baseline, so a project-owned command can never enter this loop.
   local line sha b2
   while IFS= read -r line; do
     [ -n "$line" ] || continue
@@ -519,13 +644,16 @@ EOF_PREV
 }
 
 write_manifests() {
-  local commit remote roles_json="" r
+  local commit remote roles_json="" conflicts_json="" r c
   for r in $ROLES; do roles_json="${roles_json:+$roles_json, }\"$r\""; done
   roles_json="[$roles_json]"
+  for c in $PROJECT_CONFLICTS; do conflicts_json="${conflicts_json:+$conflicts_json, }\"$c\""; done
+  conflicts_json="[$conflicts_json]"
   commit="$(git -C "$HERE" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   remote="$(git -C "$HERE" remote get-url origin 2>/dev/null || echo unknown)"
-  # Tracked with .claude/ — a fresh clone of a team-shared workspace remembers its roles.
-  printf '{\n  "schema": 1,\n  "workflow_version": "%s",\n  "roles": %s\n}\n' "$VERSION" "$roles_json" >"$MANIFEST"
+  # Tracked with .claude/ — a fresh clone of a team-shared workspace remembers its roles, and which
+  # project-owned files shadow an upstream file of the same name (kept; upstream's not installed).
+  printf '{\n  "schema": 1,\n  "workflow_version": "%s",\n  "roles": %s,\n  "conflicts": %s\n}\n' "$VERSION" "$roles_json" "$conflicts_json" >"$MANIFEST"
   # Machine-local provenance for /upstream (gitignored; rewritten every run).
   cat >"$CLAUDE_DIR/.upstream-manifest.json" <<EOF_MANIFEST
 {
@@ -666,12 +794,16 @@ if [ "$MODE" = repo-only ]; then
   append_gitignore
 else
   capture_prior
+  # Project-owned collisions + the previous baseline's file list — both need the baseline that
+  # the refresh below wipes.
+  compute_project_conflicts
   PREV_BASE_COMMANDS=""
   if [ -d "$BASE/commands" ]; then
     PREV_BASE_COMMANDS="$(cd "$BASE/commands" && find . -maxdepth 1 -type f -name '*.md' -print | sort | sha256_list | sed 's|  \./|  |' || true)"
   fi
   # 1. Core, then each role — commands, agents, scripts, docs refreshed on every run;
   #    every file mirrored into .upstream-base/ so /upstream drift sees the merged set.
+  #    Project-owned files at a shipped path are kept and skipped (copy_core).
   rm -rf "$BASE"
   for s in $(selected_sources); do install_tree "$s"; done
   chmod +x "$CLAUDE_DIR/scripts/"*.sh 2>/dev/null || true
@@ -688,10 +820,17 @@ else
   append_gitignore
   # 6. Stack seed packs (opt-in, appended once)
   for s in $(printf '%s' "$STACKS" | normalize_roles); do apply_seed_pack "$s"; done
+  # 7. What the installer deliberately did not touch: the project's own commands/agents/scripts.
+  report_project_owned
 fi
 
 echo ""
-echo "Done. roles: $ROLES_CSV | core updated: $updated | seeded: $seeded | left untouched (already yours): $skipped"
+done_line="Done. roles: $ROLES_CSV | core updated: $updated | seeded: $seeded | left untouched (already yours): $skipped"
+if [ "$MODE" = full ]; then
+  done_line="$done_line | project-owned left alone: $local_count"
+  [ "$conflicts" -gt 0 ] && done_line="$done_line | conflicts: $conflicts"
+fi
+echo "$done_line"
 echo ""
 
 if grep -q '{placeholder}\|{One paragraph' "$TARGET/CLAUDE.md" 2>/dev/null; then
