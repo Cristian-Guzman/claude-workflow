@@ -34,6 +34,10 @@ to live here is somewhere better: file writing in `install.sh` + `templates/`, v
    on a fresh install everything is new, and the first run is exactly when pruning matters.
 4. **Core is never pruned.** Rows with `gate: always` and priority `core` stay, whatever the probe says.
 5. **Plan first, then approval, then moves.** Pruning is a removal even when reversible.
+6. **A file this project created is project-owned: never moved, never relabelled as retired.** A
+   command, agent or script with no inventory row AND no copy in `.upstream-base/` was created here
+   (LOCAL) — `install.sh` and `/bootstrap` never touch it. Only a file the baseline proves was
+   upstream's can be called retired (ORPHAN).
 </principles>
 
 <process>
@@ -71,9 +75,12 @@ Run it, don't re-derive it: `python3 "$CLAUDE_DIR/scripts/adapt-plan.py" --root 
 | in `_archived-commands/` | false | leave |
 | missing from both | true | **MISSING** → report `install.sh <root> --role <role>`; write nothing |
 | missing from both | false | ignore |
-| in `commands/` or `agents/`, **no inventory row** | — | **ORPHAN** → report only, never moved. `install.sh` already archives a retired file it can prove was upstream's and unmodified; what remains is either a **locally edited** retired file it kept (copy under `.upstream-prior/<date>/` — say where) or a leftover from a **pre-baseline** (< 0.7.0) install. The owner archives by hand after a look |
+| in `commands/` or `agents/`, **no inventory row**, baseline (`.upstream-base/<kind>/` or a capture under `.upstream-prior/<date>/installed/<kind>/`) **proves it was upstream's** — or no baseline exists at all | — | **ORPHAN** → report only, never moved. `install.sh` already archives a retired file it can prove was upstream's and unmodified; what remains is either a **locally edited** retired file it kept (copy under `.upstream-prior/<date>/` — say where) or a leftover from a **pre-baseline** (< 0.7.0) install, where nothing can be proven. The owner archives by hand after a look |
+| in `commands/`, `agents/` or `scripts/`, **no inventory row, not in `.upstream-base/`** (baseline exists) | — | **LOCAL** (project-owned) → reason "created in this project, never shipped upstream — install.sh and /bootstrap never touch it". Never moved, never called retired |
+| as above, and `workflow-manifest.json` `"conflicts"` names `<kind>/<name>` | — | **CONFLICT** → reason "project-owned file with the same name as a new upstream <kind>; install.sh kept yours and did not install upstream's — rename yours to adopt upstream's, or keep ignoring it". Never moved |
 
-Agents follow the same table against the `agents:` rows.
+Agents follow the same table against the `agents:` rows. `scripts/` has no inventory rows, so a script
+is only ever LOCAL or CONFLICT — never ORPHAN, never moved.
 Diff against the previous `capability-manifest.md` when present: only decisions that FLIPPED since the
 last run are shown as changes; unchanged ones are summarized in one line.
 
@@ -81,7 +88,7 @@ last run are shown as changes; unchanged ones are summarized in one line.
 ```
 # Bootstrap plan — {WORKSPACE_ROOT}
 Roles: {roles} · vector: {vcs_host, ci, ticket_system, ui_surfaces, e2e, repo_count, team, memory_system}
-KEEP {n} · PRUNE {n} · UN-ARCHIVE {n} · MISSING {n} · unchanged since last run {n}
+KEEP {n} · PRUNE {n} · UN-ARCHIVE {n} · MISSING {n} · ORPHAN {n} · LOCAL {n} · CONFLICT {n} · unchanged since last run {n}
 | Command | Role | Gate | Decision | Reason |
 ```
 `--dry-run` stops here. Otherwise AskUserQuestion: apply / apply without prunes / cancel.
@@ -89,12 +96,17 @@ KEEP {n} · PRUNE {n} · UN-ARCHIVE {n} · MISSING {n} · unchanged since last r
 ## 5. Apply
 - PRUNE: `mv commands/<c>.md _archived-commands/<c>.md` (never `rm`). Same for agents under `agents/`.
 - UN-ARCHIVE: the reverse move.
+- Only PRUNE and UN-ARCHIVE rows move. **LOCAL and CONFLICT rows are never moved, archived or
+  renamed by this command** — they are the project's own files; a CONFLICT is resolved by the owner
+  renaming their file (or leaving it), nothing else. ORPHAN rows are reported only, never moved.
 - Write `CLAUDE_DIR/capability-manifest.md`: date, roles, the vector, one row per command with
   decision + reason + the gate text, and the un-archive instruction. This file is the audit trail the
   next run diffs against.
 
 ## 6. Summary
 Counts per decision, the manifest path, and — for any MISSING row — the exact installer command.
+List the LOCAL files in one line ("project-owned, left alone: …") and each CONFLICT with its rename
+advice.
 Suggest `/update` when the manifest's installed version is older than the inventory's newest `since`.
 Print the **model floors** of the kept commands (from `inventory.yaml` `floor:`), grouped `opus` / `sonnet`, with the one-line reminder that nothing is pinned and the sonnet group keeps its full power on Sonnet.
 
@@ -114,6 +126,7 @@ Print the **model floors** of the kept commands (from `inventory.yaml` `floor:`)
 - [ ] Every `"?"` in the probe output became a question, never a default.
 - [ ] No command file was created or edited; only moves between `commands/` and `_archived-commands/`.
 - [ ] No `priority: core` + `gate: always` row was pruned; nothing with usage evidence was pruned.
+- [ ] No LOCAL or CONFLICT file was moved, archived or labelled retired; every one was listed.
 - [ ] `capability-manifest.md` written with vector, roles, and a reason per row.
 - [ ] Re-running immediately reports zero flipped decisions.
 </success_criteria>
