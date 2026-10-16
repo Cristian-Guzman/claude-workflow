@@ -509,10 +509,102 @@ assert_grep "notice names each file" "agents/codebase-investigator.md (modified)
 assert_grep "notice names the missing script" "scripts/upstream.py (missing)" "$S/out.log"
 assert "live agent refreshed" cmp -s "$REPO/core/agents/codebase-investigator.md" "$W/.claude/agents/codebase-investigator.md"
 assert "live script restored" cmp -s "$REPO/core/scripts/upstream.py" "$W/.claude/scripts/upstream.py"
-assert "live cover.md is the sdet copy" cmp -s "$REPO/roles/sdet/commands/cover.md" "$W/.claude/commands/cover.md"
+assert "live cover.md is still the project's (project-owned shadows the sdet copy)" grep -qx "# mine" "$W/.claude/commands/cover.md"
+assert "sdet cover.md not mirrored into the baseline" test ! -e "$W/.claude/.upstream-base/commands/cover.md"
+assert_grep "collision reported" "conflict commands/cover.md — project-owned" "$S/out.log"
+assert_eq "manifest records the conflict" "$(jq -c .conflicts "$W/.claude/workflow-manifest.json")" '["commands/cover.md"]'
 assert "drift clean again" sh -c "python3 '$REPO/core/scripts/upstream.py' --root '$W/.claude' drift | grep -q 'no local edits'"
 run "$W"
 assert_eq "clean re-run after the capture adds nothing" "$(ls "$W/.claude/.upstream-prior" | wc -l | tr -d ' ')" "1"
+assert "re-run keeps the project's cover.md" grep -qx "# mine" "$W/.claude/commands/cover.md"
+end
+
+# ---------------------------------------------------------------- 16. project-owned files
+begin "16 project-owned files are never overwritten or archived"
+W="$(fresh c16)"; run "$W" --role dev
+mkdir -p "$W/.claude/commands" "$W/.claude/agents" "$W/.claude/scripts"
+printf '# intake\nProject-only step: triage the inbox before /ticket.\n' >"$W/.claude/commands/intake.md"
+printf '# custom-agent\nProject-only agent.\n' >"$W/.claude/agents/custom-agent.md"
+printf '#!/usr/bin/env bash\necho my-tool\n' >"$W/.claude/scripts/my-tool.sh"
+owned_sha() { (cd "$1" && shasum -a 256 .claude/commands/intake.md .claude/agents/custom-agent.md .claude/scripts/my-tool.sh); }
+owned_sha "$W" >"$S/owned-before"
+run "$W"
+assert_eq "exit" "$(rc)" 0
+owned_sha "$W" >"$S/owned-after"; assert "re-run: project files byte-identical" diff "$S/owned-before" "$S/owned-after"
+assert_grep "Done line counts the three" "project-owned left alone: 3" "$S/out.log"
+assert_nogrep "no conflicts counted" "conflicts:" "$S/out.log"
+assert_eq "manifest conflicts empty" "$(jq -c .conflicts "$W/.claude/workflow-manifest.json")" "[]"
+assert_grep "local label names the command" "local    commands/intake.md" "$S/out.log"
+assert_grep "local label names the agent" "local    agents/custom-agent.md" "$S/out.log"
+assert_grep "local label names the script" "local    scripts/my-tool.sh" "$S/out.log"
+assert "no capture: nothing of upstream's drifted" test ! -e "$W/.claude/.upstream-prior"
+assert "project files never enter the baseline" test ! -e "$W/.claude/.upstream-base/commands/intake.md"
+# A project command whose basename coincides with an UNSELECTED role's command is not that role's leftover.
+echo "# mine, not sdet's" >"$W/.claude/commands/cover.md"
+run "$W" --role dev
+assert "role-switch pass leaves the look-alike alone" grep -q "mine, not sdet" "$W/.claude/commands/cover.md"
+assert "look-alike not archived" test ! -e "$W/.claude/_archived-commands/cover.md"
+assert_grep "look-alike listed as local" "local    commands/cover.md" "$S/out.log"
+rm "$W/.claude/commands/cover.md"
+run "$W" --role sdet
+assert_eq "exit (switch to sdet)" "$(rc)" 0
+run "$W" --role dev
+assert_eq "exit (back to dev)" "$(rc)" 0
+owned_sha "$W" >"$S/owned-after"; assert "role switch and back: project files byte-identical" diff "$S/owned-before" "$S/owned-after"
+assert "intake.md not archived" test ! -e "$W/.claude/_archived-commands/intake.md"
+assert "no archived copy of the agent or script" sh -c "! ls -R '$W/.claude/_archived-commands' | grep -q 'custom-agent.md\|my-tool.sh'"
+for c in $DEV_ROLE_CMDS; do assert "retired-by-switch $c still archived (guard did not break the role pass)" test -f "$W/.claude/_archived-commands/$c"; done
+assert_grep "after the switches the count is still 3" "project-owned left alone: 3" "$S/out.log"
+# Upstream now ships a command with the SAME name, and retires one of its own.
+D="$(copy_repo dup16)"
+printf '# intake\nUPSTREAM intake — a different step entirely.\n' >"$D/roles/dev/commands/intake.md"
+RETIRED="$(ls "$D"/core/commands/*.md | xargs -n1 basename | sort | head -1)"
+rm "$D/core/commands/$RETIRED"
+"$D/install.sh" "$W" >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert_eq "exit (collision)" "$(rc)" 0
+owned_sha "$W" >"$S/owned-after"; assert "collision: live intake.md is still the project's, byte-identical" diff "$S/owned-before" "$S/owned-after"
+assert "live intake.md is not upstream's" sh -c "! grep -q 'UPSTREAM intake' '$W/.claude/commands/intake.md'"
+assert_grep "conflict line printed" "conflict commands/intake.md — project-owned (never shipped upstream before); kept yours, upstream's new command of the same name was NOT installed. Rename yours to adopt upstream's." "$S/out.log"
+assert_eq "manifest records the conflict" "$(jq -c .conflicts "$W/.claude/workflow-manifest.json")" '["commands/intake.md"]'
+assert_eq "manifest keeps roles" "$(manifest_roles "$W")" "dev"
+assert "upstream's intake.md not mirrored into the baseline" test ! -e "$W/.claude/.upstream-base/commands/intake.md"
+P="$W/.claude/.upstream-prior/$TODAY"
+assert "collision captured once under installed/" cmp -s "$W/.claude/commands/intake.md" "$P/installed/commands/intake.md"
+assert_grep "capture flags it unbaselined" "commands/intake.md.*unbaselined" "$P/MANIFEST.md"
+assert_grep "Done line: two left alone (intake.md is a conflict now)" "project-owned left alone: 2" "$S/out.log"
+assert_grep "Done line counts the conflict" "conflicts: 1" "$S/out.log"
+SDET_SCRIPT="$(ls "$REPO"/roles/sdet/scripts/* 2>/dev/null | xargs -n1 basename | sort | head -1)"
+if [ -n "$SDET_SCRIPT" ]; then  # role scripts are not archived on a switch (hooks reference them): a leftover, not project-owned
+  assert "unselected role's script still installed after the switch back" test -f "$W/.claude/scripts/$SDET_SCRIPT"
+  assert_nogrep "unselected role's script is not called project-owned" "local    scripts/$SDET_SCRIPT" "$S/out.log"
+  assert_grep "unselected role's script reported as a leftover" "leftover scripts/$SDET_SCRIPT — unmodified copy from role 'sdet'" "$S/out.log"
+fi
+assert "retired upstream command still archived (guard did not break retirement)" test -f "$W/.claude/_archived-commands/$RETIRED"
+assert "retired command gone from commands/" test ! -e "$W/.claude/commands/$RETIRED"
+assert_grep "retirement reported" "archived commands/$RETIRED" "$S/out.log"
+"$D/install.sh" "$W" >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert_eq "exit (collision re-run)" "$(rc)" 0
+owned_sha "$W" >"$S/owned-after"; assert "re-run: still the project's bytes" diff "$S/owned-before" "$S/owned-after"
+assert_grep "conflict reported again" "conflict commands/intake.md" "$S/out.log"
+assert_eq "manifest still records it" "$(jq -c .conflicts "$W/.claude/workflow-manifest.json")" '["commands/intake.md"]'
+assert "still not in the baseline" test ! -e "$W/.claude/.upstream-base/commands/intake.md"
+assert_eq "no second capture dir" "$(ls "$W/.claude/.upstream-prior" | wc -l | tr -d ' ')" "1"
+assert_grep "re-run reports a clean core" "core matches the baseline — nothing to capture" "$S/out.log"
+# Adopting upstream's: rename yours -> upstream's copy installs, the conflict clears.
+mv "$W/.claude/commands/intake.md" "$W/.claude/commands/intake-local.md"
+"$D/install.sh" "$W" >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert "after the rename upstream's intake.md is installed" grep -q "UPSTREAM intake" "$W/.claude/commands/intake.md"
+assert "and mirrored into the baseline" cmp -s "$D/roles/dev/commands/intake.md" "$W/.claude/.upstream-base/commands/intake.md"
+assert_eq "conflict cleared" "$(jq -c .conflicts "$W/.claude/workflow-manifest.json")" "[]"
+assert_grep "renamed file is local" "local    commands/intake-local.md" "$S/out.log"
+# No baseline at all: the rule cannot apply and the installer says so once.
+W2="$(fresh c16b)"; mkdir -p "$W2/.claude/commands"; echo "# intake" >"$W2/.claude/commands/intake.md"
+"$D/install.sh" "$W2" --role dev >"$S/out.log" 2>"$S/err.log"; echo $? >"$S/rc"
+assert_eq "exit (no baseline)" "$(rc)" 0
+assert_grep "no-baseline line printed" "prior    no baseline — project-owned files cannot be told apart" "$S/out.log"
+assert "no baseline: today's capture-then-overwrite stands" grep -q "UPSTREAM intake" "$W2/.claude/commands/intake.md"
+assert "captured before the overwrite" grep -qx "# intake" "$W2/.claude/.upstream-prior/$TODAY/commands/intake.md"
+assert_eq "no conflicts recorded without a baseline" "$(jq -c .conflicts "$W2/.claude/workflow-manifest.json")" "[]"
 end
 
 echo ""
