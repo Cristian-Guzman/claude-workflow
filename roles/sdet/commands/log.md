@@ -1,6 +1,6 @@
 ---
 name: log
-version: 0.10.3
+version: 0.10.4
 description: Mint the tracker record FROM the work, after the fact — a Story/Task for a /cover state file or a Bug for a /triage cluster. Dedupes against open issues, drafts in plain language, asks before creating, writes the key back into the state file (no rename), and offers to prefix the PR. The single tracker-writer of the SDET role; tracker_system none degrades to a local ticket file.
 argument-hint: "[<slug> | --bug triage--<run-id>:C<k>] [--no-transition]"
 allowed-tools:

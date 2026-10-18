@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-version: 0.10.3
+version: 0.10.4
 description: Adapt an installed workflow to THIS project. Runs the capability probe, evaluates every command's gate from inventory.yaml for the installed roles, and proposes keep / prune / un-archive — then writes only the capability manifest and the archive moves. Never writes command files (install.sh owns every file) and never manages versions (scripts/release.py, maintainer side).
 argument-hint: "[--root <path>] [--dry-run]"
 allowed-tools:
@@ -75,9 +75,9 @@ Run it, don't re-derive it: `python3 "$CLAUDE_DIR/scripts/adapt-plan.py" --root 
 | in `_archived-commands/` | false | leave |
 | missing from both | true | **MISSING** → report `install.sh <root> --role <role>`; write nothing |
 | missing from both | false | ignore |
-| in `commands/` or `agents/`, **no inventory row**, baseline (`.upstream-base/<kind>/` or a capture under `.upstream-prior/<date>/installed/<kind>/`) **proves it was upstream's** — or no baseline exists at all | — | **ORPHAN** → report only, never moved. `install.sh` already archives a retired file it can prove was upstream's and unmodified; what remains is either a **locally edited** retired file it kept (copy under `.upstream-prior/<date>/` — say where) or a leftover from a **pre-baseline** (< 0.7.0) install, where nothing can be proven. The owner archives by hand after a look |
+| in `commands/` or `agents/`, **no inventory row**, and not project-owned | — | **ORPHAN** → report only, never moved. `install.sh` already archives a retired file it can prove was upstream's and unmodified; the reason says which of these remains: a **locally edited** retired file it kept (copy under `.upstream-prior/<date>/installed/<kind>/` — say where); a file **captured whole** on the first baselined install (copy under `.upstream-prior/<date>/<kind>/` — upstream's old copy or the project's own, nothing proven: compare, then archive or keep); a file **in the current baseline** with no row (upstream ships it, the inventory is missing a row — upstream drift, nothing to do here); or, with **no baseline** at all (< 0.7.0 install), a leftover nothing can vouch for. The owner archives by hand after a look |
 | in `commands/`, `agents/` or `scripts/`, **no inventory row, not in `.upstream-base/`** (baseline exists) | — | **LOCAL** (project-owned) → reason "created in this project, never shipped upstream — install.sh and /bootstrap never touch it". Never moved, never called retired |
-| as above, and `workflow-manifest.json` `"conflicts"` names `<kind>/<name>` | — | **CONFLICT** → reason "project-owned file with the same name as a new upstream <kind>; install.sh kept yours and did not install upstream's — rename yours to adopt upstream's, or keep ignoring it". Never moved |
+| **any** name that `workflow-manifest.json` `"conflicts"` lists as `<kind>/<name>` — with or without an inventory row (a collision can only involve a shipped file, and every shipped command/agent has a row, so this is the row that actually fires) | — | **CONFLICT** → reason "project-owned file with the same name as upstream's <kind>; install.sh kept yours and did not install upstream's — rename yours to adopt upstream's, or keep ignoring it". Takes precedence over the gate: never KEEP/PRUNE a file upstream's gate describes but that isn't upstream's. Never moved |
 
 Agents follow the same table against the `agents:` rows. `scripts/` has no inventory rows, so a script
 is only ever LOCAL or CONFLICT — never ORPHAN, never moved.

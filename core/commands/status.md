@@ -1,6 +1,6 @@
 ---
 name: status
-version: 0.10.3
+version: 0.10.4
 description: Cross-repo work dashboard. Active tickets, open debug sessions, unresolved PRs, blocked items. Grouped by state, prioritized by recency.
 argument-hint: "[--days N] [--repo NAME] [--all]"
 allowed-tools:

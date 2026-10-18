@@ -17,11 +17,15 @@ the state of each command/agent file, and emits one decision per row:
   - CONFLICT = project-owned AND listed in workflow-manifest.json "conflicts": upstream has since
                shipped a file of the same name; install.sh kept yours and did not install upstream's.
                Rename yours to adopt upstream's, or keep ignoring it.
-  - ORPHAN   = was upstream's and is retired. install.sh already archives a retired file when the
-               previous baseline proves it was upstream's and it is unmodified, so an orphan is a
-               LOCALLY EDITED retired file the installer kept (its copy is in .upstream-prior/<date>/),
-               or — when no baseline exists at all (< 0.7.0 install) — a leftover nothing can vouch
-               for; the reason says which. Reported, never moved — the owner archives by hand.
+  - ORPHAN   = not project-owned and not shipped. install.sh already archives a retired file when
+               the previous baseline proves it was upstream's and it is unmodified, so an orphan is:
+               a LOCALLY EDITED retired file the installer kept (copy under .upstream-prior/<date>/
+               installed/), or a file captured WHOLE on the first baselined install (copy under
+               .upstream-prior/<date>/<kind>/ — upstream's old copy or yours, nothing proven), or —
+               with no baseline at all (< 0.7.0 install) — a leftover nothing can vouch for. The
+               reason says which. Reported, never moved — the owner archives by hand.
+  CONFLICT applies to LISTED names too: a project-owned `cover.md` that collided with upstream's
+  /cover is CONFLICT, never KEEP — upstream's file was not installed, so no gate describes it.
   scripts/ has no inventory rows, so a script is only ever LOCAL or CONFLICT, never ORPHAN.
 
 Rules (fail-safe):
@@ -240,8 +244,9 @@ def classify_unlisted(f, kind, claude, base_root, conflicts):
                    reason=f"project-owned file with the same name as a new upstream {kind[:-1]}; install.sh kept yours "
                           f"and did not install upstream's — rename yours to adopt upstream's, or keep ignoring it")
         return out
-    captures = sorted(claude.glob(f".upstream-prior/*/installed/{kind}/{f.name}")) + \
-               sorted(claude.glob(f".upstream-prior/*/{kind}/{f.name}"))
+    edited = sorted(claude.glob(f".upstream-prior/*/installed/{kind}/{f.name}"))   # drifted file install.sh kept (proven upstream's)
+    whole = sorted(claude.glob(f".upstream-prior/*/{kind}/{f.name}"))              # first baselined install: everything captured, nothing proven
+    captures = edited + whole
     baseline_has = (base_root / kind / f.name).exists()
     if not captures and not baseline_has:
         if base_root.is_dir():
@@ -251,11 +256,16 @@ def classify_unlisted(f, kind, claude, base_root, conflicts):
             out.update(decision="IGNORE", reason="no baseline (< 0.7.0 install) — cannot tell project-owned from upstream's")
             return out
     archived = (claude / ("_archived-commands" if kind == "commands" else "_archived-agents") / f.name).exists()
-    if captures:
-        rel_cap = captures[-1].relative_to(claude)
+    if edited:
+        rel_cap = edited[-1].relative_to(claude)
         reason = f"retired upstream but locally edited — install.sh kept it; your copy is at .claude/{rel_cap}; review, then archive by hand"
     elif baseline_has:
-        reason = "retired upstream (the baseline proves it was upstream's) — install.sh left it; review, then archive by hand"
+        reason = (f"shipped by upstream (it is in the baseline) but has no inventory row — upstream inventory drift, not a retirement; "
+                  f"nothing to do here (release.py check flags it upstream)")
+    elif whole:
+        rel_cap = whole[-1].relative_to(claude)
+        reason = (f"captured whole on the first baselined install — may be upstream's old copy or your own file; nothing is proven. "
+                  f"Compare with .claude/{rel_cap}, then archive or keep by hand")
     else:
         reason = "retired upstream; this install predates the baseline (< 0.7.0) so install.sh could not prove it was upstream's — archive by hand"
     if archived:
@@ -282,8 +292,20 @@ def main():
         sys.exit(f"error: {inv_path} missing — install.sh 0.9.0+ ships it")
     inv = parse_inventory(inv_path)
     roles = [r for r in (args.roles.split(",") if args.roles else vec.get("roles") or []) if r] or infer_roles(claude)
-    rows = [decide(r, "commands", claude, vec, roles) for r in inv["commands"] if "name" in r]
-    rows += [decide(r, "agents", claude, vec, roles) for r in inv["agents"] if "name" in r]
+    conflicts = read_conflicts(claude)
+
+    def with_conflict(row, kind):
+        """A recorded same-name collision wins over the gate: the installed file is the project's,
+        upstream's was NOT installed, so KEEP/PRUNE would describe a file that isn't there."""
+        rel = f"{kind}/{row['name']}.md"
+        if rel in conflicts:
+            row.update(decision="CONFLICT",
+                       reason=f"project-owned file with the same name as upstream's {kind[:-1]} `{row['name']}`; install.sh kept yours "
+                              f"and did not install upstream's — rename yours to adopt upstream's, or keep ignoring it")
+        return row
+
+    rows = [with_conflict(decide(r, "commands", claude, vec, roles), "commands") for r in inv["commands"] if "name" in r]
+    rows += [with_conflict(decide(r, "agents", claude, vec, roles), "agents") for r in inv["agents"] if "name" in r]
     # files no inventory row names: project-owned (LOCAL / CONFLICT) or retired upstream (ORPHAN).
     # The baseline is rewritten by every install from what upstream ships, so a path under
     # .upstream-base/<kind>/ proves upstream-ness; a capture under .upstream-prior/*/installed/<kind>/
@@ -291,7 +313,6 @@ def main():
     # neither, while a baseline exists, was created in this project — never label it retired.
     listed = {(k, r["name"]) for k in ("commands", "agents") for r in inv[k] if "name" in r}
     base_root = claude / ".upstream-base"
-    conflicts = read_conflicts(claude)
     for kind in ("commands", "agents"):
         for f in sorted((claude / kind).glob("*.md")):
             if f.name == "README.md" or (kind, f.stem) in listed:

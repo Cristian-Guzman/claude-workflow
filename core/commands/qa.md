@@ -1,6 +1,6 @@
 ---
 name: qa
-version: 0.10.3
+version: 0.10.4
 description: Generate a QA guide and optionally run it live with Playwright. Auto-detects backend tickets and produces a runtime-evidence guide instead (deploy confirmation, trigger, data inspection, logs). Also offers a CSS preview harness for sideload-only surfaces (Word Add-in, Google Docs Add-in) where Playwright can't drive the real app.
 argument-hint: "PROJ-XXXX [--live] [--guide-only] [--no-preview]"
 allowed-tools:

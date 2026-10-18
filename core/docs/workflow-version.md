@@ -1,6 +1,6 @@
 ---
-version: 0.10.3
-last-updated: 2026-10-16
+version: 0.10.4
+last-updated: 2026-10-18
 maintainer: your-name@your-org.com
 ---
 
@@ -25,6 +25,13 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.10.4 — 2026-10-18
+**Theme:** three holes in 0.10.3's project-owned reporting, found on review.
+
+- **CONFLICT was unreachable for commands and agents.** A same-name collision can only involve a file upstream ships, and every shipped command/agent has an inventory row (`release.py check` enforces it) — but `adapt-plan.py` only consulted `workflow-manifest.json` `conflicts` for files with NO row (the 0.10.3 test proved the branch with `commands/intake.md`, a name upstream never ships). A project-owned `cover.md` that collided with upstream's `/cover` was reported KEEP, as if upstream's were installed. Listed rows now check `conflicts` first → **CONFLICT**, never KEEP/PRUNE. `bootstrap.md` has the row; tests cover a listed command and a listed agent.
+- **A whole capture is not a local edit.** `install.sh` writes drifted files under `.upstream-prior/<date>/installed/<kind>/`, but the first install over a pre-0.7.0 workspace captures everything under `.upstream-prior/<date>/<kind>/`. The adapter treated both as "retired upstream but locally edited — install.sh kept it". The whole-capture case now reads "captured whole on the first baselined install — may be upstream's old copy or your own file; nothing is proven. Compare with …, then archive or keep by hand". Test added.
+- A file in the current baseline with no inventory row is upstream inventory drift (upstream ships it, the row is missing), not a retirement; the reason says so and points at `release.py check`.
 
 ### 0.10.3 — 2026-10-16
 **Theme:** project-owned files are never overwritten or archived.

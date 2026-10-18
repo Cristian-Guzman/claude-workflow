@@ -1,6 +1,6 @@
 ---
 name: build
-version: 0.10.3
+version: 0.10.4
 description: Implement a feature or change without a ticket. Loads repo patterns, investigates codebase, plans, then builds — iterating phase-by-phase with checkpoints when the plan defines phases.
 argument-hint: "describe what you want to build"
 allowed-tools:

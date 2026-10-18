@@ -145,6 +145,12 @@ grep -q "predates the baseline" <<<"$out" && ok "adapt: orphan without a capture
 mkdir -p "$A/.upstream-prior/2026-01-01/installed/commands" && cp "$A/commands/test-plan.md" "$A/.upstream-prior/2026-01-01/installed/commands/"
 out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json")
 grep -q "locally edited — install.sh kept it; your copy is at .claude/.upstream-prior/2026-01-01/installed/commands/test-plan.md" <<<"$out" && ok "adapt: orphan with a capture is explained as locally edited + where the copy is" || bad "adapt: captured-orphan reason" "$out"
+# a WHOLE capture (first baselined install over a pre-0.7.0 workspace) proves nothing — never call it "locally edited"
+rm -rf "$A/.upstream-prior/2026-01-01"; mkdir -p "$A/.upstream-prior/2026-01-02/commands" && cp "$A/commands/test-plan.md" "$A/.upstream-prior/2026-01-02/commands/"
+out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json")
+grep -q "captured whole on the first baselined install — may be upstream's old copy or your own file; nothing is proven. Compare with .claude/.upstream-prior/2026-01-02/commands/test-plan.md" <<<"$out" && ok "adapt: whole capture -> unproven, points at the copy" || bad "adapt: whole-capture reason" "$out"
+grep -q "locally edited" <<<"$out" && bad "adapt: whole capture wrongly called locally edited" || ok "adapt: whole capture not called locally edited"
+rm -rf "$A/.upstream-prior/2026-01-02"; mkdir -p "$A/.upstream-prior/2026-01-01/installed/commands" && cp "$A/commands/test-plan.md" "$A/.upstream-prior/2026-01-01/installed/commands/"
 # --- project-owned files (a step this project invented, e.g. commands/intake.md) ---
 printf -- '---\nname: intake\ndescription: project-specific intake step\n---\n' > "$A/commands/intake.md"
 mkdir -p "$A/scripts" && printf '#!/usr/bin/env bash\necho mine\n' > "$A/scripts/my-tool.sh"
@@ -163,7 +169,7 @@ expect_exit "adapt: baseline present" 0 $rc
 grep -q "LOCAL           command  intake .*created in this project, never shipped upstream — install.sh and /bootstrap never touch it" <<<"$out" && ok "adapt: (a) no row + no baseline copy -> LOCAL with the project-owned reason" || bad "adapt: (a) LOCAL intake" "$out"
 grep -qE "ORPHAN +command +intake" <<<"$out" && bad "adapt: (a) project-owned file is never ORPHAN" "$out" || ok "adapt: (a) project-owned file is never ORPHAN"
 [ -f "$A/commands/intake.md" ] && ok "adapt: (a) project-owned file left in place" || bad "adapt: (a) intake moved"
-grep -q "ORPHAN          command  old-step .*baseline proves it was upstream's" <<<"$out" && ok "adapt: (c) retired file in .upstream-base -> still ORPHAN" || bad "adapt: (c) ORPHAN old-step" "$out"
+grep -q "ORPHAN          command  old-step .*shipped by upstream (it is in the baseline) but has no inventory row — upstream inventory drift, not a retirement" <<<"$out" && ok "adapt: (c) baselined file with no row -> ORPHAN, explained as inventory drift" || bad "adapt: (c) ORPHAN old-step" "$out"
 grep -qE "LOCAL +command +old-step" <<<"$out" && bad "adapt: (c) baselined file is never LOCAL" "$out" || ok "adapt: (c) baselined file is never LOCAL"
 grep -q "ORPHAN          command  test-plan .*locally edited — install.sh kept it" <<<"$out" && ok "adapt: captured retired file stays ORPHAN once a baseline exists" || bad "adapt: captured orphan with baseline" "$out"
 grep -q "LOCAL           script   my-tool.sh .*created in this project" <<<"$out" && ok "adapt: (d) scripts/my-tool.sh -> LOCAL" || bad "adapt: (d) LOCAL script" "$out"
@@ -176,6 +182,14 @@ out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json")
 grep -q "CONFLICT        command  intake .*project-owned file with the same name as a new upstream command; install.sh kept yours and did not install upstream's — rename yours to adopt upstream's, or keep ignoring it" <<<"$out" && ok "adapt: (b) manifest conflicts -> CONFLICT with the rename advice" || bad "adapt: (b) CONFLICT intake" "$out"
 grep -qE "(ORPHAN|LOCAL) +command +intake" <<<"$out" && bad "adapt: (b) a conflict is neither ORPHAN nor LOCAL" "$out" || ok "adapt: (b) a conflict is neither ORPHAN nor LOCAL"
 grep -q "CONFLICT 1" <<<"$out" && ok "adapt: CONFLICT counted in the summary" || bad "adapt: CONFLICT count" "$out"
+# (c2) a collision on a LISTED name — the only kind that can really happen — must be CONFLICT, not KEEP
+echo '{"schema": 1, "workflow_version": "0.10.3", "roles": ["dev"], "conflicts": ["commands/qa.md", "agents/verifier.md"]}' > "$A/workflow-manifest.json"
+out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json")
+grep -q "CONFLICT        command  qa " <<<"$out" && ok "adapt: (c2) listed command in conflicts -> CONFLICT (not KEEP)" || bad "adapt: (c2) listed conflict" "$out"
+grep -q "CONFLICT        agent    verifier " <<<"$out" && ok "adapt: (c2) listed agent in conflicts -> CONFLICT" || bad "adapt: (c2) listed agent conflict" "$out"
+grep -qE "^  KEEP[^
+]* qa " <<<"$out" && bad "adapt: (c2) conflicted qa must not also be KEEP" || ok "adapt: (c2) conflicted qa is not KEEP"
+echo '{"schema": 1, "workflow_version": "0.10.2", "roles": ["dev"], "conflicts": ["commands/intake.md"]}' > "$A/workflow-manifest.json"
 j=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json" --json)
 python3 - "$j" <<'EOF' && ok "adapt: --json carries LOCAL/CONFLICT counts, rows and the conflicts list" || bad "adapt: --json LOCAL/CONFLICT"
 import json,sys; d=json.loads(sys.argv[1]); c=d["counts"]; by={(r["kind"],r["name"]):r["decision"] for r in d["rows"]}
