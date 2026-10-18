@@ -52,7 +52,7 @@ esac
 key=$(basename "$abs" .md)
 
 # Closed kind enum — mirror of the `kind-enum` line in state-file-schema.md.
-KIND_ENUM="ticket debug build refactor e2e review blueprint cover triage test-plan"
+KIND_ENUM="ticket debug build refactor e2e review blueprint cover triage qa test-plan"
 in_enum() { case " $KIND_ENUM " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 DRIFT_LOG="$WORKSPACE/.claude/state/schema-drift.log"
 
@@ -115,10 +115,12 @@ case "$kind_singular" in
   blueprint|test-plan)
     [ -z "$status" ] && status="blueprint"
     archived="true"; archived_reason="kind: $kind_singular" ;;
-  cover|triage)
-    # Ticket-less sidecars key on the slug: `cover--orders-v2.md` -> orders-v2. Frontmatter
-    # `slug:` wins; the id must not change when /log later writes `ticket: KEY`.
+  cover|triage|qa)
+    # Sidecars key on the slug: `cover--orders-v2.md` -> orders-v2, `qa--PROJ-9.md` -> PROJ-9.
+    # Frontmatter `slug:` (cover/triage) or `key:` (qa) wins; the id must not change when /log
+    # later writes `ticket: KEY`.
     slug=$(get_field "slug")
+    [ -z "$slug" ] && slug=$(get_field "key")
     [ -z "$slug" ] && slug="${key#${kind_singular}--}"
     key="$slug" ;;
 esac

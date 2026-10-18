@@ -8,7 +8,7 @@
 # check` asserts the two agree.
 #
 # Row format is one flow mapping per line (parsed by a regex, no YAML library needed):
-#   - {name: <cmd>, role: core|dev|sdet, priority: core|recommended|conditional|multi-repo|optional, since: X.Y.Z, gate: "<expr>"}
+#   - {name: <cmd>, role: core|dev|sdet (the qa role ships no commands — a flow over core, roles/qa/README.md), priority: core|recommended|conditional|multi-repo|optional, since: X.Y.Z, gate: "<expr>"}
 # floor: opus|sonnet — the RECOMMENDED minimum model (guidance only; nothing is pinned, commands inherit the session model).
 #   opus = judgment over large context; sonnet = prose from structured input or script orchestration — full power on Sonnet.
 # Gate grammar: always | <cap> == <v> | <cap> != <v> | <cap> >= <n> | A AND B | A OR B | ( … )

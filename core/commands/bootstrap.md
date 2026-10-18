@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-version: 0.10.4
+version: 0.11.0
 description: Adapt an installed workflow to THIS project. Runs the capability probe, evaluates every command's gate from inventory.yaml for the installed roles, and proposes keep / prune / un-archive — then writes only the capability manifest and the archive moves. Never writes command files (install.sh owns every file) and never manages versions (scripts/release.py, maintainer side).
 argument-hint: "[--root <path>] [--dry-run]"
 allowed-tools:

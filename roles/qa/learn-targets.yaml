@@ -1,0 +1,37 @@
+# learn-targets.yaml — the manual-QA role's contract with core /learn.
+# Installed to .claude/learn-targets/qa.yaml. /learn scans `kind: qa` sidecars
+# (.claude/tickets/qa--<key>.md) with `status: delivered` alongside tickets, and runs ONE routine
+# per target: log every incident -> cluster by key -> write a lesson at `promote_at` occurrences
+# (shown-before-write). `log_only` targets never get lessons here.
+#
+# Row shape the signals read (roles/qa/README.md "The hard rule"):
+#   frontmatter: area, env, build, status, bounces (count of status: bounced transitions)
+#   results rows: step, expected, result (pass|fail|blocked|skip), evidence, bug
+kinds: [qa]
+
+targets:
+  - file: .claude/qa-ledger.md
+    log_section: "## AUTO:QA-LOG"
+    lesson_section: "## QA lessons"
+    promote_at: 2
+    compile_to_check: false
+    log_only: false
+    signals:
+      - kind: qa
+        where: "results.any(result == 'fail')"          # one log line per failed row: area · step · bug
+      - kind: qa
+        where: "bounces >= 1"                            # a fix came back and failed again: area · bounce count
+      - kind: qa
+        where: "results.any(result == 'blocked')"        # environment / data / access blocks, by env
+
+  - file: .claude/regression-map.md
+    log_section: "## AUTO:REGRESSION-LOG"
+    lesson_section: ""
+    promote_at: 0
+    compile_to_check: false
+    log_only: true
+    signals:
+      - kind: qa
+        where: "results.any(result == 'fail' && bug != '')"   # steps that found a real bug: regression-set candidates
+      - kind: qa
+        where: "results.all(result == 'pass') && runs >= 3"   # steps that never fail across runs: candidates to drop

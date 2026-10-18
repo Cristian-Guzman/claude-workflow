@@ -23,11 +23,12 @@ Every ticket state file follows this contract. Commands that violate it silently
 | `blueprint` | `tickets/` | `PROJ-XXXX-clarify[-N].md` | `blueprint` (terminal) | `/clarify` investigation artifact; archived at upsert |
 | `cover` | `tickets/` | `cover--<slug>.md` | Status Lifecycle below + `env-blocked` | ticket-less sidecar, keyed by branch — see Sidecars |
 | `triage` | `tickets/` | `triage--<slug>.md` | Status Lifecycle below + `env-blocked` | ticket-less sidecar, keyed by branch — see Sidecars |
+| `qa` | `tickets/` | `qa--<key>.md` | `in-progress` → `delivered` (+ `bounced`) | manual-QA results sidecar written by the tester from the `/qa` guide; `<key>` = ticket id or slug — see `roles/qa/README.md` |
 | `test-plan` | `tickets/` | `PROJ-XXXX-test-plan.md` | `blueprint` (terminal) | legacy sidecar of the retired `/test-plan`; archived at upsert; never written by a current command |
 
 **Kind resolution order in the index:** a declared `kind:` frontmatter value that is in the enum wins; else the filename suffix rules (`-review`, `-clarify`, `-test-plan`) apply; else the kind is derived from the directory. A declared `kind:` outside the enum is ignored (directory kind wins) and logged to `state/schema-drift.log`.
 
-### Sidecars (`cover`, `triage`)
+### Sidecars (`cover`, `triage`, `qa`)
 
 Role commands that start work without a ticket write a sidecar into `tickets/` named `tickets/<kind>--<slug>.md`. Frontmatter:
 

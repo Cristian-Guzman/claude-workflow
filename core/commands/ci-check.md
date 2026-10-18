@@ -1,6 +1,6 @@
 ---
 name: ci-check
-version: 0.10.4
+version: 0.11.0
 description: Post-/pr CI watcher. Waits until CI is green on your open PR, prompts you to merge, then auto-runs /learn. Closes the pipeline loop.
 argument-hint: "[PR# — optional, discovers from current branch]"
 allowed-tools:

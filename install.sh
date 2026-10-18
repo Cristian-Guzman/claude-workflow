@@ -861,6 +861,7 @@ Next steps to specialize this project (fastest path first):
      ./install.sh <target> --role dev --role sdet):
        dev   /ticket (or /build without a tracker) -> /pr-creation -> /learn
        sdet  /cover -> /pr-creation -> /learn
+       qa    /qa <ticket> -> test -> fill tickets/qa--<key>.md -> /learn
      Everything else (/clarify, /verify, /qa, /ci-check, /triage, ...) is listed in
      .claude/commands/README.md. Each step is run on its own — nothing auto-chains.
      /learn after each ticket is what makes the system project-specific over time.

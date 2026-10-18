@@ -1,6 +1,6 @@
 ---
 name: project-debug
-version: 0.10.4
+version: 0.11.0
 description: Start a systematic debug session with persistent state.
 argument-hint: "[issue description]"
 allowed-tools:

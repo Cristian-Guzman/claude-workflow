@@ -1,6 +1,6 @@
 ---
 name: upstream
-version: 0.10.4
+version: 0.11.0
 description: Harvest the GENERIC workflow learnings a confidential project produced (local edits to core commands, landed proposals, process lessons, feedback memories) into a sanitized, provenance-free bundle. Deterministic redaction + leak check + secrets scan; bundles go to a PRIVATE inbox repo as issues, never to the public repo. --intake runs on your personal machine, merges a month of bundles into ONE public PR under a scoped personal git identity, then restores the previous identity.
 argument-hint: "[--since YYYY-MM-DD] [--dry-run] [--publish] | --intake <bundle-dir|inbox>"
 allowed-tools:

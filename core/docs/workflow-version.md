@@ -1,5 +1,5 @@
 ---
-version: 0.10.4
+version: 0.11.0
 last-updated: 2026-10-18
 maintainer: your-name@your-org.com
 ---
@@ -25,6 +25,14 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.11.0 — 2026-10-18
+**Theme:** the `qa` role — manual testing as a flow over the core commands. No new commands.
+
+- **`roles/qa/`** — a role folder with no `commands/`: `README.md` (the pipeline: `/qa` plans → the tester executes → one row per step in a results sidecar → `/learn`; `/verify`'s UNVERIFIED rows are the manual remainder when dev is installed; `/project-debug` for a failed step with an unknown cause), `learn-targets.yaml` (kinds `[qa]`), and three seeds: `qa-ledger.md` (what bounces, by area — lessons at 2), `regression-map.md` (steps that found bugs vs never fail — log only), `qa-charter.md` (exploratory-session charter). Install with `--role qa`; combines with `dev`/`sdet`.
+- **Results sidecar** `tickets/qa--<key>.md` (`kind: qa`, `status: in-progress → delivered`, `+ bounced` when a fix comes back): `| # | Step | Expected | Result | Evidence | Bug |` — `Result` is never empty (`pass|fail|blocked|skip`). `qa` added to the state-index enum and the schema's Kinds table, so the sidecar is indexed and `/learn` can scan it.
+- Deliberately not done: `/log` still mints tickets only from `cover`/`triage` state files; a failed manual row is filed by hand from the row (README says so). The seam is left until a month of sidecars shows the row shape holds.
+- Tests: `install.sh.test` case 17 (a role with no commands: core-only commands, three seeds, learn target, manifest `qa`; `--roles dev,qa` keeps seeds); `b2-upsert` case 8 (`kind: qa` sidecar indexed, no drift line). Docs: README install line + roles list + file table, `install.sh` start-here line, commands README section, inventory comment.
 
 ### 0.10.4 — 2026-10-18
 **Theme:** three holes in 0.10.3's project-owned reporting, found on review.

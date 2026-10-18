@@ -126,6 +126,10 @@ per budget; switch up for the opus-floor commands when it matters.
 | `contract-verifier` | sonnet | mechanical shape comparison |
 | `jira-context-loader` | sonnet | fetch + summarize |
 
+### Manual QA (`qa` role — no commands of its own)
+
+A flow over the core set, documented in [roles/qa/README.md](../../roles/qa/README.md): `/qa` plans, the tester executes and records **one row per step** in `tickets/qa--<key>.md` (`kind: qa`), `/project-debug` takes a failed step with an unknown cause, `/learn` grows `qa-ledger.md` (what bounces, by area) and `regression-map.md` (steps that found bugs vs never fail). `/verify`'s UNVERIFIED rows are the manual remainder when the dev role is installed too.
+
 ### Automation & Setup
 
 | Command | Role | Args | Description |

@@ -1,6 +1,6 @@
 ---
 name: screenshot
-version: 0.10.4
+version: 0.11.0
 description: Capture a screenshot of any page or component in the running app.
 argument-hint: "/url-path [name] [--selector .css] [--mobile] [--full-page]"
 allowed-tools:

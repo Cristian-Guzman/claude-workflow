@@ -121,6 +121,13 @@ printf -- '---\nkind: stabilize\nstatus: planning\n---\n' > "$WS/web-app/.claude
 check "unknown declared kind falls back to ticket" '[ "$(entry web-app:ticket:stabilize--x | jq -r .kind)" = "ticket" ]'
 check "unknown declared kind logged"               'grep -q "non-schema kind .stabilize." "$DRIFT"'
 
+echo "# 8. qa sidecar (manual-QA results, roles/qa) -> kind qa, no drift line"
+printf -- '---\nkind: qa\nkey: PROJ-9\nticket: PROJ-9\narea: checkout\nstatus: in-progress\n---\n\n## QA Results\n| # | Step | Expected | Result | Evidence | Bug |\n|---|---|---|---|---|---|\n| 1 | open /checkout | summary | pass | | |\n' > "$WS/web-app/.claude/tickets/qa--PROJ-9.md"
+"$UPSERT" "$WS/web-app/.claude/tickets/qa--PROJ-9.md"
+check "qa sidecar indexed with kind qa" '[ "$(entry web-app:qa:PROJ-9 | jq -r .kind)" = "qa" ]'
+check "qa sidecar status kept"          '[ "$(entry web-app:qa:PROJ-9 | jq -r .status)" = "in-progress" ]'
+check "qa is in the enum (no drift)"    '! grep -q "non-schema kind .qa." "$DRIFT"'
+
 echo
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]

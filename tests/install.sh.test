@@ -291,9 +291,9 @@ end
 
 # ---------------------------------------------------------------- 8. unknown role / bad flags
 begin "8  unknown role and bad flags exit 1 with zero writes"
-W="$(fresh c8)"; run "$W" --role qa
+W="$(fresh c8)"; run "$W" --role nope
 assert_eq "exit 1" "$(rc)" 1
-assert_grep "lists available roles" "unknown role 'qa' (available: dev sdet" "$S/err.log"
+assert_grep "lists available roles" "unknown role 'nope' (available: dev qa sdet" "$S/err.log"
 assert_eq "zero writes" "$(find "$W" -mindepth 1 | wc -l | tr -d ' ')" "0"
 run "$W" --bogus;             assert_eq "unknown flag exit 1" "$(rc)" 1; assert_grep "names the flag" "unknown flag --bogus" "$S/err.log"
 run "$W" extra-arg;           assert_eq "extra positional exit 1" "$(rc)" 1
@@ -608,5 +608,22 @@ assert_eq "no conflicts recorded without a baseline" "$(jq -c .conflicts "$W2/.c
 end
 
 echo ""
+begin "17 --role qa: a role with no commands — seeds + learn target + manifest; combines with dev"
+W="$(fresh c17)"; run "$W" --role qa
+assert_eq "exit" "$(rc)" 0
+assert_eq "commands = core only (qa ships none)" "$(installed_cmds "$W")" "$(expected_cmds)"
+assert_eq "manifest records qa" "$(manifest_roles "$W")" "qa"
+for f in qa-ledger.md regression-map.md qa-charter.md; do assert "seeded $f" test -f "$W/.claude/$f"; done
+assert "learn target installed" test -f "$W/.claude/learn-targets/qa.yaml"
+assert_grep "learn target names kind qa" "kinds: \[qa\]" "$W/.claude/learn-targets/qa.yaml"
+echo "## mine" >>"$W/.claude/qa-ledger.md"; cp "$W/.claude/qa-ledger.md" "$S/ledger-before"
+run "$W" --roles dev,qa
+assert_eq "exit (dev+qa)" "$(rc)" 0
+assert_eq "commands = core + dev" "$(installed_cmds "$W")" "$(expected_cmds dev)"
+assert_eq "manifest records both" "$(manifest_roles "$W")" "dev,qa"
+assert "qa seed untouched on re-run" diff "$S/ledger-before" "$W/.claude/qa-ledger.md"
+assert "no qa command collided with anything" test ! -e "$W/.claude/_archived-commands"
+end
+
 echo "install.sh suite: $pass passed, $fail failed"
 [ "$fail" = 0 ]

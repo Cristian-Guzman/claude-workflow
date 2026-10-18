@@ -17,6 +17,7 @@ acceptance criteria". The compatibility table under *Configuration points* is th
 git clone <this-repo> && cd claude-workflow
 ./install.sh /path/to/your/project                     # role defaults to dev
 ./install.sh /path/to/your/project --role sdet         # test-engineering lane
+./install.sh /path/to/your/project --role qa           # manual-testing lane (no commands: a flow over core + knowledge files)
 ./install.sh /path/to/your/project --roles dev,sdet    # both (also: --role dev --role sdet)
 ./install.sh /path/to/your/project --stack frontend-web   # + a stack seed pack (once)
 ```
@@ -62,6 +63,7 @@ Each command runs **once per ticket**, discretely. State persists in `.claude/ti
 - **core (16, every role):** `/pr-creation` `/ci-check` `/learn` `/qa` `/review-pr` `/review-comments` `/resume-ticket` `/status` `/project-debug` `/project-context` `/screenshot` `/demo-summary` `/memory-lint` `/bootstrap` `/update` `/upstream`
 - **dev (6):** `/clarify` `/ticket` `/build` `/refactor` `/verify` `/ui-fidelity`
 - **sdet (3):** `/cover` `/triage` (one red test, or a whole red run clustered by shared cause) `/log` (mint the ticket *from* the work)
+- **qa (0):** manual testing as a flow over core — `/qa` → test → results rows in `tickets/qa--<key>.md` → `/learn` grows `qa-ledger.md` and `regression-map.md`; `qa-charter.md` for exploratory sessions ([roles/qa/README.md](roles/qa/README.md))
 
 Full matrix: [core/commands/README.md](core/commands/README.md). Deferred designs (`/gaps`, `/stabilize`, plugin packaging, …): [docs/roadmap.md](docs/roadmap.md).
 
@@ -69,12 +71,13 @@ Full matrix: [core/commands/README.md](core/commands/README.md). Deferred design
 
 | Path in target | Contents | Owned by |
 |---|---|---|
-| `.claude/commands/` | 16 core + 6 dev + 3 sdet slash commands, per the roles selected | upstream (refreshed on update) |
+| `.claude/commands/` | 16 core + 6 dev + 3 sdet slash commands, per the roles selected (qa adds none) | upstream (refreshed on update) |
 | `.claude/agents/`, `scripts/`, `routing.md`, `state-file-schema.md`, `*-shared.md` | 7 subagents (same set for every role), hooks + scripts (sdet adds `guard-test-integrity.sh`, `triage-cluster.py`), system docs | upstream |
 | `.claude/learn-targets/<role>.yaml`, `workflow-manifest.json` | what `/learn` scans per role; which roles are installed (tracked) | upstream / install.sh |
 | `.claude/settings.json` | hooks + permissions (from template; sdet merges its hook fragment on first seed) | **your project** |
 | `.claude/codebase-patterns.md`, `testing-patterns.md`, `ticket-checklist.md`, `pr-template.md` | patterns, test idioms, pre-PR checklist, PR format | **your project** (grown by /learn) |
 | `.claude/selectors.md`, `test-data.md`, `environments.md`, `flaky-ledger.md` | sdet knowledge files (seeded once) | **your project** |
+| `.claude/qa-ledger.md`, `regression-map.md`, `qa-charter.md` | qa knowledge files (seeded once); results live in `tickets/qa--<key>.md` | **your project** |
 | `.claude/repo-profiles/<repo>.yaml` | base branch, CI cmd, tracker, dev server — **hand-copied from `_schema.yaml`** | **your project** |
 | `.claude/tickets/`, `state/`, `debug/`, `qa/` | runtime state (gitignored) | machine-local |
 
