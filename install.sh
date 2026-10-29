@@ -857,6 +857,9 @@ Next steps to specialize this project (fastest path first):
      after your first completed tickets.
      Cold start on a repo with history: run .claude/scripts/mine-history.sh, then
      /learn --mine — it lands only the patterns that occurred in 2+ merged PRs (dev).
+  0. Empty repo? /new-project first (interview -> a guide you decide on), then
+     /build --from-brief scaffolds on stable versions; /bootstrap prunes nothing on
+     a day-zero repo and configures the basics from the brief instead.
   4. Start here, by role (the roles line above says which you have; change with
      ./install.sh <target> --role dev --role sdet):
        dev   /ticket (or /build without a tracker) -> /pr-creation -> /learn

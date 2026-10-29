@@ -34,6 +34,7 @@ commands:
   - {name: demo-summary,    role: core, priority: optional,    since: 0.4.0, gate: "ticket_system != none AND team == true", floor: sonnet}
   - {name: memory-lint,     role: core, priority: optional,    since: 0.4.0, gate: "memory_system == yes", floor: sonnet}
   - {name: update,          role: core, priority: recommended, since: 0.9.0, gate: always, floor: sonnet}
+  - {name: new-project,     role: core, priority: recommended, since: 0.12.0, gate: always, floor: opus}
   # dev — the implementation lane (roles/dev/commands)
   - {name: clarify,         role: dev,  priority: core,        since: 0.1.0, gate: "ticket_system != none", floor: opus}
   - {name: ticket,          role: dev,  priority: core,        since: 0.1.0, gate: "ticket_system != none", floor: opus}

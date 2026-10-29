@@ -76,6 +76,8 @@ grep -q '"vcs_host": "none"' <<<"$out" && ok "probe: no remote -> vcs none" || b
 grep -q '"ci": "no"' <<<"$out" && ok "probe: no CI" || bad "probe: no CI"
 grep -q '"wiki": "none"' <<<"$out" && ok "probe: schema-only profiles give no wiki" || bad "probe: wiki none" "$out"
 grep -q '"roles": \[\]' <<<"$out" && ok "probe: no manifest -> roles []" || bad "probe: roles []"
+grep -q '"manifest": "none"' <<<"$out" && ok "probe: empty repo -> manifest none" || bad "probe: manifest none" "$out"
+grep -qE '"commits": [0-9]+' <<<"$out" && ok "probe: commits counted" || bad "probe: commits" "$out"
 # profile wins + workflow-manifest roles + "?" exit
 cat > "$P/.claude/repo-profiles/app.yaml" <<'EOF'
 tracker_system: linear
@@ -182,6 +184,13 @@ out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json")
 grep -q "CONFLICT        command  intake .*project-owned file with the same name as a new upstream command; install.sh kept yours and did not install upstream's — rename yours to adopt upstream's, or keep ignoring it" <<<"$out" && ok "adapt: (b) manifest conflicts -> CONFLICT with the rename advice" || bad "adapt: (b) CONFLICT intake" "$out"
 grep -qE "(ORPHAN|LOCAL) +command +intake" <<<"$out" && bad "adapt: (b) a conflict is neither ORPHAN nor LOCAL" "$out" || ok "adapt: (b) a conflict is neither ORPHAN nor LOCAL"
 grep -q "CONFLICT 1" <<<"$out" && ok "adapt: CONFLICT counted in the summary" || bad "adapt: CONFLICT count" "$out"
+# day zero: no manifest + < 3 commits -> every would-be PRUNE is KEEP(too-early)
+python3 - "$T/vec-be.json" "$T/vec-zero.json" <<'EOF2'
+import json,sys; v=json.load(open(sys.argv[1])); v.update(manifest="none", commits=1); json.dump(v, open(sys.argv[2],"w"))
+EOF2
+out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec-zero.json")
+grep -qE "^  PRUNE" <<<"$out" && bad "adapt: day-zero repo must not prune" "$out" || ok "adapt: day-zero repo prunes nothing"
+grep -qE "KEEP\(too-early\) +command +demo-summary .*re-run /bootstrap after the first /build" <<<"$out" && ok "adapt: day-zero false gate -> KEEP(too-early)" || bad "adapt: too-early reason" "$out"
 # (c2) a collision on a LISTED name — the only kind that can really happen — must be CONFLICT, not KEEP
 echo '{"schema": 1, "workflow_version": "0.10.3", "roles": ["dev"], "conflicts": ["commands/qa.md", "agents/verifier.md"]}' > "$A/workflow-manifest.json"
 out=$(python3 "$SCRIPTS/adapt-plan.py" --root "$A" --vector "$T/vec.json")

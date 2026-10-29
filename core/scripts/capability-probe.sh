@@ -115,6 +115,16 @@ if [ -n "$prof_ui" ]; then UI="$prof_ui"; else
 fi
 [ -z "$UI" ] && UI=none
 
+# --- commits / manifest: how much exists yet (day-zero detection for /bootstrap and /build)
+COMMITS=0
+for g in $GIT_DIRS; do c=$(git -C "$g" rev-list --count HEAD 2>/dev/null || echo 0); [ "$c" -gt "$COMMITS" ] && COMMITS=$c; done
+MANIFEST=none
+for d in "$DIR" "$DIR"/*/; do
+  [ -d "$d" ] || continue
+  for m in package.json go.mod pyproject.toml Cargo.toml pubspec.yaml Gemfile pom.xml build.gradle; do [ -f "$d/$m" ] && MANIFEST=yes && break 2; done
+  ls -d "$d"/*.xcodeproj >/dev/null 2>&1 && MANIFEST=yes && break
+done
+
 # --- repo_count: git repos at depth <= 2 (the workspace root itself counts if it is a repo)
 REPO_COUNT=$(find "$DIR" -maxdepth 2 -name .git 2>/dev/null | wc -l | tr -d ' ')
 
@@ -149,6 +159,8 @@ cat <<EOF
   "dev_server": "$DEV_SERVER",
   "ui_surfaces": "$UI",
   "repo_count": $REPO_COUNT,
+  "commits": $COMMITS,
+  "manifest": "$MANIFEST",
   "memory_system": "$MEMORY",
   "team": $TEAM,
   "roles": $ROLES

@@ -1,6 +1,6 @@
 ---
-version: 0.11.0
-last-updated: 2026-10-18
+version: 0.12.0
+last-updated: 2026-10-28
 maintainer: your-name@your-org.com
 ---
 
@@ -25,6 +25,14 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.12.0 — 2026-10-28
+**Theme:** starting from zero — every command assumed code to investigate; a new project has only decisions.
+
+- **`/new-project` added (core, floor opus).** Three interview rounds (platform · users · data · auth · integrations · relation to what you already have · constraints · non-goals), a check of the stable/LTS channels, then a guide you **read and decide on**: one recommended architecture, two alternatives, a "not for this project" list, stack with a versions policy (LTS/stable only — never `latest`/`next`/`canary`), repo layout, testing strategy, CI/deploy, risks, a decisions table and open questions. Writes `.claude/project-brief.md` and nothing else — no scaffolding, no installs. `--sibling-of <repo>` makes share-vs-separate (backend · auth · data · design system) the first decision.
+- **`/build` greenfield mode** (`--from-brief`, or auto-detected: no package manifest and < 3 commits). Requires the brief; investigates its decisions instead of code; **Phase 0 scaffolds** with the framework's own generator on the pinned stable line (`.nvmrc`/toolchain file, `npm view <pkg> dist-tags`, no pre-release tags), writes `CLAUDE.md`, the repo profile basics and decision-sourced pattern entries (`_Source: decision:<date>`), proves install/lint/test/build/dev-server, commits once; Phase 1+ is the first feature.
+- **`/bootstrap` on a day-zero repo** (§1.5): prunes nothing — `adapt-plan.py` turns every PRUNE into `KEEP(too-early)` when the probe reports `manifest: none` and `commits < 3` — and configures the basics instead: repo profile (`name`, `base_branch`, `tracker_system`, plus `type`/commands/`dev_server_url` from the brief) and the `CLAUDE.md` placeholders from the brief. Measured before the fix: a fresh repo got 16 PRUNE proposals.
+- Probe vector gains `commits` and `manifest`. Dev role README has a "Start from zero" section; README, commands README and `install.sh` next-steps point at it. Tests: day-zero no-prune, probe fields.
 
 ### 0.11.0 — 2026-10-18
 **Theme:** the `qa` role — manual testing as a flow over the core commands. No new commands.

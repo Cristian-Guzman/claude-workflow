@@ -130,6 +130,12 @@ per budget; switch up for the opus-floor commands when it matters.
 
 A flow over the core set, documented in [roles/qa/README.md](../../roles/qa/README.md): `/qa` plans, the tester executes and records **one row per step** in `tickets/qa--<key>.md` (`kind: qa`), `/project-debug` takes a failed step with an unknown cause, `/learn` grows `qa-ledger.md` (what bounces, by area) and `regression-map.md` (steps that found bugs vs never fail). `/verify`'s UNVERIFIED rows are the manual remainder when the dev role is installed too.
 
+### Starting from zero
+
+| Command | Role | Args | Description |
+|---------|------|------|-------------|
+| `/new-project` | core | `[one line] [--here] [--sibling-of <repo>]` | Interview (platform · users · data · auth · integrations · relation to existing apps · constraints · non-goals) → a guide you read and decide on: one recommended architecture, two alternatives, a "not for this project" list, stack with a stable/LTS versions policy, repo layout, testing, CI/deploy, decisions table. Writes `.claude/project-brief.md` only. `/build --from-brief` scaffolds from it; `/bootstrap` configures the basics from it on a day-zero repo. |
+
 ### Automation & Setup
 
 | Command | Role | Args | Description |

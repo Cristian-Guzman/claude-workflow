@@ -17,6 +17,25 @@ Six commands on top of core, all installed flat into `.claude/commands/` next to
 
 Start here: `/ticket` (or `/build` with no tracker) → `/pr-creation` → `/learn`. Everything else is advanced and discoverable from `.claude/commands/README.md`.
 
+## Start from zero
+
+An empty repo has no code to investigate, only decisions to make — so the lane starts one step earlier:
+
+1. `/new-project "<one line>"` — three rounds of questions (platform, users, data, auth, integrations,
+   relation to what you already have, constraints, non-goals), then a guide you **read and decide on**:
+   one recommended architecture, two alternatives, a "not for this project" list, a stack with a
+   **stable/LTS versions policy**, repo layout, testing strategy, CI/deploy. Writes
+   `.claude/project-brief.md`, nothing else.
+2. `install.sh <dir> --role dev --stack <flavor>` — the seed pack gives the first patterns from the
+   flavor, not from history.
+3. `/build --from-brief` — Phase 0 scaffolds with the framework's own generator on the pinned stable
+   line, writes `CLAUDE.md`, the repo profile and decision-sourced pattern entries, proves it runs,
+   commits; Phase 1+ is the first feature.
+4. `/bootstrap` — on a day-zero repo it prunes nothing (`KEEP(too-early)`) and configures the basics
+   from the brief instead; re-run after the first build.
+
+Then the normal loop: `/ticket` or `/build` → `/pr-creation` → `/learn`.
+
 ## Seeds
 
 `templates/repo/` is intentionally empty today: the dev role's project-owned files are the core seeds (`codebase-patterns.md`, `testing-patterns.md`, `ticket-checklist.md`, `pr-template.md`, `CLAUDE.md`). A file placed here is seeded into `.claude/` once and never overwritten; its basename must not collide with a core template.

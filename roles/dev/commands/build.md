@@ -1,6 +1,6 @@
 ---
 name: build
-version: 0.11.0
+version: 0.12.0
 description: Implement a feature or change without a ticket. Loads repo patterns, investigates codebase, plans, then builds — iterating phase-by-phase with checkpoints when the plan defines phases.
 argument-hint: "describe what you want to build"
 allowed-tools:
@@ -60,6 +60,16 @@ ls {REPO_ROOT}/.claude/builds/*.md 2>/dev/null
 ```
 If one exists for a similar scope, ask: "Resume existing build or start fresh?"
 
+**Greenfield detection (before anything else):** `--from-brief` was passed, OR `{REPO_ROOT}` has no package
+manifest (`package.json`, `go.mod`, `pyproject.toml`, `Cargo.toml`, `pubspec.yaml`, `*.xcodeproj`, `Gemfile`,
+`pom.xml`) and fewer than 3 commits. Then this is **GREENFIELD MODE**:
+- Require `{REPO_ROOT}/.claude/project-brief.md` (written by `/new-project`). Missing → stop: "No brief. Run
+  `/new-project` first — on an empty repo there is nothing to investigate, only decisions to make."
+- Load the brief instead of patterns. Its **Decisions** table is the investigation; a row still `[ ]` is a
+  question to ask now, not a guess.
+- Steps 2.1–2.4 below are replaced by "investigate the brief"; Phase 0 of the plan is the scaffold (rules in
+  §4b); the first feature is Phase 1+.
+
 ## 1. Understand the Request
 
 Parse $ARGUMENTS as a plain-text description of what to build. Extract:
@@ -71,7 +81,8 @@ If the description is vague, ask clarifying questions BEFORE investigating.
 
 ## 2. Enter Plan Mode & Investigate
 
-Enter plan mode with `EnterPlanMode`, then:
+Enter plan mode with `EnterPlanMode`, then (**greenfield mode: skip 1–4; the brief's Decisions table and
+"Repo layout" section are the findings, and the plan's Phase 0 is the scaffold — see §4b**):
 
 1. **Search for existing implementations** — use CLAUDE.md architecture info to know where to look
    - Look for similar features, components, patterns in the repo
@@ -163,6 +174,29 @@ updated: YYYY-MM-DDTHH:MM:SSZ
 ```
 
 Implement following ALL loaded patterns. Update the state file as you go.
+
+### 4b. Greenfield Phase 0 — scaffold from the brief (greenfield mode only)
+
+The brief decides; this phase executes it with the framework's **own generator** and **stable versions**:
+1. **Versions first.** Pin the runtime to its LTS line (`.nvmrc` / `.tool-versions` / `go.mod` toolchain /
+   `pyproject` requires-python) and check each framework's stable channel before installing
+   (`npm view <pkg> dist-tags` → use the `lts`/`latest` tag the project's docs call stable; never `next`,
+   `canary`, `beta`, `rc`). If the brief names a line, use it; if the channel moved since the brief, say so
+   and ask before deviating.
+2. **Scaffold with the generator the brief names** (`npm create vite@<stable>`, `npx create-next-app@<stable>`,
+   `npx create-expo-app`, `cargo new`, `go mod init` + a known layout, …). Never hand-roll a project tree
+   when a maintained generator exists; add only what the brief's "Repo layout" adds on top.
+3. **Write the conventions from the decisions, not from code:** fill `CLAUDE.md` (replace every
+   `{placeholder}` of the seeded skeleton with the brief's Summary, Architecture, Stack and Repo layout);
+   write `.claude/repo-profiles/<repo>.yaml` basics (`name`, `type`, `base_branch`, `ci_command`,
+   `lint_command`, `test_command`, `dev_server_url`); seed `codebase-patterns.md` with one entry per
+   architecture decision and `testing-patterns.md` with the brief's Testing strategy — each marked
+   `_Source: decision:<YYYY-MM-DD>` (the `/learn` recurrence gate accepts decision-sourced entries as
+   already-confirmed).
+4. **Prove it runs:** install, lint, test, build, start the dev server once; record the commands you used in
+   the repo profile. Then commit `chore: scaffold <name> from project-brief` — one commit, before any feature.
+5. Hand the scaffold's state file to `/bootstrap` (it configures the rest from what now exists) and continue
+   with Phase 1.
 
 ### 4a. Phase-aware execution (when the plan defined phases)
 

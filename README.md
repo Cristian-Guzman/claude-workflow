@@ -60,7 +60,7 @@ Each command runs **once per ticket**, discretely. State persists in `.claude/ti
 
 ## All commands (advanced)
 
-- **core (16, every role):** `/pr-creation` `/ci-check` `/learn` `/qa` `/review-pr` `/review-comments` `/resume-ticket` `/status` `/project-debug` `/project-context` `/screenshot` `/demo-summary` `/memory-lint` `/bootstrap` `/update` `/upstream`
+- **core (17, every role):** `/new-project` (start from zero: interview → guide you decide on → `.claude/project-brief.md`; `/build --from-brief` scaffolds on stable versions) `/pr-creation` `/ci-check` `/learn` `/qa` `/review-pr` `/review-comments` `/resume-ticket` `/status` `/project-debug` `/project-context` `/screenshot` `/demo-summary` `/memory-lint` `/bootstrap` `/update` `/upstream`
 - **dev (6):** `/clarify` `/ticket` `/build` `/refactor` `/verify` `/ui-fidelity`
 - **sdet (3):** `/cover` `/triage` (one red test, or a whole red run clustered by shared cause) `/log` (mint the ticket *from* the work)
 - **qa (0):** manual testing as a flow over core — `/qa` → test → results rows in `tickets/qa--<key>.md` → `/learn` grows `qa-ledger.md` and `regression-map.md`; `qa-charter.md` for exploratory sessions ([roles/qa/README.md](roles/qa/README.md))
@@ -71,7 +71,7 @@ Full matrix: [core/commands/README.md](core/commands/README.md). Deferred design
 
 | Path in target | Contents | Owned by |
 |---|---|---|
-| `.claude/commands/` | 16 core + 6 dev + 3 sdet slash commands, per the roles selected (qa adds none) | upstream (refreshed on update) |
+| `.claude/commands/` | 17 core + 6 dev + 3 sdet slash commands, per the roles selected (qa adds none) | upstream (refreshed on update) |
 | `.claude/agents/`, `scripts/`, `routing.md`, `state-file-schema.md`, `*-shared.md` | 7 subagents (same set for every role), hooks + scripts (sdet adds `guard-test-integrity.sh`, `triage-cluster.py`), system docs | upstream |
 | `.claude/learn-targets/<role>.yaml`, `workflow-manifest.json` | what `/learn` scans per role; which roles are installed (tracked) | upstream / install.sh |
 | `.claude/settings.json` | hooks + permissions (from template; sdet merges its hook fragment on first seed) | **your project** |

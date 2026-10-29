@@ -306,6 +306,16 @@ def main():
 
     rows = [with_conflict(decide(r, "commands", claude, vec, roles), "commands") for r in inv["commands"] if "name" in r]
     rows += [with_conflict(decide(r, "agents", claude, vec, roles), "agents") for r in inv["agents"] if "name" in r]
+    # day zero: no package manifest and (almost) no history — a false gate means "not yet", never "not here"
+    try:
+        commits = int(vec.get("commits", 99))
+    except (TypeError, ValueError):
+        commits = 99
+    if vec.get("manifest", "yes") == "none" and commits < 3:
+        for r in rows:
+            if r["decision"] == "PRUNE":
+                r.update(decision="KEEP(too-early)",
+                         reason="day-zero repo (no package manifest, < 3 commits): nothing has existed yet — re-run /bootstrap after the first /build")
     # files no inventory row names: project-owned (LOCAL / CONFLICT) or retired upstream (ORPHAN).
     # The baseline is rewritten by every install from what upstream ships, so a path under
     # .upstream-base/<kind>/ proves upstream-ness; a capture under .upstream-prior/*/installed/<kind>/

@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-version: 0.11.0
+version: 0.12.0
 description: Adapt an installed workflow to THIS project. Runs the capability probe, evaluates every command's gate from inventory.yaml for the installed roles, and proposes keep / prune / un-archive — then writes only the capability manifest and the archive moves. Never writes command files (install.sh owns every file) and never manages versions (scripts/release.py, maintainer side).
 argument-hint: "[--root <path>] [--dry-run]"
 allowed-tools:
@@ -54,6 +54,22 @@ VEC=$("$CLAUDE_DIR/scripts/capability-probe.sh" "$WORKSPACE_ROOT"); rc=$?
 Parse the JSON. For every value equal to `"?"` (rc 3), ask ONE AskUserQuestion naming the signal and
 the options the inventory gates on (e.g. ticket_system: jira / github / linear / none). Record the
 answer into the vector. Show the resolved vector.
+
+## 1.5 Sparse repo — configure the basics, don't prune
+
+If the vector says `manifest: none` or `commits < 3` the project is at day zero (or close): nothing has
+had the chance to exist yet, so a false gate means "not yet", not "not here". `adapt-plan.py` already
+turns every PRUNE into **KEEP(too-early)** on such a repo. This step does the useful half instead:
+1. **Repo profile basics.** If `.claude/repo-profiles/<repo>.yaml` is missing, create it from `_schema.yaml`
+   with what is knowable: `name`, `base_branch` (`git symbolic-ref --short HEAD`, else `main`),
+   `tracker_system` (the probe's answer, else `none`). If `.claude/project-brief.md` exists (written by
+   `/new-project`), also fill `type`, `ci_command`, `lint_command`, `test_command`, `dev_server_url` from
+   its Stack and Testing sections, and `component_organization` from its Repo layout.
+2. **CLAUDE.md.** If it is still the seeded skeleton (any `{placeholder}` left) and a brief exists, replace
+   the placeholders from the brief's Summary / Architecture / Stack / Repo layout. No brief → leave it, and
+   say in the summary that `/new-project` writes one.
+3. Show both files before writing; they are project-owned and this is the only time `/bootstrap` writes them.
+4. The summary ends with: "Day-zero install — nothing pruned. Re-run `/bootstrap` after the first `/build`."
 
 ## 2. Load the inventory for the installed roles
 Read `CLAUDE_DIR/inventory.yaml` (installed from `core/docs/`). Keep rows whose `role` is `core` or

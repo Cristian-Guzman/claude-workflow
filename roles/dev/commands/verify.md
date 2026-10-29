@@ -1,6 +1,6 @@
 ---
 name: verify
-version: 0.11.0
+version: 0.12.0
 description: Goal-backward verification that acceptance criteria are actually met in the code.
 argument-hint: "[PROJ-XXXX or paste ACs]"
 allowed-tools:
