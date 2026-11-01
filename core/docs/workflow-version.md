@@ -1,6 +1,6 @@
 ---
-version: 0.12.0
-last-updated: 2026-10-28
+version: 0.12.1
+last-updated: 2026-10-31
 maintainer: your-name@your-org.com
 ---
 
@@ -25,6 +25,11 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.12.1 — 2026-10-31
+**Theme:** day-zero order — the installer comes first, because slash commands live in `.claude/commands/`.
+
+- 0.12.0 told you to run `/new-project` before `install.sh`; in an empty directory the command does not exist yet. Corrected in `/new-project`'s hand-off, the dev README "Start from zero" (now step 0: `git init` + `install.sh --role dev` + `WORKFLOW_LAYOUT: single-repo`), and `install.sh`'s next-steps. The `--stack <flavor>` re-run comes after the brief chose the flavor; re-runs never touch project-owned files.
 
 ### 0.12.0 — 2026-10-28
 **Theme:** starting from zero — every command assumed code to investigate; a new project has only decisions.

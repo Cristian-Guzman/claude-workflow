@@ -21,13 +21,16 @@ Start here: `/ticket` (or `/build` with no tracker) → `/pr-creation` → `/lea
 
 An empty repo has no code to investigate, only decisions to make — so the lane starts one step earlier:
 
-1. `/new-project "<one line>"` — three rounds of questions (platform, users, data, auth, integrations,
-   relation to what you already have, constraints, non-goals), then a guide you **read and decide on**:
-   one recommended architecture, two alternatives, a "not for this project" list, a stack with a
-   **stable/LTS versions policy**, repo layout, testing strategy, CI/deploy. Writes
-   `.claude/project-brief.md`, nothing else.
-2. `install.sh <dir> --role dev --stack <flavor>` — the seed pack gives the first patterns from the
-   flavor, not from history.
+0. `mkdir <dir> && cd <dir> && git init` then `install.sh <dir> --role dev` — slash commands live in
+   `.claude/commands/`, so the workflow must be installed before any of them exists. Set
+   `"WORKFLOW_LAYOUT": "single-repo"` in `.claude/settings.json` (one app, one repo).
+1. `/new-project "<one line>" --here` — three rounds of questions (platform, users, data, auth,
+   integrations, relation to what you already have, constraints, non-goals), then a guide you **read
+   and decide on**: one recommended architecture, two alternatives, a "not for this project" list, a
+   stack with a **stable/LTS versions policy**, repo layout, testing strategy, CI/deploy. Writes
+   `.claude/project-brief.md`, nothing else. `--sibling-of <path>` when it sits next to an app you have.
+2. `install.sh <dir> --role dev --stack <flavor>` — re-run with the flavor the brief chose; the seed
+   pack gives the first patterns from the flavor, not from history. Re-runs never touch your files.
 3. `/build --from-brief` — Phase 0 scaffolds with the framework's own generator on the pinned stable
    line, writes `CLAUDE.md`, the repo profile and decision-sourced pattern entries, proves it runs,
    commits; Phase 1+ is the first feature.

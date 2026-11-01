@@ -1,6 +1,6 @@
 ---
 name: new-project
-version: 0.12.0
+version: 0.12.1
 description: Start a project from zero. Interviews you about what you want to make (platform, users, data, constraints, how it relates to what you already have), then writes a guide you READ AND DECIDE on — one recommended architecture with boring, proven technology on stable/LTS versions, two alternatives, and an explicit "not for this project" list. Writes .claude/project-brief.md; never scaffolds or installs anything. /build --from-brief takes it from there.
 argument-hint: "[one line: what you want to make] [--here] [--sibling-of <existing-repo>]"
 allowed-tools:
@@ -148,10 +148,11 @@ with a one-line note, not refused — it is the user's project.
 
 Write `.claude/project-brief.md` (create `.claude/` if needed; nothing else is created). Then stop:
 
-> "Brief written to `.claude/project-brief.md` — {n} decisions settled, {m} open. Next:
-> `install.sh <dir> --role dev --stack <flavor>` if the workflow is not installed here yet, then
-> `/build --from-brief` to scaffold and build the first feature, then `/bootstrap` to configure
-> the workflow from what now exists."
+> "Brief written to `.claude/project-brief.md` — {n} decisions settled, {m} open. Next: re-run
+> `install.sh <dir> --role dev --stack <flavor>` with the flavor the brief chose (it appends the seed
+> patterns for it; the workflow itself is already installed, or this command could not have run), then
+> `/build --from-brief` to scaffold and build the first feature, then `/bootstrap` to configure the
+> workflow from what now exists."
 
 </process>
 
