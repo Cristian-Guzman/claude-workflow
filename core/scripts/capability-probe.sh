@@ -9,7 +9,7 @@
 # question per "?" and never guesses, because a wrong default silently installs or
 # prunes the wrong commands.
 #
-# Vector: vcs_host ci ticket_system wiki e2e api_collection dev_server ui_surfaces repo_count memory_system team roles
+# Vector: vcs_host ci ticket_system wiki e2e api_collection dev_server ui_surfaces repo_count memory_system team roles re_tooling
 set -u
 
 DIR="${1:-${WORKSPACE_ROOT:-${CLAUDE_PROJECT_DIR:-$PWD}}}"
@@ -139,6 +139,19 @@ elif ls "$HOME"/.claude/projects/*/memory/MEMORY.md >/dev/null 2>&1; then MEMORY
 authors=$(for g in $GIT_DIRS; do git -C "$g" log --format='%ae' -200 2>/dev/null; done | sort -u | wc -l | tr -d ' ')
 [ "${authors:-1}" -gt 1 ] && TEAM=true || TEAM=false
 
+# --- re_tooling: rea | none   (reverse-engineering tooling for /reverse)
+#     rea = the CLI is on PATH, or an MCP server named "rea" is registered for this client.
+#     The CLI/server being present does NOT mean a native engine (Hopper/Ghidra/IDA) is configured;
+#     /reverse checks that itself per target, because web/Electron/APK targets need none.
+RE_TOOLING=none
+command -v rea >/dev/null 2>&1 && RE_TOOLING=rea
+if [ "$RE_TOOLING" = none ]; then
+  for m in "$CLAUDE_DIR/settings.json" "$CLAUDE_DIR/settings.local.json" "$DIR/.mcp.json" "$HOME/.claude.json"; do
+    [ -f "$m" ] || continue
+    grep -qE '"rea(-agents)?"[[:space:]]*:' "$m" 2>/dev/null && RE_TOOLING=rea && break
+  done
+fi
+
 # --- roles: from workflow-manifest.json (written by install.sh); [] when absent
 ROLES="[]"
 if [ -f "$CLAUDE_DIR/workflow-manifest.json" ]; then
@@ -163,6 +176,7 @@ cat <<EOF
   "manifest": "$MANIFEST",
   "memory_system": "$MEMORY",
   "team": $TEAM,
+  "re_tooling": "$RE_TOOLING",
   "roles": $ROLES
 }
 EOF

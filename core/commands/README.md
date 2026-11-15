@@ -53,6 +53,7 @@ No repo should contain a `commands/` directory. If one appears, it's a drift/sta
 |---------|------|------|-------------|
 | `/qa` | core | `[PROJ-XXXX]` | Generates a manual QA guide. UI tickets get URLs/steps/edge cases; backend tickets get a runtime-evidence guide (deploy confirmation, trigger, jq/SQL assertions, logs). |
 | `/ui-fidelity` | dev | `[PROJ-XXXX]` | Surface-aware design-fidelity check: translates a design reference into this surface's idiom, diffs the impl, hardens for live-data shapes, emits a manual QA checklist. Auto-invoked by `/clarify`, `/verify`, `/qa`. |
+| `/reverse` | dev | `PROJ-XXXX --from <url\|path> --feature "<what>"` | Observe a feature in an app we have no source for (REA: web, Electron/ASAR, APK, native, .NET) and write a behavior contract — every row classed observed / inferred / unknown — that `/clarify` plans against as Case D. Produces a specification, never a port: no target code, pseudocode, strings or assets enter the repo. Needs REA installed (`re_tooling == rea`). |
 | `/screenshot` | core | `[/url-path]` | Captures a screenshot of any page in the running app for visual review. |
 | `/review-pr` | core | `[PR# or branch]` | Review someone else's PR against repo conventions, codebase patterns, and quality standards. Never auto-posts comments — always awaits approval. |
 
@@ -94,6 +95,7 @@ per budget; switch up for the opus-floor commands when it matters.
 | `learn` | opus | synthesis that feeds every later command |
 | `project-debug` | opus | hypothesis tracking over unknown causes |
 | `refactor` | opus | pattern violations across a codebase |
+| `reverse` | opus | behavior inference from partial evidence, plus a scope/authorization call |
 | `review-pr` | opus | review against conventions and patterns |
 | `ticket` | opus | implementation across many files with phased plans |
 | `triage` | opus | clustering red runs by shared cause |

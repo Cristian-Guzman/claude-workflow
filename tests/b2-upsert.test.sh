@@ -128,6 +128,33 @@ check "qa sidecar indexed with kind qa" '[ "$(entry web-app:qa:PROJ-9 | jq -r .k
 check "qa sidecar status kept"          '[ "$(entry web-app:qa:PROJ-9 | jq -r .status)" = "in-progress" ]'
 check "qa is in the enum (no drift)"    '! grep -q "non-schema kind .qa." "$DRIFT"'
 
+echo "# 9. /reverse behavior contract -> kind reverse, terminal, archived, status contract"
+printf -- '---\nkind: reverse\nstatus: contract\nticket: PROJ-7\nslug: command-palette\ntarget: "https://example.com/app"\nclassification: third-party\nauthorization: confirmed-by-user\n---\n\n## Behavior Contract\n| # | Behavior | Evidence class |\n|---|---|---|\n| 1 | opens on click | observed (runtime) |\n' > "$WS/web-app/.claude/tickets/PROJ-7-reverse.md"
+"$UPSERT" "$WS/web-app/.claude/tickets/PROJ-7-reverse.md"
+R=$(entry "web-app:reverse:PROJ-7-reverse")
+check "reverse contract indexed with kind reverse" '[ "$(echo "$R" | jq -r .kind)" = "reverse" ]'
+check "reverse status kept as contract"            '[ "$(echo "$R" | jq -r .status)" = "contract" ]'
+check "reverse archived (terminal artifact)"       '[ "$(echo "$R" | jq -r .archived)" = "true" ]'
+check "reverse archived_reason names the kind"     '[ "$(echo "$R" | jq -r .archived_reason)" = "kind: reverse" ]'
+check "reverse is in the kind enum (no drift)"     '! grep -q "non-schema kind .reverse." "$DRIFT"'
+check "contract is in the status vocabulary"       '! grep -q "non-schema status .contract." "$DRIFT"'
+
+echo "# 10. -reverse filename with NO declared kind -> suffix rule wins, not a ticket zombie"
+printf -- '---\nticket: PROJ-8\n---\n\n## Behavior Contract\nnothing declared.\n' > "$WS/web-app/.claude/tickets/PROJ-8-reverse.md"
+"$UPSERT" "$WS/web-app/.claude/tickets/PROJ-8-reverse.md"
+S=$(entry "web-app:reverse:PROJ-8-reverse")
+check "undeclared -reverse resolves by suffix"     '[ "$(echo "$S" | jq -r .kind)" = "reverse" ]'
+check "undeclared -reverse defaults to contract"   '[ "$(echo "$S" | jq -r .status)" = "contract" ]'
+check "undeclared -reverse is archived"            '[ "$(echo "$S" | jq -r .archived)" = "true" ]'
+
+echo "# 11. doc <-> script kind enum are in sync (the drift that shipped for 'qa')"
+DOC_ENUM=$(sed -n 's/^<!-- kind-enum:\(.*\)-->$/\1/p' "$HERE/core/docs/state-file-schema.md" | xargs)
+SCRIPT_ENUM=$(sed -n 's/^KIND_ENUM="\(.*\)"$/\1/p' "$UPSERT" | xargs)
+check "schema doc kind-enum matches script KIND_ENUM" '[ -n "$DOC_ENUM" ] && [ "$DOC_ENUM" = "$SCRIPT_ENUM" ]'
+for k in $SCRIPT_ENUM; do
+  check "kind '$k' has a row in the schema table" "grep -q '^| \`$k\` |' \"\$HERE/core/docs/state-file-schema.md\""
+done
+
 echo
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]

@@ -4,7 +4,7 @@ The implementation lane. Installed by default (`./install.sh <target>` with no `
 
 ## What the role adds
 
-Six commands on top of core, all installed flat into `.claude/commands/` next to the core set:
+Seven commands on top of core, all installed flat into `.claude/commands/` next to the core set:
 
 | Command | What it does |
 |---|---|
@@ -14,6 +14,7 @@ Six commands on top of core, all installed flat into `.claude/commands/` next to
 | `/refactor` | Scan a scope against `codebase-patterns.md`, list violations, fix them with pattern enforcement. |
 | `/verify` | Goal-backward verification that acceptance criteria are met in the code; scored gate table. |
 | `/ui-fidelity` | Ad-hoc design-fidelity check for one UI surface; reports, never edits. |
+| `/reverse` | Reverse-engineer a feature from an app with no source (REA) into an evidence-backed behavior contract `/clarify` plans against. Specification, never a port. Installed only where REA is present. |
 
 Start here: `/ticket` (or `/build` with no tracker) → `/pr-creation` → `/learn`. Everything else is advanced and discoverable from `.claude/commands/README.md`.
 

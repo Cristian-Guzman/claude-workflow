@@ -1,6 +1,6 @@
 ---
 name: clarify
-version: 0.12.1
+version: 0.13.0
 description: Analyze a ticket — investigate the codebase, recommend file placement and patterns, plan execution phases when complexity warrants, persist the blueprint for downstream commands, and surface only the questions you can't answer yourself.
 argument-hint: "PROJ-XXXX [--phase N] [--no-prior-art] [--cross-repo] [--full-history]"
 allowed-tools:
@@ -348,8 +348,31 @@ Before parsing claims, classify the design input. The rebuild plan depends on wh
 | **A. Prototype reference** | Ticket links a `proto/*` branch, or the branch is listed in repo-profile `prototype_branches:` | Step 2.5 extracts interaction code as reference-only. Rebuild plan in atomic order. |
 | **B. Design spec (Figma/mockup/screenshots)** | Ticket has Figma link, attached mockups, or screenshots | Decompose the design into atomic levels during planning. Map each region to existing atoms/molecules. |
 | **C. No design** | Ticket describes functionality in prose only, no mockup or prototype | Use atomic design as the **abstraction framework**: propose a solution starting from existing atoms; flag any new atom/molecule that would serve future tickets (abstract as you go). |
+| **D. External app reference** | A `{TICKET}-reverse.md` contract exists in `tickets/`, or the ticket says "like <app> does it" / links an app we have no source for | Step 2.6 reads the contract instead of re-deriving it. Plan only against `observed` and `inferred` rows; every `unknown` row is a question, and a blocking unknown stops the phase plan. |
 
-Store as **{DESIGN_CASE}** ∈ `prototype | spec | none`. The rest of `/clarify` adapts to this value.
+Store as **{DESIGN_CASE}** ∈ `prototype | spec | none | external`. The rest of `/clarify` adapts to this value.
+
+### Case D — read the contract, never the target
+
+Check for the contract before classifying as B or C:
+
+```bash
+ls {REPO_ROOT}/.claude/tickets/{TICKET}-reverse.md 2>/dev/null
+```
+
+**If the ticket points at an external app and no contract exists, stop and route to `/reverse`**
+rather than guessing at the behavior from the ticket's prose or opening the app yourself:
+
+> This ticket references `{APP}`, which we have no source for, and there is no behavior contract for
+> it. Run `/reverse {TICKET} --from <target> --feature "<what>"` first — it produces an
+> evidence-backed contract (observed / inferred / unknown) that this command can plan against.
+
+When the contract **does** exist, fold it into Step 2's claims table and carry its three properties
+through to the blueprint:
+
+1. **Evidence class survives into the plan.** An `observed` row is a spec; an `inferred` row is a hypothesis that the implementation must tolerate being wrong about. Do not flatten them into one confident list — this is the same discipline `/verify` scores.
+2. **A blocking `unknown` outranks the phase plan.** If a row marked blocking is unresolved, say so at the top of the output and do not produce an estimate that silently assumes it away.
+3. **The contract's `classification` field governs what may be written.** For `third-party`, the blueprint describes behavior only: no target code, pseudocode, strings, assets, or identifiers reach our repo. Carry the contract's one-line reminder into the blueprint section, the way Case A carries the prototype's "reference, not code" warning.
 
 ## 2. Parse Implementation Claims
 

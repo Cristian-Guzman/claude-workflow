@@ -1,6 +1,6 @@
 ---
-version: 0.12.1
-last-updated: 2026-10-31
+version: 0.13.0
+last-updated: 2026-11-14
 maintainer: your-name@your-org.com
 ---
 
@@ -25,6 +25,17 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.13.0 — 2026-11-14
+**Theme:** /reverse — reverse-engineer a feature from an app with no source, as a behavior contract
+
+- **New dev command `/reverse`** (`roles/dev/commands/reverse.md`, floor opus, `gate: "re_tooling == rea"`, priority optional) — you saw a feature in an app you have no source for and want the equivalent here. It observes the artifact with [REA](https://github.com/morluto/rea) (MCP server or CLI; web, Electron/ASAR, APK, native, .NET, HAR) and writes a **behavior contract**: every row classed `observed` / `inferred` / `unknown` with its Evidence ID, a per-state interaction table, and a rebuild map naming our own components. It stops at the contract — no branch, no product code, no PR — the way `/clarify` stops at the blueprint.
+- **It is a specification, never a port.** §2 is an authorization and scope gate that classifies the target `ours | open-source | third-party | platform` before the first analysis call, redirects an open-source target to its repo (reverse-engineering a binary whose source is a `git clone` away is slower and lossier), asks once before a third-party target, and offers the black-box path when the answer is no. Three hard rules carry downstream: no decompiled code, no copied assets, no target identifiers. `classification: third-party` in the state file is what tells every later command that only behavior may enter the repo.
+- **`/clarify` §1.8 gains Case D — external app reference.** `{DESIGN_CASE}` is now `prototype | spec | none | external`. With a `{TICKET}-reverse.md` contract present, `/clarify` plans against it instead of re-deriving the behavior; with the ticket pointing at an app and no contract, it routes to `/reverse` instead of guessing from prose. Evidence class survives into the plan, a blocking `unknown` outranks the phase plan, and the contract's classification governs what may be written — the same shape as Case A's "reference, not code" warning.
+- **New state-file kind `reverse`** (`tickets/PROJ-XXXX-reverse[-N].md`, status `contract`, terminal + archived at upsert, kept as a prior-art source). Wired through `state-index-upsert.sh` (enum, `-reverse` suffix rule, per-kind default, `contract` added to the status vocabulary) and documented in `state-file-schema.md` with its extra frontmatter (`target`, `target_identity`, `classification`, `authorization`, `evidence_bundle`).
+- **New capability `re_tooling`** (`rea | none`) in `capability-probe.sh`: the `rea` CLI on `PATH`, or an MCP server named `rea` registered for this client. `/bootstrap` prunes `/reverse` where REA is absent, so the command only appears on machines that can run it. Presence of REA does **not** imply a native engine — `/reverse` checks that per target, because web, Electron, APK and static-JS targets need none.
+- **Fixed pre-existing drift:** `state-file-schema.md`'s `kind-enum` comment was missing `qa`, which `state-index-upsert.sh`'s `KIND_ENUM` has had since 0.6.0. Docs-only (the script is the enforcer, so nothing was mis-indexed), but it was untested — the old `qa` test asserts on the script via the drift log, never on the comment. `tests/b2-upsert.test.sh` case 11 now asserts the doc comment and the script enum are string-equal and that every enum kind has a row in the Kinds table.
+- Tests: `b2-upsert` cases 9–11 (declared `kind: reverse` → terminal/archived/`contract`; an undeclared `*-reverse.md` resolving by suffix rather than becoming a `ticket`/`unknown` zombie; the doc↔script enum sync) — 50 assertions, was 28. Docs: both READMEs (dev is 7 commands), the commands README table + model-floor table, `inventory.yaml` capability list.
 
 ### 0.12.1 — 2026-10-31
 **Theme:** day-zero order — the installer comes first, because slash commands live in `.claude/commands/`.

@@ -1,6 +1,6 @@
 ---
 name: resume
-version: 0.12.1
+version: 0.13.0
 description: Resume an interrupted ticket, debug, build, refactor, cover or triage session from saved state.
 argument-hint: "[PROJ-XXXX | debug-slug | cover--<slug> | triage--<slug>]"
 allowed-tools:

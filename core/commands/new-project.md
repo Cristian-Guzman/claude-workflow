@@ -1,6 +1,6 @@
 ---
 name: new-project
-version: 0.12.1
+version: 0.13.0
 description: Start a project from zero. Interviews you about what you want to make (platform, users, data, constraints, how it relates to what you already have), then writes a guide you READ AND DECIDE on — one recommended architecture with boring, proven technology on stable/LTS versions, two alternatives, and an explicit "not for this project" list. Writes .claude/project-brief.md; never scaffolds or installs anything. /build --from-brief takes it from there.
 argument-hint: "[one line: what you want to make] [--here] [--sibling-of <existing-repo>]"
 allowed-tools:

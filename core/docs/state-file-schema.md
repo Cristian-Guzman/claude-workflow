@@ -9,7 +9,7 @@ Every ticket state file follows this contract. Commands that violate it silently
 
 `state-index-upsert.sh` and `/status`'s no-index fallback read the two comment lines below — keep them on one line each and in sync with the table.
 
-<!-- kind-enum: ticket debug build refactor e2e review blueprint cover triage test-plan -->
+<!-- kind-enum: ticket debug build refactor e2e review blueprint cover triage qa reverse test-plan -->
 <!-- kind-dirs: tickets debug builds refactors e2e -->
 
 | kind | Directory | Filename | Status vocabulary | Notes |
@@ -24,6 +24,7 @@ Every ticket state file follows this contract. Commands that violate it silently
 | `cover` | `tickets/` | `cover--<slug>.md` | Status Lifecycle below + `env-blocked` | ticket-less sidecar, keyed by branch — see Sidecars |
 | `triage` | `tickets/` | `triage--<slug>.md` | Status Lifecycle below + `env-blocked` | ticket-less sidecar, keyed by branch — see Sidecars |
 | `qa` | `tickets/` | `qa--<key>.md` | `in-progress` → `delivered` (+ `bounced`) | manual-QA results sidecar written by the tester from the `/qa` guide; `<key>` = ticket id or slug — see `roles/qa/README.md` |
+| `reverse` | `tickets/` | `PROJ-XXXX-reverse[-N].md` or `<slug>-reverse.md` | `contract` (terminal) | `/reverse` behavior contract observed from an external app; archived at upsert; prior-art source for `/clarify` Case D |
 | `test-plan` | `tickets/` | `PROJ-XXXX-test-plan.md` | `blueprint` (terminal) | legacy sidecar of the retired `/test-plan`; archived at upsert; never written by a current command |
 
 **Kind resolution order in the index:** a declared `kind:` frontmatter value that is in the enum wins; else the filename suffix rules (`-review`, `-clarify`, `-test-plan`) apply; else the kind is derived from the directory. A declared `kind:` outside the enum is ignored (directory kind wins) and logged to `state/schema-drift.log`.
@@ -55,6 +56,27 @@ Rules:
 ### Legacy `-test-plan` sidecar
 
 `PROJ-XXXX-test-plan.md` files were written by the retired `/test-plan` command. They index as `kind: test-plan`, `status: blueprint` when the file carries no status, `archived: true` (terminal). No current command writes or reads them beyond prior-art lookup; do not delete them.
+
+### `reverse` contract (`/reverse`)
+
+`PROJ-XXXX-reverse.md` is the evidence-backed behavior contract `/reverse` writes after observing an
+app this repo has no source for. It is terminal (`status: contract`, `archived: true`) and is read by
+`/clarify` as `DESIGN_CASE = external`. Beyond the common frontmatter it carries:
+
+```yaml
+kind: reverse
+status: contract
+target: "https://example.com/app"      # url or absolute path observed
+target_identity: "sha256:… | <url> @ 2026-11-14"
+classification: ours | open-source | third-party | platform
+authorization: confirmed-by-user | not-required-ours | black-box-only
+evidence_bundle: "<local path> | null"  # never committed for a third-party target
+```
+
+`classification` is load-bearing, not metadata: for `third-party` it is what tells every downstream
+command that only behavior may be carried into this repo — no target code, pseudocode, strings,
+assets, or identifiers. `evidence_bundle` paths under `.claude/evidence/` are local-only and
+`.gitignore`d, because a bundle contains the analyzed artifact's internals.
 
 ## Frontmatter (YAML)
 

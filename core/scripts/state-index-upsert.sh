@@ -3,7 +3,7 @@
 #
 # Called by the PostToolUse hook when a file at **/.claude/{tickets,debug,builds,refactors,e2e}/*.md is written.
 # Kind resolution (state-file-schema.md "Kinds"): declared `kind:` frontmatter in the enum wins,
-# then filename suffix rules (-review / -clarify / -test-plan), then the directory.
+# then filename suffix rules (-review / -clarify / -reverse / -test-plan), then the directory.
 # Ticket-less sidecars (`tickets/<kind>--<slug>.md`, kind cover|triage) key on the slug, so the
 # entry id is <repo>:<kind>:<slug> and survives /log writing `ticket: KEY` into the frontmatter.
 #
@@ -52,7 +52,7 @@ esac
 key=$(basename "$abs" .md)
 
 # Closed kind enum — mirror of the `kind-enum` line in state-file-schema.md.
-KIND_ENUM="ticket debug build refactor e2e review blueprint cover triage qa test-plan"
+KIND_ENUM="ticket debug build refactor e2e review blueprint cover triage qa reverse test-plan"
 in_enum() { case " $KIND_ENUM " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 DRIFT_LOG="$WORKSPACE/.claude/state/schema-drift.log"
 
@@ -101,13 +101,14 @@ if [ -z "$file_kind" ]; then
   case "$key" in
     *-review|*-review-*)       kind_singular="review" ;;
     *-clarify|*-clarify-*)     kind_singular="blueprint" ;;
+    *-reverse|*-reverse-*)     kind_singular="reverse" ;;
     *-test-plan|*-test-plan-*) kind_singular="test-plan" ;;
   esac
 fi
 
-# Per-kind defaults. Review logs (/review-pr) carry a `verdict:`, blueprints (/clarify) and
-# legacy test plans are investigation artifacts — all terminal and archived, kept for
-# /learn correlation and prior-art, never lifecycle entries.
+# Per-kind defaults. Review logs (/review-pr) carry a `verdict:`, blueprints (/clarify),
+# reverse contracts (/reverse) and legacy test plans are investigation artifacts — all terminal
+# and archived, kept for /learn correlation and prior-art, never lifecycle entries.
 case "$kind_singular" in
   review)
     [ -z "$status" ] && status="reviewed"
@@ -115,6 +116,10 @@ case "$kind_singular" in
   blueprint|test-plan)
     [ -z "$status" ] && status="blueprint"
     archived="true"; archived_reason="kind: $kind_singular" ;;
+  reverse)
+    # /reverse behavior contract: terminal like a blueprint, kept as a prior-art source.
+    [ -z "$status" ] && status="contract"
+    archived="true"; archived_reason="kind: reverse" ;;
   cover|triage|qa)
     # Sidecars key on the slug: `cover--orders-v2.md` -> orders-v2, `qa--PROJ-9.md` -> PROJ-9.
     # Frontmatter `slug:` (cover/triage) or `key:` (qa) wins; the id must not change when /log
@@ -139,7 +144,7 @@ fi
 # the drift so it surfaces instead of silently starving the learning loop.
 case "$status" in
   planning|in-progress|ready-for-pr|pr-generated|delivered|learned|\
-  investigating|root-cause-found|fixed|reviewed|blueprint|abandoned|env-blocked|unknown) ;;
+  investigating|root-cause-found|fixed|reviewed|blueprint|contract|abandoned|env-blocked|unknown) ;;
   *) echo "$(date -u +%Y-%m-%d) non-schema status '$status' in $abs" >> "$DRIFT_LOG" ;;
 esac
 

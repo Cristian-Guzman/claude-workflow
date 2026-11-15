@@ -61,7 +61,7 @@ Each command runs **once per ticket**, discretely. State persists in `.claude/ti
 ## All commands (advanced)
 
 - **core (17, every role):** `/new-project` (start from zero: interview → guide you decide on → `.claude/project-brief.md`; `/build --from-brief` scaffolds on stable versions) `/pr-creation` `/ci-check` `/learn` `/qa` `/review-pr` `/review-comments` `/resume-ticket` `/status` `/project-debug` `/project-context` `/screenshot` `/demo-summary` `/memory-lint` `/bootstrap` `/update` `/upstream`
-- **dev (6):** `/clarify` `/ticket` `/build` `/refactor` `/verify` `/ui-fidelity`
+- **dev (7):** `/clarify` `/ticket` `/build` `/refactor` `/verify` `/ui-fidelity` `/reverse`
 - **sdet (3):** `/cover` `/triage` (one red test, or a whole red run clustered by shared cause) `/log` (mint the ticket *from* the work)
 - **qa (0):** manual testing as a flow over core — `/qa` → test → results rows in `tickets/qa--<key>.md` → `/learn` grows `qa-ledger.md` and `regression-map.md`; `qa-charter.md` for exploratory sessions ([roles/qa/README.md](roles/qa/README.md))
 
@@ -126,7 +126,7 @@ profile ([core/docs/profile.schema.md](core/docs/profile.schema.md)) to compare 
 
 Nothing is pinned. Every command and agent inherits the session model and carries a **floor** (recommended
 minimum): `opus` for judgment over large context (`/clarify`, `/ticket`, `/verify`, `/learn`, `/review-pr`,
-`/cover`, `/triage`, …), `sonnet` for prose-from-structure and script orchestration (`/pr-creation`, `/qa`,
+`/cover`, `/triage`, `/reverse`, …), `sonnet` for prose-from-structure and script orchestration (`/pr-creation`, `/qa`,
 `/status`, `/bootstrap`, `/update`, …) — those lose nothing on Sonnet. The full table with reasons is in
 [core/commands/README.md](core/commands/README.md#model-floors-guidance-never-a-pin); `/bootstrap` prints
 it for the installed set. An opus-floor command running as a smaller model says so once and continues.

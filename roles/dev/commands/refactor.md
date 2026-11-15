@@ -1,6 +1,6 @@
 ---
 name: refactor
-version: 0.12.1
+version: 0.13.0
 description: Scan existing code against codebase-patterns.md, find violations, plan fixes, and refactor with full pattern enforcement.
 argument-hint: "scope (e.g., orders-v2, app/_lib/tickets, or 'full')"
 allowed-tools:

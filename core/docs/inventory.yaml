@@ -13,8 +13,9 @@
 #   opus = judgment over large context; sonnet = prose from structured input or script orchestration — full power on Sonnet.
 # Gate grammar: always | <cap> == <v> | <cap> != <v> | <cap> >= <n> | A AND B | A OR B | ( … )
 # Capabilities (all emitted by scripts/capability-probe.sh): vcs_host ci ticket_system wiki e2e api_collection
-#   dev_server ui_surfaces repo_count memory_system team. Values are literal: dev_server is yes|none,
-#   api_collection is postman|playwright-request|none — write `dev_server == yes`, never "present".
+#   dev_server ui_surfaces repo_count memory_system team re_tooling. Values are literal: dev_server is yes|none,
+#   api_collection is postman|playwright-request|none, re_tooling is rea|none — write `dev_server == yes`,
+#   never "present".
 
 commands:
   # core — installed for every role
@@ -42,6 +43,7 @@ commands:
   - {name: verify,          role: dev,  priority: core,        since: 0.1.0, gate: always, floor: opus}
   - {name: refactor,        role: dev,  priority: core,        since: 0.1.0, gate: always, floor: opus}
   - {name: ui-fidelity,     role: dev,  priority: conditional, since: 0.4.0, gate: "ui_surfaces != none", floor: opus}
+  - {name: reverse,         role: dev,  priority: optional,    since: 0.13.0, gate: "re_tooling == rea", floor: opus}
   # sdet — the coverage lane (roles/sdet/commands), MVP per the 0.8.0 plan
   - {name: cover,           role: sdet, priority: core,        since: 0.8.0, gate: "e2e != none OR api_collection != none", floor: opus}
   - {name: triage,          role: sdet, priority: core,        since: 0.8.0, gate: "e2e != none OR api_collection != none", floor: opus}
