@@ -28,6 +28,20 @@ is_base_branch() {
   [ -n "$BASE_LIST" ] && printf '%s\n' "$BASE_LIST" | grep -qFx -- "$1"
 }
 
+# A command may START with shell variable assignments (`S=/w/x; cd /w/x && git commit`,
+# `A=1 B=2 cd …`). The `cd` patterns below are anchored at ^, so without stripping these
+# first the path is never found and the command is judged against the STALE shell cwd —
+# a false-positive block. Handles double-quoted, single-quoted and bare values, with or
+# without a `;` separator. Anchored at ^, so `git commit -m "a=b"` is untouched.
+strip_leading_assignments() {
+  local s="$1" prev="" q="'"
+  while [ "$s" != "$prev" ]; do
+    prev="$s"
+    s=$(printf '%s' "$s" | sed -E "s/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=(\"[^\"]*\"|${q}[^${q}]*${q}|[^[:space:];&|]*)[[:space:]]*;?[[:space:]]*//")
+  done
+  printf '%s' "$s"
+}
+
 input=$(cat)
 tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
 
@@ -77,11 +91,12 @@ case "$tool" in
     # bare). Otherwise a compound command like `cd /elsewhere && git commit` gets
     # judged against the STALE shell cwd (false positives when the shell happens
     # to sit in an unrelated repo).
-    cdir=$(printf '%s' "$command" | sed -n 's/.*git -C \([^ ]*\).*/\1/p' | head -1)
+    cmd_path=$(strip_leading_assignments "$command")
+    cdir=$(printf '%s' "$cmd_path" | sed -n 's/.*git -C \([^ ]*\).*/\1/p' | head -1)
     if [ -z "$cdir" ]; then
-      cdir=$(printf '%s' "$command" | sed -n 's/^[[:space:]]*cd[[:space:]]\{1,\}"\([^"]\{1,\}\)".*/\1/p' | head -1)
-      [ -z "$cdir" ] && cdir=$(printf '%s' "$command" | sed -n "s/^[[:space:]]*cd[[:space:]]\\{1,\\}'\\([^']\\{1,\\}\\)'.*/\\1/p" | head -1)
-      [ -z "$cdir" ] && cdir=$(printf '%s' "$command" | sed -n 's/^[[:space:]]*cd[[:space:]]\{1,\}\([^;&|[:space:]]\{1,\}\).*/\1/p' | head -1)
+      cdir=$(printf '%s' "$cmd_path" | sed -n 's/^[[:space:]]*cd[[:space:]]\{1,\}"\([^"]\{1,\}\)".*/\1/p' | head -1)
+      [ -z "$cdir" ] && cdir=$(printf '%s' "$cmd_path" | sed -n "s/^[[:space:]]*cd[[:space:]]\\{1,\\}'\\([^']\\{1,\\}\\)'.*/\\1/p" | head -1)
+      [ -z "$cdir" ] && cdir=$(printf '%s' "$cmd_path" | sed -n 's/^[[:space:]]*cd[[:space:]]\{1,\}\([^;&|[:space:]]\{1,\}\).*/\1/p' | head -1)
     fi
     # Normalize the extracted path: tilde and relative forms resolve against
     # the tool cwd — never leave them to chance.
@@ -106,8 +121,17 @@ case "$tool" in
       deny "BLOCKED (guard-base-branch): commit/push in the workspace-root repo — the .claude workflow system is never committed (feedback_no_commit_workflow_files). Installing into a single product repo? Set WORKFLOW_LAYOUT=single-repo in settings.json env."
     fi
     branch=$(git -C "$root" branch --show-current 2>/dev/null)
-    if printf '%s' "$command" | grep -qE 'git[^|;&]*[[:space:]]commit([[:space:]]|$)' && is_base_branch "$branch"; then
-      deny "BLOCKED (guard-base-branch): committing on base branch '$branch' in $(basename "$root"). Create the ticket branch first (feedback_branch_before_edit)."
+    # A command that CREATES the ticket branch before committing is not a base-branch
+    # commit: `git checkout -b f/x && git commit` lands on f/x, but the guard runs BEFORE
+    # the checkout, so the branch still reads as the base. Exempt it only when creation
+    # comes first AND is chained with && — `git commit && git checkout -b x` commits on
+    # the base, and `git checkout -b x; git commit` commits on the base when the checkout
+    # fails, so both stay blocked.
+    creates_branch_first='git[[:space:]]+(checkout|switch)[[:space:]]+-[bBcC][^;]*&&[^;]*git[^|;&]*[[:space:]]commit([[:space:]]|$)'
+    if printf '%s' "$command" | grep -qE 'git[^|;&]*[[:space:]]commit([[:space:]]|$)' \
+       && ! printf '%s' "$command" | grep -qE "$creates_branch_first" \
+       && is_base_branch "$branch"; then
+      deny "BLOCKED (guard-base-branch): committing on base branch '$branch' in $(basename "$root"). Create the ticket branch first (feedback_branch_before_edit). If you ARE on a ticket branch in another checkout, start the command with \`cd <worktree> &&\` and a literal path — the guard reads the target from a leading \`cd\` or \`git -C\`, and judges the session cwd when it finds neither."
     fi
     ;;
 esac

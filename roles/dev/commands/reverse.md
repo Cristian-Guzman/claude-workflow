@@ -1,6 +1,6 @@
 ---
 name: reverse
-version: 0.13.0
+version: 0.13.1
 description: Reverse-engineer a feature from an app you have no source for, with REA, and turn it into an evidence-backed behavior contract /clarify can plan against. Observes and rebuilds; never transcribes decompiled code.
 argument-hint: "PROJ-XXXX --from <url|path> --feature \"<what to replicate>\" [--surface web|electron|apk|native|managed] [--static-only] [--har <path>]"
 allowed-tools:

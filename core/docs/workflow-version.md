@@ -1,6 +1,6 @@
 ---
-version: 0.13.0
-last-updated: 2026-11-14
+version: 0.13.1
+last-updated: 2026-11-16
 maintainer: your-name@your-org.com
 ---
 
@@ -25,6 +25,16 @@ Installed side: `/update` shows the entries below that are newer than the instal
 with local edits kept. There is no hash ledger: per-install drift is `scripts/upstream.py drift`.
 
 ## Changelog
+
+### 0.13.1 — 2026-11-16
+**Theme:** guard-base-branch: find the target checkout past a leading assignment, and honor a branch created before the commit
+
+- **`guard-base-branch.sh` finds the target checkout past leading shell assignments.** The three `cd` patterns are anchored at `^`, so a command that merely STARTS with an assignment (`S=/w/x; cd /w/x && git commit`, `A=1 B=2 cd …`) never matched, and the hook judged the session's cwd instead of the checkout the command names. New `strip_leading_assignments` normalizes the command before path extraction — double-quoted, single-quoted and bare values, with or without a `;`. Still anchored at `^`, so `git commit -m "a=b"` is untouched. The `git -C` pattern was never anchored and was already fine.
+- **The bug cut both ways, and the harvest only saw one side.** Reported as a false block (5 occurrences); it was also a false ALLOW. When the `cd` went undetected the hook fell back to the session cwd, so a commit onto a base branch in repo A passed unchecked whenever the session happened to sit on a ticket branch in repo B. That hole is now covered by a test.
+- **A branch created before the commit is no longer treated as a base-branch commit.** `git checkout -b f/x && git commit` lands on `f/x`, but the hook runs before the checkout, so the branch still read as the base and the command was blocked (3 of the 5 occurrences). Exempt only when creation comes first AND is chained with `&&`: `git commit && git checkout -b x` commits on the base, and `git checkout -b x; git commit` commits on the base when the checkout fails, so both stay blocked. Covers `checkout -b/-B` and `switch -c/-C`.
+- **The block message now names the fix for the false-positive case:** if you are on a ticket branch in another checkout, start the command with `cd <worktree> &&` and a literal path, because the guard reads the target from a leading `cd` or `git -C` and judges the session cwd when it finds neither.
+- Tests: new `tests/b3-guard-base-branch.test.sh` — 18 assertions, the first coverage this hook has had. 8 regressions (leading assignment with `;`, with env-prefix form, with `git -C`, quoted value, plain `cd`; `checkout -b`, `switch -c`, creation + intermediate step) and 8 fail-closed cases asserted alongside them (plain commit on base, commit before creation, creation with `;`, assignment + `cd` INTO a base-branch repo, an assignment-looking commit message, a nonexistent `cd` target, a profile-declared base branch, workspace-root commit). Verified as a real regression test: 7 of the 18 fail against the pre-fix script.
+- Source: `claude-workflow-inbox` #1 (harvest 2026-11-a, baseline 0.10.3) proposal 6 of 6. The other five remain untriaged; two of them — `/pr-creation` without a remote and the SwiftUI `/verify` checks — were confirmed still open against 0.13.0.
 
 ### 0.13.0 — 2026-11-14
 **Theme:** /reverse — reverse-engineer a feature from an app with no source, as a behavior contract
